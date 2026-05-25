@@ -37,6 +37,24 @@ formal/
       assumptions.md
       boundaries.md
       invariants.md
+    asset_htlc/
+      AssetHtlc.tla
+      AssetHtlc.cfg
+      assumptions.md
+      boundaries.md
+      invariants.md
+    close_recovery/
+      CloseRecovery.tla
+      CloseRecovery.cfg
+      assumptions.md
+      boundaries.md
+      invariants.md
+    interop_handshake/
+      InteropHandshake.tla
+      InteropHandshake.cfg
+      assumptions.md
+      boundaries.md
+      invariants.md
 scripts/
   formal-check.sh
 ```

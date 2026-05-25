@@ -186,6 +186,20 @@ Add these formal models as the implementation reaches each surface. Each model
 must include `assumptions.md`, `boundaries.md`, `invariants.md`, a `.tla` and
 `.cfg` pair when modeled in TLA+, and a counterexample policy.
 
+Current checked-in model map:
+
+- `formal/tla/asset_conservation/`: proof, split, and local balance state.
+- `formal/tla/asset_channel/`: negotiation, funding proof, and persistence
+  gate.
+- `formal/tla/rfq_lifecycle/`: RFQ quote, invoice binding, expiry, alias, and
+  single-use lifecycle.
+- `formal/tla/asset_htlc/`: quote-bound asset HTLC offer, settle, fail, revoke,
+  and durability lifecycle.
+- `formal/tla/close_recovery/`: cooperative close, force-close recovery,
+  sweep, refusal, and proof export lifecycle.
+- `formal/tla/interop_handshake/`: Path B proof sync, compatible channel, RFQ,
+  payment, balance agreement, and documented-gap lifecycle.
+
 ### Core Asset Conservation And Proof State
 
 Model:
@@ -408,8 +422,6 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- There is not yet a Rust workspace, native wallet, or demo harness.
-- There is not yet a repo-local formal harness or TLA+ model.
 - Native strict BigSize/TLV primitives, bounded synthetic asset
   identity/hash+sum conservation helpers, and bounded proof-anchor import,
   export, and verification helpers exist. Bounded Taproot Asset address
