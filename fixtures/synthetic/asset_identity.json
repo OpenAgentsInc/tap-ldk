@@ -1,0 +1,39 @@
+{
+  "kind": "synthetic-asset-identity",
+  "description": "Bounded regtest fixture for asset identity, checked amount arithmetic, split conservation, and same-asset input merge tests.",
+  "genesis": {
+    "first_prev_out": "9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0",
+    "tag": "0eb36dbcfdec90b302dcdc3b9ef522e2a6f1ed0afec1f8e20faabedf6b162e71",
+    "meta_hash": "0eb36dbcfdec90b302dcdc3b9ef522e2a6f1ed0afec1f8e20faabedf6b162e71",
+    "output_index": 0,
+    "asset_type": "normal"
+  },
+  "expected_asset_id": "dbe4d6f07f3751421793d77478b1da71c1a1382ea5766d4f9237a20351a862d8",
+  "split": {
+    "input_amount": 1000000,
+    "outputs": [
+      {
+        "script_key": "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+        "amount": 750000
+      },
+      {
+        "script_key": "03f32d239904d1addae728d1917a94bc1d20455b12b251a9222d035e5014a9f759",
+        "amount": 250000
+      }
+    ],
+    "expected_root_hash": "3ed3ea50146d815594b28dc6bbff67dadf078ee245c10a1a06faeb5e8ff9c3c2",
+    "expected_root_sum": 1000000
+  },
+  "invalid_cases": [
+    {
+      "name": "wrong-output-sum",
+      "input_amount": 1000000,
+      "output_amounts": [750000, 249999],
+      "error": "amount_not_conserved"
+    },
+    {
+      "name": "wrong-asset-merge",
+      "error": "mismatched_asset_id"
+    }
+  ]
+}

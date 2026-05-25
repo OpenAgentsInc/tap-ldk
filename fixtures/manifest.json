@@ -74,6 +74,18 @@
       }
     },
     {
+      "id": "synthetic-asset-identity",
+      "category": "asset_identity",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/asset_identity.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap.mediawiki",
+        "commit": "bd3cdc153bea",
+        "notes": "Bounded asset identity and split-conservation fixture for early Rust primitives."
+      }
+    },
+    {
       "id": "synthetic-ms-smt-smoke",
       "category": "ms_smt",
       "status": "synthetic_regtest",
