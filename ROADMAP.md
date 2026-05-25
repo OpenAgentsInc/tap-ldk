@@ -22,6 +22,9 @@ Lightning Labs daemons.
 - `tap-ldk/`: code, repo-local docs, fixtures, and demo harness.
 - `stablecoins/`: source notes, transcript, PR capture, and planning docs.
 - `projects/lightninglabs/` and `projects/ldk/`: upstream references only.
+- `projects/repos/polar/`: local regtest orchestration reference and optional
+  manual demo harness for Docker-backed Bitcoin, Lightning, Taproot Assets, and
+  Lightning Terminal nodes.
 - Any required forks of upstream dependencies, including `rust-lightning`,
   should be created in the `OpenAgentsInc` GitHub organization and referenced
   from `tap-ldk`; do not turn `projects/` reference clones into owned forks.
@@ -61,6 +64,33 @@ Lightning Labs daemons.
 - Universe/proof courier, using a local file or local service.
 - UI, using CLI or a simple local web view.
 
+## Regtest Tooling
+
+Polar is now synced under `projects/repos/polar` as a concrete reference for
+the local regtest environment. It can create Docker-backed regtest networks,
+expose RPC connection details, mine blocks, fund nodes, open channels, manage
+logs, export/import networks, and run supported Lightning Labs stacks including
+Bitcoin Core, LND, `tapd`, and `litd`.
+
+Use Polar for:
+
+- a fast manual/operator demo network;
+- the Lightning Labs interop counterparty in Track B;
+- Docker image, port, volume, log, mining, and node-lifecycle patterns;
+- optional MCP-driven smoke tests for network setup, mining, Lightning
+  payments, and Taproot Asset operations.
+
+Do not use Polar as:
+
+- a substitute for the native Rust Taproot Assets implementation;
+- a `tapd` sidecar for the `tap-ldk` wallet runtime;
+- the only automated test harness.
+
+The project still needs a headless Rust/CI regtest harness. Polar can inform
+that harness or wrap a human-facing demo, but the public proof must show the
+native `tap-ldk` wallet interoperating with independent Lightning Labs nodes,
+not delegating wallet behavior to those nodes.
+
 ## Demo Script
 
 Track A: native-to-native.
@@ -81,11 +111,15 @@ Track B: `tap-ldk` to Lightning Labs TAP-D.
 1. Start Bitcoin regtest.
 2. Start one native `tap-ldk` wallet.
 3. Start one Lightning Labs LND/tapd node as an independent counterparty.
-4. Sync or import the demo asset proof data on both sides.
-5. Open or connect through an asset channel using the shared protocol surface.
-6. Negotiate an RFQ/quote where required.
-7. Send an asset invoice payment between `tap-ldk` and LND/tapd.
-8. Show both sides agree on the resulting asset balance and payment state.
+4. Prefer Polar for the manual Track B network if it can provide the needed
+   LND/`tapd` or `litd` topology; otherwise reproduce its Docker patterns in
+   the headless harness.
+5. Sync or import the demo asset proof data on both sides.
+6. Open or connect through an asset channel using the shared protocol surface.
+7. Negotiate an RFQ/quote where required.
+8. Send an asset invoice payment between `tap-ldk` and the Lightning Labs
+   counterparty.
+9. Show both sides agree on the resulting asset balance and payment state.
 
 ## Milestone 0: Repo And Harness Setup
 
@@ -94,6 +128,8 @@ Deliverables:
 - Initialize `tap-ldk/` as the implementation repo.
 - Add a minimal Rust workspace with a CLI demo binary.
 - Add a regtest harness that can launch Bitcoin Core.
+- Evaluate Polar as the manual regtest/demo harness and decide which pieces
+  must be replicated in the headless Rust/CI harness.
 - Add fixtures pointing to local reference repos and pinned upstream commits.
 - Add CI for formatting, unit tests, and fixture tests.
 
@@ -103,6 +139,8 @@ Exit criteria:
 - The demo harness can start and stop a local regtest backend.
 - The repo documents that LND/tapd are compatibility references, not runtime
   dependencies.
+- The repo documents whether Polar is used directly for manual demos, only as
+  a reference, or both.
 
 ## Milestone 1: Spec And Compatibility Fixtures
 
@@ -313,6 +351,7 @@ Deliverables:
 
 - Native LDK to native LDK happy path.
 - Native LDK to LND/tapd compatibility path for:
+  - Polar-managed or Polar-inspired Bitcoin/LND/`tapd` or `litd` topology;
   - RFQ negotiation;
   - asset-channel funding or compatible pre-funded asset-channel setup;
   - asset invoice payment;
@@ -374,9 +413,11 @@ The stronger demo adds:
 3. Implement asset TLV parsing and MS-SMT fixtures.
 4. Write the rust-lightning aux-hook-equivalent design document in `tap-ldk/`.
 5. Build the RFQ custom-message skeleton.
-6. Build the regtest demo harness.
-7. Create the first native asset issuance and proof-verification CLI command.
-8. Start the asset-channel funding spike once the core asset proof path passes
+6. Run a Polar smoke network and record the exact LND/`tapd`/`litd` topology
+   usable for the Lightning Labs interop demo.
+7. Build the headless regtest demo harness.
+8. Create the first native asset issuance and proof-verification CLI command.
+9. Start the asset-channel funding spike once the core asset proof path passes
    fixture tests.
 
 ## Risks
@@ -385,6 +426,8 @@ The stronger demo adds:
 - The BLIP and TAP BIP materials are still draft inputs.
 - Recovery must be designed early; adding it late risks invalid channel-state
   assumptions.
+- Polar is useful for manual and MCP-driven regtest orchestration, but relying
+  on an Electron/desktop harness alone would leave CI and reproducibility weak.
 - An impressive UI without native channel semantics would undermine the demo
   claim.
 - Issuer business requirements are outside this technical demo and should stay
