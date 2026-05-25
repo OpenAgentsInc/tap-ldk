@@ -1,0 +1,27 @@
+# Path A Native-To-Native Demo
+
+Date: 2026-05-25
+
+Run the bounded native-to-native demo from the repo root:
+
+```bash
+./scripts/path-a-native-demo.sh
+```
+
+The script writes artifacts under `target/path-a-native-demo/<timestamp>/` by
+default. Override with `TAP_LDK_PATH_A_ARTIFACT_DIR=/path/to/dir`.
+
+Expected abbreviated output:
+
+```text
+path-a-native-demo: artifacts=...
+Path A native-to-native demo artifacts: ...
+- local wallets issue and courier OPENUSD proof material
+- native asset channel funds at alice=700 bob=300
+- native payment settles 125 OPENUSD to bob
+- cooperative close exports final proofs at alice=575 bob=425
+```
+
+The command makes mocked pieces visible in `summary.txt`: bounded local issuer,
+fixed regtest oracle, local proof courier, and headless CLI UI. It does not use
+LND or `tapd` for wallet duties.

@@ -472,6 +472,10 @@ Current implementation note:
 - `tap-ldk-cli asset-close-smoke` closes the bounded native channel after the
   demo payment, exports final owner proofs, imports them into wallets,
   round-trips close state across restart, and rejects obsolete proof material.
+- `scripts/path-a-native-demo.sh` is the one-command Path A harness. It creates
+  local wallet artifacts, issues/couriers proof material, runs funding,
+  payment, recovery, and close smokes, captures logs, and prints final
+  balances and artifact paths.
 
 ## Milestone 8: Recovery, Close, And Proof Export
 
