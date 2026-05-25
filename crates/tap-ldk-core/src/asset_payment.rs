@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, error::Error, fmt};
+use std::{
+    collections::BTreeMap,
+    error::Error,
+    fmt, fs,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -38,6 +43,30 @@ impl Default for NativeAssetPaymentStore {
 }
 
 impl NativeAssetPaymentStore {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, NativeAssetPaymentError> {
+        let raw = fs::read_to_string(path.as_ref()).map_err(NativeAssetPaymentError::Io)?;
+        let store = serde_json::from_str::<Self>(&raw).map_err(NativeAssetPaymentError::Json)?;
+        store.validate()?;
+        Ok(store)
+    }
+
+    pub fn save_atomic(&self, path: impl AsRef<Path>) -> Result<(), NativeAssetPaymentError> {
+        self.validate()?;
+
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent).map_err(NativeAssetPaymentError::Io)?;
+            }
+        }
+
+        let raw = serde_json::to_vec_pretty(self).map_err(NativeAssetPaymentError::Json)?;
+        let temp_path = temp_path_for(path);
+        fs::write(&temp_path, raw).map_err(NativeAssetPaymentError::Io)?;
+        fs::rename(&temp_path, path).map_err(NativeAssetPaymentError::Io)?;
+        Ok(())
+    }
+
     pub fn record_payment(
         &mut self,
         payment: NativeAssetPayment,
@@ -631,6 +660,7 @@ fn payment_id(channel_id: &str, quote_id: &str, payment_hash: Bytes32) -> String
 
 #[derive(Debug)]
 pub enum NativeAssetPaymentError {
+    Io(std::io::Error),
     Json(serde_json::Error),
     Rfq(RfqInvoiceError),
     Commitment(AssetCommitmentError),
@@ -660,6 +690,7 @@ pub enum NativeAssetPaymentError {
 impl fmt::Display for NativeAssetPaymentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Io(err) => write!(f, "native asset payment I/O error: {err}"),
             Self::Json(err) => write!(f, "native asset payment JSON error: {err}"),
             Self::Rfq(err) => write!(f, "native asset payment RFQ error: {err}"),
             Self::Commitment(err) => write!(f, "native asset payment commitment error: {err}"),
@@ -739,6 +770,17 @@ impl From<crate::asset_channel_funding::AssetChannelFundingError> for NativeAsse
     fn from(err: crate::asset_channel_funding::AssetChannelFundingError) -> Self {
         Self::Funding(err)
     }
+}
+
+fn temp_path_for(path: &Path) -> PathBuf {
+    let mut temp_path = path.to_path_buf();
+    let extension = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!("{ext}.tmp"))
+        .unwrap_or_else(|| "tmp".to_owned());
+    temp_path.set_extension(extension);
+    temp_path
 }
 
 #[cfg(test)]

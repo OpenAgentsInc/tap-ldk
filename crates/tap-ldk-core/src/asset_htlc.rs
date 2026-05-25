@@ -1,4 +1,10 @@
-use std::{collections::BTreeMap, error::Error, fmt, str::FromStr};
+use std::{
+    collections::BTreeMap,
+    error::Error,
+    fmt, fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -150,6 +156,30 @@ impl Default for AssetHtlcStore {
 }
 
 impl AssetHtlcStore {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, AssetHtlcError> {
+        let raw = fs::read_to_string(path.as_ref()).map_err(AssetHtlcError::Io)?;
+        let store = serde_json::from_str::<Self>(&raw).map_err(AssetHtlcError::Json)?;
+        store.validate()?;
+        Ok(store)
+    }
+
+    pub fn save_atomic(&self, path: impl AsRef<Path>) -> Result<(), AssetHtlcError> {
+        self.validate()?;
+
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent).map_err(AssetHtlcError::Io)?;
+            }
+        }
+
+        let raw = serde_json::to_vec_pretty(self).map_err(AssetHtlcError::Json)?;
+        let temp_path = temp_path_for(path);
+        fs::write(&temp_path, raw).map_err(AssetHtlcError::Io)?;
+        fs::rename(&temp_path, path).map_err(AssetHtlcError::Io)?;
+        Ok(())
+    }
+
     pub fn add_htlc(
         &mut self,
         channel_id: &str,
@@ -435,6 +465,8 @@ pub fn run_asset_htlc_smoke()
 
 #[derive(Debug)]
 pub enum AssetHtlcError {
+    Io(std::io::Error),
+    Json(serde_json::Error),
     Tlv(TlvError),
     Rfq(RfqInvoiceError),
     Commitment(AssetCommitmentError),
@@ -469,6 +501,8 @@ pub enum AssetHtlcError {
 impl fmt::Display for AssetHtlcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Io(err) => write!(f, "asset HTLC I/O error: {err}"),
+            Self::Json(err) => write!(f, "asset HTLC JSON error: {err}"),
             Self::Tlv(err) => write!(f, "asset HTLC TLV error: {err}"),
             Self::Rfq(err) => write!(f, "asset HTLC RFQ error: {err}"),
             Self::Commitment(err) => write!(f, "asset HTLC commitment error: {err}"),
@@ -516,6 +550,17 @@ impl From<TlvError> for AssetHtlcError {
     fn from(err: TlvError) -> Self {
         Self::Tlv(err)
     }
+}
+
+fn temp_path_for(path: &Path) -> PathBuf {
+    let mut temp_path = path.to_path_buf();
+    let extension = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!("{ext}.tmp"))
+        .unwrap_or_else(|| "tmp".to_owned());
+    temp_path.set_extension(extension);
+    temp_path
 }
 
 fn required(records: &BTreeMap<u64, Vec<u8>>, type_id: u64) -> Result<&[u8], AssetHtlcError> {

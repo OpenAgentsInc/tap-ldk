@@ -11,6 +11,7 @@ use tap_ldk_core::{
     asset_htlc::run_asset_htlc_smoke,
     asset_payment::run_native_asset_payment_smoke,
     asset_peer_message::run_peer_message_smoke,
+    asset_recovery::run_native_asset_recovery_matrix_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
@@ -330,6 +331,16 @@ fn main() {
                 };
             print_json_or_exit(&report, "native asset payment smoke");
         }
+        [command] if command == "asset-recovery-smoke" => {
+            let report = match run_native_asset_recovery_matrix_smoke() {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed native asset recovery smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "native asset recovery smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -523,6 +534,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-commitment-state <store.json> <channel-id>");
     println!("  tap-ldk asset-htlc-smoke");
     println!("  tap-ldk asset-payment-smoke");
+    println!("  tap-ldk asset-recovery-smoke");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

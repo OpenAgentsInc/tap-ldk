@@ -432,6 +432,9 @@ Current implementation note:
   RFQ, quote-bound invoice, asset HTLC records, final-hop validation,
   commitment update, settled HTLC state, payment state, restart round-trip, and
   wrong-quote/wrong-invoice/wrong-metadata failures.
+- `tap-ldk-core::asset_recovery` adds bounded restart checkpoints for funding,
+  quote acceptance, HTLC add, commitment sign, settlement, and close
+  preparation, including stale-checkpoint refusal.
 
 ## Milestone 7: Payment Send, Receive, And Routing
 
@@ -460,6 +463,9 @@ Current implementation note:
   Alice-to-Bob payment with pre/post balances, payment state, HTLC state,
   restart confirmation, and negative-path failure reasons. Real rust-lightning
   HTLC dispatch and routing remain follow-on work.
+- `tap-ldk-cli asset-recovery-smoke` verifies restart recovery across funding,
+  RFQ, HTLC, commitment, settlement, and close-prep checkpoints. Close-prep is
+  only a durable marker until the close/proof-export issue lands.
 
 ## Milestone 8: Recovery, Close, And Proof Export
 

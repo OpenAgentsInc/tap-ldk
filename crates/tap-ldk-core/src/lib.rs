@@ -7,6 +7,7 @@ pub mod asset_commitment;
 pub mod asset_htlc;
 pub mod asset_payment;
 pub mod asset_peer_message;
+pub mod asset_recovery;
 pub mod ldk_baseline;
 pub mod ldk_fork;
 pub mod proof;
