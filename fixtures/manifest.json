@@ -168,6 +168,30 @@
         "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
         "notes": "Lightning Labs Commitment blob fixture decoded by tap-ldk for first-demo local/remote/HTLC/aux-leaf field compatibility."
       }
+    },
+    {
+      "id": "lightning-labs-proof-file",
+      "category": "proof",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/proof/testdata/proof-file.hex",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/proof/testdata/proof-file.hex",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs TAPF proof-file fixture used to validate chained checksum transport and wallet raw proof preservation."
+      }
+    },
+    {
+      "id": "lightning-labs-single-proof",
+      "category": "proof",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/proof/testdata/proof.hex",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/proof/testdata/proof.hex",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs TAPP single-proof fixture used to validate single-proof decoding and TAPF wrapping for tapd tooling."
+      }
     }
   ]
 }

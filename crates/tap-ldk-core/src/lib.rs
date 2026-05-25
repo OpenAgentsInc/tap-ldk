@@ -16,6 +16,7 @@ pub mod proof;
 pub mod regtest;
 pub mod rfq_invoice;
 pub mod rfq_quote_store;
+pub mod tapd_proof;
 pub mod tlv;
 pub mod virtual_psbt;
 pub mod wallet;

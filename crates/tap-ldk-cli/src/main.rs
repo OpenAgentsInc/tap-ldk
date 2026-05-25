@@ -19,7 +19,8 @@ use tap_ldk_core::{
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
     rfq_quote_store::{RfqQuoteRequest, RfqQuoteStore},
-    wallet::{LocalTransferRequest, RegtestIssueRequest, WalletState},
+    tapd_proof::{decode_fixture_hex, decode_hex_text, decode_tapd_proof_file},
+    wallet::{LocalTransferRequest, RegtestIssueRequest, TapdProofImportRequest, WalletState},
 };
 
 fn main() {
@@ -366,6 +367,18 @@ fn main() {
             };
             print_json_or_exit(&report, "Lightning Labs blob fixture smoke");
         }
+        [command, fixture_dir] if command == "lightning-labs-proof-fixture-smoke" => {
+            let proof_file_hex = read_fixture_text_or_exit(fixture_dir, "proof-file.hex");
+            let single_proof_hex = read_fixture_text_or_exit(fixture_dir, "proof.hex");
+            let report = match decode_fixture_hex(&proof_file_hex, &single_proof_hex) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed Lightning Labs proof fixture smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "Lightning Labs proof fixture smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -484,6 +497,38 @@ fn main() {
             };
             import_encoded_proof(wallet_path, &encoded);
         }
+        [
+            command,
+            wallet_path,
+            proof_path,
+            asset_id,
+            amount,
+            script_key,
+            genesis_outpoint,
+            anchor_outpoint,
+        ] if command == "wallet-import-tapd-proof-file" => {
+            let tapd_proof_file = read_tapd_proof_file_or_exit(proof_path);
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let amount = parse_amount_or_exit(amount);
+            let script_key = parse_script_key_or_exit(script_key, "owner script key");
+            let mut wallet = load_wallet_or_default_or_exit(wallet_path);
+            let outcome = match wallet.import_tapd_proof_file(TapdProofImportRequest {
+                asset_id,
+                genesis_outpoint: genesis_outpoint.to_owned(),
+                anchor_outpoint: anchor_outpoint.to_owned(),
+                amount: AssetAmount::new(amount),
+                script_key,
+                tapd_proof_file,
+            }) {
+                Ok(outcome) => outcome,
+                Err(err) => {
+                    eprintln!("failed to import tapd proof file: {err}");
+                    process::exit(1);
+                }
+            };
+            save_wallet_or_exit(wallet_path, &wallet);
+            println!("{} tapd proof {}", outcome.status(), outcome.proof_id());
+        }
         [command, wallet_path] if command == "wallet-balances" => {
             let wallet = load_wallet_or_exit(wallet_path);
             match wallet.balances().and_then(|balances| {
@@ -517,6 +562,23 @@ fn main() {
                 process::exit(1);
             }
             println!("exported proof {proof_id} to {output_path}");
+        }
+        [command, wallet_path, proof_id, output_path]
+            if command == "wallet-export-tapd-proof-file" =>
+        {
+            let wallet = load_wallet_or_exit(wallet_path);
+            let encoded = match wallet.export_tapd_proof_file(proof_id) {
+                Ok(encoded) => encoded,
+                Err(err) => {
+                    eprintln!("failed to export tapd proof {proof_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            if let Err(err) = fs::write(output_path, encoded) {
+                eprintln!("failed to write tapd proof file {output_path}: {err}");
+                process::exit(1);
+            }
+            println!("exported tapd proof {proof_id} to {output_path}");
         }
         [unknown, ..] => {
             eprintln!("unknown argument: {unknown}");
@@ -562,6 +624,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-recovery-smoke");
     println!("  tap-ldk asset-close-smoke");
     println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
+    println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
@@ -570,9 +633,13 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk wallet-verify-proof-file <proof.tlv>");
     println!("  tap-ldk wallet-import-proof-file <wallet.json> <proof.tlv>");
     println!("  tap-ldk wallet-import-proof-fixture <wallet.json> <proof.json>");
+    println!(
+        "  tap-ldk wallet-import-tapd-proof-file <wallet.json> <tapd-proof-file> <asset-id> <amount> <owner-script-key> <genesis-outpoint> <anchor-outpoint>"
+    );
     println!("  tap-ldk wallet-balances <wallet.json>");
     println!("  tap-ldk wallet-proofs <wallet.json>");
     println!("  tap-ldk wallet-export-proof-file <wallet.json> <proof-id> <proof.tlv>");
+    println!("  tap-ldk wallet-export-tapd-proof-file <wallet.json> <proof-id> <tapd-proof-file>");
 }
 
 fn import_encoded_proof(wallet_path: &str, encoded: &[u8]) {
@@ -664,11 +731,43 @@ fn load_asset_commitment_store_or_exit(store_path: &str) -> AssetCommitmentStore
 }
 
 fn read_fixture_hexdump_or_exit(fixture_dir: &str, file_name: &str) -> String {
+    read_fixture_text_or_exit(fixture_dir, file_name)
+}
+
+fn read_fixture_text_or_exit(fixture_dir: &str, file_name: &str) -> String {
     let path = Path::new(fixture_dir).join(file_name);
     match fs::read_to_string(&path) {
         Ok(raw) => raw,
         Err(err) => {
             eprintln!("failed to read fixture {}: {err}", path.display());
+            process::exit(1);
+        }
+    }
+}
+
+fn read_tapd_proof_file_or_exit(path: &str) -> Vec<u8> {
+    let raw = match fs::read(path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            eprintln!("failed to read tapd proof file {path}: {err}");
+            process::exit(1);
+        }
+    };
+    if decode_tapd_proof_file(&raw).is_ok() {
+        return raw;
+    }
+
+    let text = match String::from_utf8(raw) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("tapd proof file {path} is neither raw TAPF nor UTF-8 hex: {err}");
+            process::exit(1);
+        }
+    };
+    match decode_hex_text(&text).and_then(|bytes| decode_tapd_proof_file(&bytes).map(|_| bytes)) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("failed to decode tapd proof file {path}: {err}");
             process::exit(1);
         }
     }

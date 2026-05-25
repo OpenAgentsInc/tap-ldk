@@ -159,6 +159,10 @@ These are the contracts we definitely want around the rust-lightning work.
   be fixture-backed. Decoding produces a read-only field map; parsing a blob
   must not mutate wallet state, advance channel state, or silently drop
   unsupported required fields.
+- Lightning Labs `TAPF` proof-file compatibility claims must be fixture-backed.
+  Import validates the proof-file envelope, chained checksums, and strict
+  `TAPP` proof TLV transport before wallet state advances, and export must
+  preserve the exact raw proof-file bytes accepted on import.
 - After an interop payment, both sides must report compatible payment state and
   asset balance state, or the mismatch must be documented as a failing gap.
 
@@ -434,6 +438,10 @@ Do not claim these guarantees until implementation and verification exist:
   encode/decode and virtual PSBT summary validation exist for the first-demo
   fixture surface, but full TAP BIP MS-SMT, TAP VM, virtual transaction
   signing, and full-history proof validation are not implemented.
+- Lightning Labs `TAPF` proof-file transport validation and exact raw proof
+  preservation exist for imported fixtures. Full semantic verification of
+  asset leaves, Taproot proofs, virtual transactions, and proof ancestry is not
+  implemented.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
   send/receive, restart-recovery, cooperative-close, and proof-export smoke

@@ -552,6 +552,11 @@ Current implementation note:
   summaries, and fail-closed malformed/truncated/non-canonical tests. Applying
   those maps to live funding, RFQ, payment, and balance state remains the next
   Track B work.
+- `tap-ldk-core::tapd_proof` decodes imported Lightning Labs `TAPF` proof-file
+  fixtures, validates chained checksums and `TAPP` TLV transport, wraps single
+  proofs for tapd file tooling, and stores raw tapd proof-file bytes in wallet
+  state for restart-safe export. Full Taproot Asset proof ancestry validation
+  remains later Track B work before live funding can depend on these proofs.
 
 ## Public Demo Bar
 

@@ -41,7 +41,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Commitment blob shape | `tapchannelmsg/testdata/commitment-blob.hexdump`; `tapchannelmsg/records.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps local/remote/outgoing/incoming asset output sections, aux leaves, optional STXO, and raw digest. Full commitment-number integration remains required. | Partially implemented |
 | HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps asset balances when present, RFQ id, available RFQ ids, noop flag, and visible optional odd records. Full send/receive enforcement remains required. | Partially implemented |
 | Asset signatures | `tapchannelmsg/records.go`; `tapchannel/aux_leaf_signer_test.go` | Maintain asset-level signing/nonce context separate from BTC-level signatures. | Required |
-| Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go` | Import/export compatible proof data and preserve anchor/proof material across restart. | Required |
+| Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go`; `docs/tapd-proof-import-export.md` | Fixture-backed `TAPF`/`TAPP` decoder validates version/checksum/TLV transport, stores raw proof files across restart, and exports raw proof bytes for Lightning Labs verification tooling. Full semantic proof ancestry remains required. | Partially implemented |
 | Address encoding | `../projects/lightninglabs/repos/bips/bip-tap-addr.mediawiki`; `address/address.go`; `address/encoding.go` | Native address encode/decode already passes imported TAP BIP vectors; still needs wallet integration. | Partially implemented |
 | Virtual PSBT | `../projects/lightninglabs/repos/bips/bip-tap-psbt.mediawiki`; `tappsbt/interface.go`; `tappsbt/decode.go`; `fixtures/tap-bips/psbt_encoding_generated.json` | Current `tap-ldk` summary validates fixtures; full VPacket signing and state transition construction remains required. | Partially implemented |
 | Issuance and proof sync | `itest/assets_test.go`; `itest/mint_fund_seal_test.go`; `proof` package | First interop harness can mint/import on Lightning Labs side, export proof, then import into `tap-ldk`. | Required |
@@ -76,7 +76,8 @@ native receiver invoice/final-hop path in `tap-ldk`.
 - Use the decoded Lightning Labs funding, HTLC, and commitment fixture field
   maps as the input boundary for funding, RFQ, payment, and balance interop.
 - Implement native RFQ request/accept/reject messages against `rfqmsg` vectors.
-- Implement proof import/export compatibility with `tapd`.
+- Extend proof import/export from byte-compatible `TAPF` preservation to full
+  semantic proof ancestry validation.
 - Extend the headless harness to start Bitcoin Core plus LND/`tapd` using the
   selected versions.
 - Use `scripts/lightning-labs-counterparty.sh` for the first external
@@ -88,6 +89,8 @@ native receiver invoice/final-hop path in `tap-ldk`.
 
 - `tap-ldk` does not yet implement native asset-channel funding.
 - `tap-ldk` does not yet construct full virtual PSBT state transitions.
+- `tap-ldk` preserves and exports `tapd` proof files, but does not yet verify
+  full proof ancestry, virtual transactions, or on-chain anchor semantics.
 - `tap-ldk` parses fixture-backed Lightning Labs funding/HTLC/commitment blob
   field maps, but does not yet apply them to live interop channel state.
 - `tap-ldk` does not yet implement RFQ wire compatibility.

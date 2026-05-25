@@ -26,6 +26,14 @@ cargo run -p tap-ldk-cli -- wallet-export-proof-file target/demo-wallet.json '<p
 cargo run -p tap-ldk-cli -- wallet-verify-proof-file target/proof.tlv
 ```
 
+Lightning Labs `tapd` proof files can be imported from raw `TAPF` bytes or
+hex fixture files and exported back as raw bytes:
+
+```bash
+cargo run -p tap-ldk-cli -- wallet-import-tapd-proof-file target/demo-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex '<asset-id>' 1000000 '<owner-script-key>' '<genesis-outpoint>' '<anchor-outpoint>'
+cargo run -p tap-ldk-cli -- wallet-export-tapd-proof-file target/demo-wallet.json '<proof-id>' target/exported.tapf
+```
+
 ## Local Regtest Transfer
 
 Before asset channels exist, the bounded local transfer command models a
@@ -53,6 +61,8 @@ and fails if the requested amount exceeds a verified spendable UTXO.
 
 - `version` is `1`; unsupported versions fail closed.
 - `proofs` stores encoded proof TLV bytes as hex, keyed by proof ID.
+- `proofs[*].tapd_raw_proof_file_hex`, when present, stores exact imported
+  `tapd` proof-file bytes and must match its stored digest on restart.
 - `spendable_utxos` stores the spendable asset view derived from those proofs.
 - `pending_operations` is reserved for later issuance, transfer, channel, and
   RFQ operation markers.
