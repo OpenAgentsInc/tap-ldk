@@ -159,6 +159,11 @@ These are the contracts we definitely want around the rust-lightning work.
   be fixture-backed. Decoding produces a read-only field map; parsing a blob
   must not mutate wallet state, advance channel state, or silently drop
   unsupported required fields.
+- Track B funding interop may persist fixture-backed compatibility state only
+  when the Lightning Labs funding and commitment blobs agree on asset ID,
+  funded amount, and local/remote allocation. Until a live funding outpoint is
+  bound to a fully verified proof chain, the state must be marked as a
+  documented gap rather than funded success.
 - Lightning Labs `TAPF` proof-file compatibility claims must be fixture-backed.
   Import validates the proof-file envelope, chained checksums, and strict
   `TAPP` proof TLV transport before wallet state advances, and export must
@@ -441,6 +446,10 @@ Do not claim these guarantees until implementation and verification exist:
 - Lightning Labs `TAPF` proof-file transport validation and exact raw proof
   preservation exist for imported fixtures. Full semantic verification of
   asset leaves, Taproot proofs, virtual transactions, and proof ancestry is not
+  implemented.
+- Lightning Labs funding interop fixture reconciliation exists for asset ID,
+  funded amount, and initial local/remote allocation. Live LND/`tapd` channel
+  funding, funding outpoint binding, and proof-to-output verification are not
   implemented.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset

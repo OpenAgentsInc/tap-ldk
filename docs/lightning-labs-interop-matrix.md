@@ -37,7 +37,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Channel feature/channel type | `docs/blip-0029-implementation-note.md`; `tapchannelmsg/records.go`; `tapchannelmsg/wire_msgs_test.go` | Add experimental asset-channel negotiation; normal BTC channels remain BTC-only. | Required |
 | Funding proof transport | `docs/blip-0029-implementation-note.md`; `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records_test.go` | Send proof data outside `open_channel`, reconstruct fragments, and reject incomplete proofs before funding advances. | Required |
 | Funding message names | `tapchannelmsg/wire_msgs_test.go` | Track `TxAssetInputProof`, `TxAssetOutputProof`, `AssetFundingCreated`, and `AssetFundingAccepted` equivalents. | Required |
-| Funding blob shape | `tapchannelmsg/testdata/funding-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps decimal display, optional group key, funded asset outputs, proof digests, and raw digest before any funding state can advance. | Partially implemented |
+| Funding blob shape | `tapchannelmsg/testdata/funding-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `docs/lightning-labs-blob-fixtures.md`; `docs/lightning-labs-funding-interop.md` | Fixture-backed decoder maps decimal display, optional group key, funded asset outputs, proof digests, and raw digest. Funding interop smoke reconciles the funding total with commitment local/remote balances and persists the documented live-funding gap. | Partially implemented |
 | Commitment blob shape | `tapchannelmsg/testdata/commitment-blob.hexdump`; `tapchannelmsg/records.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps local/remote/outgoing/incoming asset output sections, aux leaves, optional STXO, and raw digest. Full commitment-number integration remains required. | Partially implemented |
 | HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps asset balances when present, RFQ id, available RFQ ids, noop flag, and visible optional odd records. Full send/receive enforcement remains required. | Partially implemented |
 | Asset signatures | `tapchannelmsg/records.go`; `tapchannel/aux_leaf_signer_test.go` | Maintain asset-level signing/nonce context separate from BTC-level signatures. | Required |
@@ -73,8 +73,10 @@ native receiver invoice/final-hop path in `tap-ldk`.
 
 ## Follow-Up Implementation Issues
 
-- Use the decoded Lightning Labs funding, HTLC, and commitment fixture field
-  maps as the input boundary for funding, RFQ, payment, and balance interop.
+- Close the live funding gap recorded by
+  `docs/lightning-labs-funding-interop.md`: drive a headless or Polar-backed
+  LND/`tapd` channel funding attempt and bind the live funding outpoint to the
+  proof and funding blob.
 - Implement native RFQ request/accept/reject messages against `rfqmsg` vectors.
 - Extend proof import/export from byte-compatible `TAPF` preservation to full
   semantic proof ancestry validation.

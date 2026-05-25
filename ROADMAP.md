@@ -552,6 +552,11 @@ Current implementation note:
   summaries, and fail-closed malformed/truncated/non-canonical tests. Applying
   those maps to live funding, RFQ, payment, and balance state remains the next
   Track B work.
+- `tap-ldk-core::lightning_labs_funding` reconciles the Lightning Labs funding
+  and commitment fixtures into a restart-safe Track B funding interop state:
+  asset ID, funded amount, local balance, and remote balance match. The state
+  intentionally records the remaining live LND/`tapd` funding outpoint and
+  full proof-chain mapping as a documented gap.
 - `tap-ldk-core::tapd_proof` decodes imported Lightning Labs `TAPF` proof-file
   fixtures, validates chained checksums and `TAPP` TLV transport, wraps single
   proofs for tapd file tooling, and stores raw tapd proof-file bytes in wallet

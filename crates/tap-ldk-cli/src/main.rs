@@ -15,6 +15,7 @@ use tap_ldk_core::{
     asset_recovery::run_native_asset_recovery_matrix_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     lightning_labs_blob::decode_fixture_hexdumps,
+    lightning_labs_funding::run_lightning_labs_funding_interop_fixture_smoke,
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
@@ -379,6 +380,25 @@ fn main() {
             };
             print_json_or_exit(&report, "Lightning Labs proof fixture smoke");
         }
+        [command, fixture_dir, store_path] if command == "lightning-labs-funding-interop-smoke" => {
+            let funding = read_fixture_hexdump_or_exit(fixture_dir, "funding-blob.hexdump");
+            let commitment = read_fixture_hexdump_or_exit(fixture_dir, "commitment-blob.hexdump");
+            let (store, report) =
+                match run_lightning_labs_funding_interop_fixture_smoke(&funding, &commitment) {
+                    Ok(result) => result,
+                    Err(err) => {
+                        eprintln!("failed Lightning Labs funding interop smoke: {err}");
+                        process::exit(1);
+                    }
+                };
+            if let Err(err) = store.save_atomic(store_path) {
+                eprintln!(
+                    "failed to save Lightning Labs funding interop store {store_path}: {err}"
+                );
+                process::exit(1);
+            }
+            print_json_or_exit(&report, "Lightning Labs funding interop smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -625,6 +645,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-close-smoke");
     println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");
+    println!("  tap-ldk lightning-labs-funding-interop-smoke <fixture-dir> <store.json>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

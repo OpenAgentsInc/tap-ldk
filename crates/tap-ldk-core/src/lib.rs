@@ -12,6 +12,7 @@ pub mod asset_recovery;
 pub mod ldk_baseline;
 pub mod ldk_fork;
 pub mod lightning_labs_blob;
+pub mod lightning_labs_funding;
 pub mod proof;
 pub mod regtest;
 pub mod rfq_invoice;
