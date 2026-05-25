@@ -32,6 +32,8 @@ cargo run -p tap-ldk-cli -- lightning-labs-outgoing-payment-smoke fixtures/light
 cargo run -p tap-ldk-cli -- lightning-labs-incoming-payment-smoke fixtures/lightning-labs/tapchannelmsg/testdata target/lightning-labs-incoming-payment.json
 cargo run -p tap-ldk-cli -- lightning-labs-interop-check-smoke fixtures/lightning-labs/tapchannelmsg/testdata fixtures/lightning-labs/proof/testdata target/lightning-labs-interop-checks.json
 ./scripts/path-a-native-demo.sh
+./scripts/path-b-lightning-labs-demo.sh
+./scripts/full-demo-smoke.sh
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-issue-openusd target/demo-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
 cargo run -p tap-ldk-cli -- wallet-import-proof-fixture target/demo-wallet.json fixtures/synthetic/proof_anchor_valid.json
@@ -60,3 +62,4 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
 - [Wallet Storage](docs/wallet-storage.md)
 - [Path A Native-To-Native Demo](docs/path-a-native-demo.md)
+- [Path B Lightning Labs Demo](docs/path-b-lightning-labs-demo.md)

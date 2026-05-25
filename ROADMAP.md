@@ -579,6 +579,11 @@ Current implementation note:
   restart round trips, metadata rejection checks, and expected balance deltas.
   Failed comparisons include side, field, expected value, actual value, and
   artifact path. Live daemon balance observation remains a documented gap.
+- `scripts/path-b-lightning-labs-demo.sh` captures the current Track B harness
+  into `target/path-b-lightning-labs-demo/<timestamp>` and records an explicit
+  Docker/counterparty dependency gap when the independent Lightning Labs target
+  cannot be started. `scripts/full-demo-smoke.sh` runs Path A and Path B into a
+  single ignored artifact tree.
 
 ## Public Demo Bar
 
