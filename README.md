@@ -21,3 +21,4 @@ cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 - [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
+- [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)

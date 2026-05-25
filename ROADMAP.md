@@ -25,6 +25,8 @@ Lightning Labs daemons.
 - `projects/repos/polar/`: local regtest orchestration reference and optional
   manual demo harness for Docker-backed Bitcoin, Lightning, Taproot Assets, and
   Lightning Terminal nodes.
+- `docs/lightning-labs-interop-matrix.md`: Track B compatibility matrix for
+  the independent Lightning Labs counterparty path.
 - Any required forks of upstream dependencies, including `rust-lightning`,
   should be created in the `OpenAgentsInc` GitHub organization and referenced
   from `tap-ldk`; do not turn `projects/` reference clones into owned forks.
