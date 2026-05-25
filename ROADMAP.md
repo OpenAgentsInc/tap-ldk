@@ -385,6 +385,14 @@ Exit criteria:
   anchor data.
 - The flow has a compatibility test plan against LND/tapd.
 
+Current implementation note:
+
+- `tap-ldk-core::asset_channel_funding` implements bounded native funding for
+  one asset ID per channel, same-asset multi-input merge, funding root
+  derivation, spent-proof replay protection, initial balance persistence, and a
+  persisted monitor blob at commitment number `0`. The next milestone wires
+  commitment updates and signing context on top of this funded state.
+
 ## Milestone 6: Commitments And HTLC State
 
 Deliverables:

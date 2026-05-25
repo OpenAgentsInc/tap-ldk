@@ -428,8 +428,9 @@ Do not claim these guarantees until implementation and verification exist:
   encode/decode and virtual PSBT summary validation exist for the first-demo
   fixture surface, but full TAP BIP MS-SMT, TAP VM, virtual transaction
   signing, and full-history proof validation are not implemented.
-- Native asset-channel funding, commitments, HTLCs, close, recovery, and
-  interop are not implemented.
+- Bounded native asset-channel funding exists for the first demo. Native asset
+  commitments, HTLCs, close, recovery, and interop payment execution are not
+  implemented.
 - `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not
   configured.
 - No public stablecoin issuance, redemption, compliance, or reserve guarantee

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tap_ldk_core::{
     ProjectInfo,
     asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
+    asset_channel_funding::{AssetChannelStore, run_asset_channel_funding_smoke},
     asset_channel_negotiation::run_negotiation_smoke,
     asset_peer_message::run_peer_message_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
@@ -247,6 +248,35 @@ fn main() {
             };
             print_json_or_exit(&report, "RFQ invoice smoke");
         }
+        [command, store_path] if command == "asset-channel-funding-smoke" => {
+            let (store, report) = match run_asset_channel_funding_smoke() {
+                Ok(result) => result,
+                Err(err) => {
+                    eprintln!("failed asset-channel funding smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            if let Err(err) = store.save_atomic(store_path) {
+                eprintln!("failed to save asset-channel store {store_path}: {err}");
+                process::exit(1);
+            }
+            print_json_or_exit(&report, "asset-channel funding smoke");
+        }
+        [command, store_path] if command == "asset-channel-list" => {
+            let store = load_asset_channel_store_or_exit(store_path);
+            print_json_or_exit(&store.channels, "asset channels");
+        }
+        [command, store_path, channel_id] if command == "asset-channel-balances" => {
+            let store = load_asset_channel_store_or_exit(store_path);
+            let balances = match store.channel_balances(channel_id) {
+                Ok(balances) => balances,
+                Err(err) => {
+                    eprintln!("failed to load asset-channel balances {channel_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&balances, "asset-channel balances");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -432,6 +462,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk rfq-quote <store.json> <quote-id>");
     println!("  tap-ldk rfq-quotes <store.json>");
     println!("  tap-ldk rfq-invoice-smoke <asset-id>");
+    println!("  tap-ldk asset-channel-funding-smoke <store.json>");
+    println!("  tap-ldk asset-channel-list <store.json>");
+    println!("  tap-ldk asset-channel-balances <store.json> <channel-id>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
@@ -510,6 +543,16 @@ fn save_rfq_store_or_exit(store_path: &str, store: &RfqQuoteStore) {
     if let Err(err) = store.save_atomic(store_path) {
         eprintln!("failed to save RFQ store {store_path}: {err}");
         process::exit(1);
+    }
+}
+
+fn load_asset_channel_store_or_exit(store_path: &str) -> AssetChannelStore {
+    match AssetChannelStore::load(store_path) {
+        Ok(store) => store,
+        Err(err) => {
+            eprintln!("failed to load asset-channel store {store_path}: {err}");
+            process::exit(1);
+        }
     }
 }
 

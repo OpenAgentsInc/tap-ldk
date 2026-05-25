@@ -87,6 +87,8 @@ cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223
   allocation, documented in `docs/rfq-quote-store.md`.
 - Native RFQ invoice binding, documented in `docs/rfq-invoice-binding.md`,
   with BOLT 11 kept opaque and unchanged.
+- Native asset-channel funding state and persistence, documented in
+  `docs/asset-channel-funding.md`.
 - Asset virtual transaction construction, asset-level signing, and nonce
   management.
 - Lightning Labs fixture and blob decoding for Track B compatibility tests.
