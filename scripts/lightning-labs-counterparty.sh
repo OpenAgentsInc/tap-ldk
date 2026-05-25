@@ -17,6 +17,7 @@ TAPD_IMAGE="${TAP_LDK_LL_TAPD_IMAGE:-polarlightning/tapd:0.7.0-alpha}"
 RPC_USER="${TAP_LDK_BITCOIN_RPC_USER:-tapldk}"
 RPC_PASSWORD="${TAP_LDK_BITCOIN_RPC_PASSWORD:-tapldk-regtest}"
 STATE_DIR="${TAP_LDK_LL_STATE_DIR:-$ROOT/.tap-ldk/regtest/lightning-labs}"
+CONTAINER_RUNTIME_BIN=""
 
 usage() {
   cat <<USAGE
@@ -31,27 +32,52 @@ Commands:
 
 This harness starts Lightning Labs as an independent interop counterparty. It
 does not run LND or tapd as a sidecar inside the native tap-ldk wallet.
+Set TAP_LDK_CONTAINER_RUNTIME=docker or TAP_LDK_CONTAINER_RUNTIME=podman to
+force a specific runtime. By default the script prefers Docker, then Podman.
 USAGE
 }
 
-require_docker() {
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "lightning-labs-counterparty: skipping; docker is not installed." >&2
+detect_container_runtime() {
+  if [ -n "${TAP_LDK_CONTAINER_RUNTIME:-}" ]; then
+    if command -v "$TAP_LDK_CONTAINER_RUNTIME" >/dev/null 2>&1; then
+      printf '%s\n' "$TAP_LDK_CONTAINER_RUNTIME"
+      return 0
+    fi
+    echo "lightning-labs-counterparty: skipping; requested container runtime $TAP_LDK_CONTAINER_RUNTIME is not installed." >&2
+    return 1
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    printf '%s\n' docker
+    return 0
+  fi
+
+  if command -v podman >/dev/null 2>&1; then
+    printf '%s\n' podman
+    return 0
+  fi
+
+  echo "lightning-labs-counterparty: skipping; neither docker nor podman is installed." >&2
+  return 1
+}
+
+require_container_runtime() {
+  if ! CONTAINER_RUNTIME_BIN="$(detect_container_runtime)"; then
     exit 0
   fi
-  if ! docker info >/dev/null 2>&1; then
-    echo "lightning-labs-counterparty: skipping; docker daemon is not available." >&2
+  if ! "$CONTAINER_RUNTIME_BIN" info >/dev/null 2>&1; then
+    echo "lightning-labs-counterparty: skipping; $CONTAINER_RUNTIME_BIN daemon/machine is not available." >&2
     exit 0
   fi
 }
 
 container_running() {
-  docker ps --format '{{.Names}}' | grep -qx "$1"
+  "$CONTAINER_RUNTIME_BIN" ps --format '{{.Names}}' | grep -qx "$1"
 }
 
 ensure_network() {
-  if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
-    docker network create "$NETWORK_NAME" >/dev/null
+  if ! "$CONTAINER_RUNTIME_BIN" network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+    "$CONTAINER_RUNTIME_BIN" network create "$NETWORK_NAME" >/dev/null
   fi
 }
 
@@ -61,7 +87,7 @@ start_bitcoind() {
   fi
 
   mkdir -p "$STATE_DIR/bitcoind"
-  docker run -d --rm \
+  "$CONTAINER_RUNTIME_BIN" run -d --rm \
     --name "$BITCOIND_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:18443:18443 \
@@ -95,7 +121,7 @@ start_lnd() {
   fi
 
   mkdir -p "$STATE_DIR/lnd"
-  docker run -d --rm \
+  "$CONTAINER_RUNTIME_BIN" run -d --rm \
     --name "$LND_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:10009:10009 \
@@ -136,7 +162,7 @@ start_tapd() {
   fi
 
   mkdir -p "$STATE_DIR/tapd"
-  docker run -d --rm \
+  "$CONTAINER_RUNTIME_BIN" run -d --rm \
     --name "$TAPD_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:10029:10029 \
@@ -161,7 +187,7 @@ start_tapd() {
 }
 
 start() {
-  require_docker
+  require_container_runtime
   ensure_network
   start_bitcoind
   start_lnd
@@ -170,17 +196,17 @@ start() {
 }
 
 stop() {
-  require_docker
+  require_container_runtime
   for container in "$TAPD_CONTAINER" "$LND_CONTAINER" "$BITCOIND_CONTAINER"; do
     if container_running "$container"; then
-      docker stop "$container" >/dev/null
+      "$CONTAINER_RUNTIME_BIN" stop "$container" >/dev/null
     fi
   done
 }
 
 status() {
-  require_docker
-  docker ps \
+  require_container_runtime
+  "$CONTAINER_RUNTIME_BIN" ps \
     --filter "name=$BITCOIND_CONTAINER" \
     --filter "name=$LND_CONTAINER" \
     --filter "name=$TAPD_CONTAINER" \
@@ -221,7 +247,7 @@ JSON
 }
 
 smoke() {
-  require_docker
+  require_container_runtime
   start >/dev/null
   trap stop EXIT
   status

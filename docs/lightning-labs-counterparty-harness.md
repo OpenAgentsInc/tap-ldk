@@ -1,7 +1,7 @@
 # Lightning Labs Counterparty Harness
 
 `scripts/lightning-labs-counterparty.sh` starts the Track B external
-counterparty topology:
+counterparty topology with Docker or Podman:
 
 - Bitcoin Core via `polarlightning/bitcoind:30.0`
 - LND via `polarlightning/lnd:0.19.0-beta`
@@ -26,9 +26,11 @@ Smoke:
 ./scripts/lightning-labs-counterparty.sh smoke
 ```
 
-The script skips with a clear message when Docker is not installed or the
-Docker daemon is unavailable. Generated state and credentials live under
-`.tap-ldk/regtest/lightning-labs` by default and are ignored by Git.
+The script prefers Docker and falls back to Podman. Set
+`TAP_LDK_CONTAINER_RUNTIME=docker` or `TAP_LDK_CONTAINER_RUNTIME=podman` to
+force one. It skips with a clear message when no runtime is installed or the
+selected runtime daemon/machine is unavailable. Generated state and credentials
+live under `.tap-ldk/regtest/lightning-labs` by default and are ignored by Git.
 
 This harness is an interop counterparty only. It must not be wired into
 `tap-ldk` as a wallet sidecar.

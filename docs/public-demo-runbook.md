@@ -16,18 +16,18 @@ close proof artifacts.
 
 Path B is the native `tap-ldk` to independent Lightning Labs compatibility
 demo. It runs fixture-backed Lightning Labs blob/proof/funding/RFQ/payment
-checks and optionally starts a Docker-backed Bitcoin Core/LND/`tapd`
-counterparty. LND and `tapd` are compatibility peers, not `tap-ldk` runtime
-sidecars. Live daemon settlement and observed balance replacement are still
-open gaps.
+checks and optionally starts a Docker- or Podman-backed Bitcoin
+Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
+`tap-ldk` runtime sidecars. Live daemon settlement and observed balance
+replacement are still open gaps.
 
 ## Prerequisites
 
 - Git, Bash, and standard Unix shell utilities.
 - Rust `1.85` or newer. This runbook was last checked with
   `rustc 1.94.1` and `cargo 1.94.1`.
-- Docker is optional. It is only needed for the independent Lightning Labs
-  Path B counterparty smoke.
+- Docker or Podman is optional. A container runtime is only needed for the
+  independent Lightning Labs Path B counterparty smoke.
 - Path B counterparty target: Bitcoin Core `30.0`, LND `0.19.0-beta`,
   `tapd` `0.7.0-alpha`.
 
@@ -125,11 +125,16 @@ Fixture-backed checks:
 - consolidated checks: ...
 ```
 
-If Docker is unavailable, expected output also includes a dependency gap:
+If no container runtime is available, or if the selected runtime is not
+running, expected output also includes a dependency gap:
 
 ```text
-Docker is not installed. Path B fixture-backed checks ran, but the independent
-Lightning Labs LND/tapd counterparty was not started.
+Neither Docker nor Podman is installed. Path B fixture-backed checks ran, but
+the independent Lightning Labs LND/tapd counterparty was not started.
+
+<runtime> is installed, but its daemon/machine is not available. Path B
+fixture-backed checks ran, but the independent Lightning Labs LND/tapd
+counterparty was not started.
 ```
 
 Key artifacts:

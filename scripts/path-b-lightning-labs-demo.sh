@@ -47,7 +47,31 @@ run_optional_log() {
   return "$status"
 }
 
+detect_container_runtime() {
+  if [ -n "${TAP_LDK_CONTAINER_RUNTIME:-}" ]; then
+    if command -v "$TAP_LDK_CONTAINER_RUNTIME" >/dev/null 2>&1; then
+      printf '%s\n' "$TAP_LDK_CONTAINER_RUNTIME"
+      return 0
+    fi
+    return 1
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    printf '%s\n' docker
+    return 0
+  fi
+
+  if command -v podman >/dev/null 2>&1; then
+    printf '%s\n' podman
+    return 0
+  fi
+
+  return 1
+}
+
 write_versions() {
+  local runtime
+  runtime="$(detect_container_runtime || true)"
   {
     echo "tap-ldk path-b versions"
     echo "date_utc=$STAMP"
@@ -57,34 +81,42 @@ write_versions() {
     rustc --version 2>/dev/null || true
     printf "cargo="
     cargo --version 2>/dev/null || true
-    printf "docker="
-    docker --version 2>/dev/null || echo "unavailable"
+    printf "container_runtime="
+    if [ -n "$runtime" ]; then
+      echo "$runtime"
+      printf "container_runtime_version="
+      "$runtime" --version 2>/dev/null || true
+    else
+      echo "unavailable"
+    fi
   } >"$ARTIFACT_DIR/versions.txt"
 }
 
 try_counterparty() {
-  if ! command -v docker >/dev/null 2>&1; then
+  local runtime
+  runtime="$(detect_container_runtime || true)"
+  if [ -z "$runtime" ]; then
     cat >"$DEPENDENCY_GAP" <<GAP
-Docker is not installed. Path B fixture-backed checks ran, but the independent
-Lightning Labs LND/tapd counterparty was not started.
+Neither Docker nor Podman is installed. Path B fixture-backed checks ran, but
+the independent Lightning Labs LND/tapd counterparty was not started.
 GAP
     return 0
   fi
 
-  if ! docker info >/dev/null 2>&1; then
+  if ! "$runtime" info >"$LOG_DIR/container-runtime-info.out" 2>"$LOG_DIR/container-runtime-info.err"; then
     cat >"$DEPENDENCY_GAP" <<GAP
-Docker is installed, but the daemon is not available. Path B fixture-backed
-checks ran, but the independent Lightning Labs LND/tapd counterparty was not
-started.
+$runtime is installed, but its daemon/machine is not available. Path B
+fixture-backed checks ran, but the independent Lightning Labs LND/tapd
+counterparty was not started.
 GAP
     return 0
   fi
 
-  if run_optional_log lightning-labs-counterparty-smoke ./scripts/lightning-labs-counterparty.sh smoke; then
-    echo "Lightning Labs counterparty smoke completed." >"$DEPENDENCY_GAP"
+  if TAP_LDK_CONTAINER_RUNTIME="$runtime" run_optional_log lightning-labs-counterparty-smoke ./scripts/lightning-labs-counterparty.sh smoke; then
+    echo "Lightning Labs counterparty smoke completed with $runtime." >"$DEPENDENCY_GAP"
   else
     cat >"$DEPENDENCY_GAP" <<GAP
-Lightning Labs counterparty smoke failed. See:
+Lightning Labs counterparty smoke failed with $runtime. See:
 - $LOG_DIR/lightning-labs-counterparty-smoke.out
 - $LOG_DIR/lightning-labs-counterparty-smoke.err
 GAP
