@@ -79,6 +79,8 @@ native receiver invoice/final-hop path in `tap-ldk`.
 - Implement proof import/export compatibility with `tapd`.
 - Extend the headless harness to start Bitcoin Core plus LND/`tapd` using the
   selected versions.
+- Use `scripts/lightning-labs-counterparty.sh` for the first external
+  counterparty smoke path once Docker is available.
 - Add balance comparison checks after each interop payment.
 - Document any mismatch as a failing compatibility gap, not a partial success.
 
@@ -89,4 +91,3 @@ native receiver invoice/final-hop path in `tap-ldk`.
 - `tap-ldk` does not yet parse Lightning Labs funding/HTLC/commitment blobs.
 - `tap-ldk` does not yet implement RFQ wire compatibility.
 - `tap-ldk` does not yet perform either Track B payment direction.
-

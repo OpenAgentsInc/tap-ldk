@@ -11,6 +11,7 @@ cargo fmt --check
 cargo test
 cargo run -p tap-ldk-cli -- --help
 cargo run -p tap-ldk-cli -- regtest-bitcoin-config
+cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ```
 
 ## Planning Docs
@@ -22,3 +23,4 @@ cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
+- [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)

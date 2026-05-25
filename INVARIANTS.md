@@ -49,6 +49,8 @@ regression test or a documented model-boundary exception.
   native wallet runtime and not the only automated harness.
 - The headless Bitcoin regtest harness is infrastructure only; it must not
   become wallet logic or an implicit sidecar dependency.
+- The Lightning Labs counterparty harness is an external interop topology only;
+  it must not perform native `tap-ldk` wallet duties.
 - The public demo must clearly label mocked pieces: issuer identity, price
   oracle, discovery, proof courier, UI, and any compatibility gaps.
 

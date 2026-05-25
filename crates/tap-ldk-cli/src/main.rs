@@ -1,6 +1,9 @@
 use std::{env, process};
 
-use tap_ldk_core::{ProjectInfo, regtest::BitcoinRegtestConfig};
+use tap_ldk_core::{
+    ProjectInfo,
+    regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
+};
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
@@ -26,6 +29,16 @@ fn main() {
                 }
             }
         }
+        [command] if command == "lightning-labs-counterparty-config" => {
+            let config = LightningLabsCounterpartyConfig::default();
+            match config.connection_material_json() {
+                Ok(json) => println!("{json}"),
+                Err(err) => {
+                    eprintln!("invalid default Lightning Labs counterparty config: {err}");
+                    process::exit(1);
+                }
+            }
+        }
         [unknown, ..] => {
             eprintln!("unknown argument: {unknown}");
             eprintln!("run `tap-ldk --help` for usage");
@@ -42,4 +55,5 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk [--help]");
     println!("  tap-ldk --version");
     println!("  tap-ldk regtest-bitcoin-config");
+    println!("  tap-ldk lightning-labs-counterparty-config");
 }
