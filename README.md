@@ -21,6 +21,7 @@ cargo run -p tap-ldk-cli -- rfq-invoice-smoke 7a3811630bb33503c6536c3a223d3caecb
 cargo run -p tap-ldk-cli -- asset-channel-funding-smoke target/asset-channels.json
 cargo run -p tap-ldk-cli -- asset-commitment-smoke target/asset-commitments.json
 cargo run -p tap-ldk-cli -- asset-htlc-smoke
+cargo run -p tap-ldk-cli -- asset-payment-smoke
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-issue-openusd target/demo-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
 cargo run -p tap-ldk-cli -- wallet-import-proof-fixture target/demo-wallet.json fixtures/synthetic/proof_anchor_valid.json

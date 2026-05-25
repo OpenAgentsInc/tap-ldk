@@ -93,6 +93,8 @@ cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223
   documented in `docs/asset-commitment-state.md`.
 - Native asset HTLC custom records and final-hop validation, documented in
   `docs/asset-htlc-custom-records.md`.
+- Native asset payment send/receive smoke, documented in
+  `docs/native-asset-payment.md`.
 - Asset virtual transaction construction, asset-level signing, and nonce
   management.
 - Lightning Labs fixture and blob decoding for Track B compatibility tests.

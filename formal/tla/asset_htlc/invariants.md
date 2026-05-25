@@ -14,3 +14,6 @@
 - `crates/tap-ldk-core/src/asset_commitment.rs` supplies the durable balance
   transition used by the asset HTLC smoke before the HTLC is recorded as
   settled.
+- `crates/tap-ldk-core/src/asset_payment.rs` composes those checks for the
+  bounded native payment path and records a settled payment only after the
+  commitment update and HTLC settlement stores both validate.

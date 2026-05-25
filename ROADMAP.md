@@ -428,6 +428,10 @@ Current implementation note:
   enforcement, BTC-only pass-through behavior, and bounded add/settle/fail
   smoke coverage. Real MuSig2/Taproot Assets witness integration and Lightning
   HTLC dispatch remain follow-on surfaces.
+- `tap-ldk-core::asset_payment` wires the bounded native payment path across
+  RFQ, quote-bound invoice, asset HTLC records, final-hop validation,
+  commitment update, settled HTLC state, payment state, restart round-trip, and
+  wrong-quote/wrong-invoice/wrong-metadata failures.
 
 ## Milestone 7: Payment Send, Receive, And Routing
 
@@ -449,6 +453,13 @@ Exit criteria:
 - Wallet B receives the asset amount and can reject bad metadata.
 - The BTC amount seen by the Lightning layer is quote-derived.
 - Normal BTC payments are unaffected.
+
+Current implementation note:
+
+- `tap-ldk-cli asset-payment-smoke` performs the Path A bounded native
+  Alice-to-Bob payment with pre/post balances, payment state, HTLC state,
+  restart confirmation, and negative-path failure reasons. Real rust-lightning
+  HTLC dispatch and routing remain follow-on work.
 
 ## Milestone 8: Recovery, Close, And Proof Export
 

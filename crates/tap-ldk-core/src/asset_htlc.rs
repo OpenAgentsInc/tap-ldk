@@ -199,6 +199,29 @@ impl AssetHtlcStore {
         htlc.status = status;
         Ok(htlc.clone())
     }
+
+    pub fn validate(&self) -> Result<(), AssetHtlcError> {
+        for (htlc_id, htlc) in &self.htlcs {
+            if htlc_id != &htlc.htlc_id {
+                return Err(AssetHtlcError::StorageInvariant(format!(
+                    "HTLC map key {htlc_id} does not match htlc_id {}",
+                    htlc.htlc_id
+                )));
+            }
+            if htlc.channel_id.trim().is_empty() {
+                return Err(AssetHtlcError::StorageInvariant(format!(
+                    "HTLC {htlc_id} has empty channel ID"
+                )));
+            }
+            if htlc.asset_amount == 0 || htlc.btc_msat == 0 {
+                return Err(AssetHtlcError::StorageInvariant(format!(
+                    "HTLC {htlc_id} has zero asset or BTC amount"
+                )));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -440,6 +463,7 @@ pub enum AssetHtlcError {
     ScidAliasMismatch,
     PaymentHashMismatch,
     FinalHopDigestMismatch,
+    StorageInvariant(String),
 }
 
 impl fmt::Display for AssetHtlcError {
@@ -479,6 +503,9 @@ impl fmt::Display for AssetHtlcError {
             Self::ScidAliasMismatch => write!(f, "asset HTLC SCID alias mismatch"),
             Self::PaymentHashMismatch => write!(f, "asset HTLC payment hash mismatch"),
             Self::FinalHopDigestMismatch => write!(f, "asset HTLC final-hop digest mismatch"),
+            Self::StorageInvariant(message) => {
+                write!(f, "asset HTLC storage invariant failed: {message}")
+            }
         }
     }
 }

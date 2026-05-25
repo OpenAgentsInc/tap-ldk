@@ -431,8 +431,9 @@ Do not claim these guarantees until implementation and verification exist:
   fixture surface, but full TAP BIP MS-SMT, TAP VM, virtual transaction
   signing, and full-history proof validation are not implemented.
 - Bounded native asset-channel funding, commitment-numbered asset balance
-  transitions, and asset HTLC custom-record validation exist for the first
-  demo. Native close, recovery, and interop payment execution are not
+  transitions, asset HTLC custom-record validation, and native asset
+  send/receive smoke coverage exist for the first demo. Native close,
+  recovery, full Lightning dispatch, and interop payment execution are not
   implemented.
 - `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not
   configured.
