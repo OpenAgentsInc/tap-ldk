@@ -7,10 +7,14 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{AssetAmount, AssetError, Bytes32, CompressedKey},
-    proof::{ProofError, ProofFile},
+    asset::{
+        AssetAmount, AssetError, AssetLeaf, AssetType, Bytes32, CompressedKey, Genesis,
+        derive_hash_sum_root, validate_split_conservation,
+    },
+    proof::{ProofError, ProofFile, VerificationScope},
 };
 
 pub const WALLET_SCHEMA_VERSION: u32 = 1;
@@ -126,6 +130,98 @@ impl WalletState {
         decode_hex(&stored.proof_tlv_hex)
     }
 
+    pub fn issue_regtest_asset(
+        &mut self,
+        request: RegtestIssueRequest,
+    ) -> Result<RegtestIssueOutcome, WalletError> {
+        let proof = request.build_proof()?;
+        let asset_id = proof.asset_id.to_hex();
+        let outcome = self.import_verified_proof(proof)?;
+
+        Ok(RegtestIssueOutcome {
+            status: outcome.status(),
+            proof_id: outcome.proof_id().to_owned(),
+            asset_id,
+            amount: request.amount.value(),
+            ticker: request.ticker,
+        })
+    }
+
+    pub fn send_local_transfer(
+        &mut self,
+        request: LocalTransferRequest,
+    ) -> Result<LocalTransferOutcome, WalletError> {
+        if request.amount == AssetAmount::ZERO {
+            return Err(WalletError::ZeroTransferAmount);
+        }
+
+        let (input_id, input_utxo) = self
+            .spendable_utxos
+            .iter()
+            .find(|(_, utxo)| {
+                utxo.status == UtxoStatus::Spendable
+                    && utxo.asset_id == request.asset_id.to_hex()
+                    && utxo.amount >= request.amount.value()
+            })
+            .map(|(id, utxo)| (id.clone(), utxo.clone()))
+            .ok_or_else(|| WalletError::InsufficientAssetBalance {
+                asset_id: request.asset_id.to_hex(),
+                requested: request.amount.value(),
+            })?;
+
+        let input_proof = self.decode_proof(&input_utxo.proof_id)?;
+        let input_amount = AssetAmount::new(input_utxo.amount);
+        let change_amount = input_amount
+            .checked_sub(request.amount)
+            .map_err(WalletError::Asset)?;
+        let change_script_key =
+            CompressedKey::from_str(&input_utxo.script_key).map_err(WalletError::Asset)?;
+
+        let mut split_outputs = vec![AssetLeaf {
+            asset_id: request.asset_id,
+            script_key: request.receiver_script_key,
+            amount: request.amount,
+        }];
+        if change_amount != AssetAmount::ZERO {
+            split_outputs.push(AssetLeaf {
+                asset_id: request.asset_id,
+                script_key: change_script_key,
+                amount: change_amount,
+            });
+        }
+        validate_split_conservation(input_amount, &split_outputs).map_err(WalletError::Asset)?;
+
+        let receiver_proof =
+            transfer_output_proof(&input_proof, request.amount, request.receiver_script_key, 0)?;
+        let receiver_proof_id = proof_id(&receiver_proof);
+        let receiver_proof_tlv = receiver_proof.encode().map_err(WalletError::Proof)?;
+
+        let mut next = self.clone();
+        next.proofs.remove(&input_id);
+        next.spendable_utxos.remove(&input_id);
+
+        let change_proof_id = if change_amount == AssetAmount::ZERO {
+            None
+        } else {
+            let change_proof =
+                transfer_output_proof(&input_proof, change_amount, change_script_key, 1)?;
+            let outcome = next.import_verified_proof(change_proof)?;
+            Some(outcome.proof_id().to_owned())
+        };
+        next.validate()?;
+        *self = next;
+
+        Ok(LocalTransferOutcome {
+            asset_id: request.asset_id.to_hex(),
+            sent_amount: request.amount.value(),
+            spent_proof_id: input_id,
+            receiver_proof_id,
+            receiver_proof_tlv,
+            change_proof_id,
+            change_amount: change_amount.value(),
+        })
+    }
+
     pub fn balances(&self) -> Result<Vec<AssetBalance>, WalletError> {
         let mut totals = BTreeMap::<String, AssetAmount>::new();
         for utxo in self.spendable_utxos.values() {
@@ -213,6 +309,11 @@ impl WalletState {
 
         Ok(())
     }
+
+    fn decode_proof(&self, proof_id: &str) -> Result<ProofFile, WalletError> {
+        let encoded = self.export_encoded_proof(proof_id)?;
+        ProofFile::decode(&encoded).map_err(WalletError::Proof)
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -290,6 +391,110 @@ impl ImportOutcome {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RegtestIssueRequest {
+    pub ticker: String,
+    pub amount: AssetAmount,
+    pub script_key: CompressedKey,
+}
+
+impl RegtestIssueRequest {
+    pub fn openusd(amount: AssetAmount, script_key: CompressedKey) -> Self {
+        Self {
+            ticker: "OPENUSD".to_owned(),
+            amount,
+            script_key,
+        }
+    }
+
+    fn build_proof(&self) -> Result<ProofFile, WalletError> {
+        if self.amount == AssetAmount::ZERO {
+            return Err(WalletError::ZeroIssuanceAmount);
+        }
+
+        let normalized_ticker = self.ticker.trim().to_ascii_uppercase();
+        if normalized_ticker.is_empty() {
+            return Err(WalletError::InvalidTicker);
+        }
+
+        let genesis = Genesis {
+            first_prev_out: format!(
+                "{}:0",
+                tagged_hash(
+                    b"tap-ldk:regtest:first-prev-out:v1",
+                    normalized_ticker.as_bytes()
+                )
+                .to_hex()
+            ),
+            tag: tagged_hash(
+                b"tap-ldk:regtest:asset-tag:v1",
+                normalized_ticker.as_bytes(),
+            ),
+            meta_hash: tagged_hash(
+                b"tap-ldk:regtest:asset-meta:v1",
+                format!("{normalized_ticker}:mock-stablecoin").as_bytes(),
+            ),
+            output_index: 0,
+            asset_type: AssetType::Normal,
+        };
+        let asset_id = genesis.asset_id();
+        let leaf = AssetLeaf {
+            asset_id,
+            script_key: self.script_key,
+            amount: self.amount,
+        };
+        let tap_asset_root = derive_hash_sum_root(&[leaf]).map_err(WalletError::Asset)?;
+        let anchor_hash = tagged_hash(
+            b"tap-ldk:regtest:issuance-anchor:v1",
+            format!(
+                "{}:{}:{}",
+                asset_id.to_hex(),
+                self.script_key.to_hex(),
+                self.amount.value()
+            )
+            .as_bytes(),
+        );
+
+        Ok(ProofFile {
+            version: 0,
+            asset_id,
+            genesis_outpoint: genesis.first_prev_out,
+            anchor_outpoint: format!("{}:0", anchor_hash.to_hex()),
+            amount: self.amount,
+            script_key: self.script_key,
+            tap_asset_root,
+            verification_scope: VerificationScope::BoundedAnchorOnly,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RegtestIssueOutcome {
+    pub status: &'static str,
+    pub ticker: String,
+    pub asset_id: String,
+    pub amount: u64,
+    pub proof_id: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct LocalTransferRequest {
+    pub asset_id: Bytes32,
+    pub amount: AssetAmount,
+    pub receiver_script_key: CompressedKey,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct LocalTransferOutcome {
+    pub asset_id: String,
+    pub sent_amount: u64,
+    pub spent_proof_id: String,
+    pub receiver_proof_id: String,
+    pub receiver_proof_tlv: Vec<u8>,
+    pub change_proof_id: Option<String>,
+    pub change_amount: u64,
+}
+
 #[derive(Debug)]
 pub enum WalletError {
     Io(std::io::Error),
@@ -301,6 +506,10 @@ pub enum WalletError {
     InvalidHexByte(String),
     ConflictingProof(String),
     UnknownProof(String),
+    ZeroIssuanceAmount,
+    ZeroTransferAmount,
+    InvalidTicker,
+    InsufficientAssetBalance { asset_id: String, requested: u64 },
     StorageInvariant(String),
 }
 
@@ -320,6 +529,16 @@ impl fmt::Display for WalletError {
                 write!(f, "conflicting proof already exists for {proof_id}")
             }
             Self::UnknownProof(proof_id) => write!(f, "unknown wallet proof: {proof_id}"),
+            Self::ZeroIssuanceAmount => write!(f, "issuance amount must be greater than zero"),
+            Self::ZeroTransferAmount => write!(f, "transfer amount must be greater than zero"),
+            Self::InvalidTicker => write!(f, "asset ticker cannot be empty"),
+            Self::InsufficientAssetBalance {
+                asset_id,
+                requested,
+            } => write!(
+                f,
+                "insufficient spendable asset balance for {asset_id}; requested {requested}"
+            ),
             Self::StorageInvariant(message) => {
                 write!(f, "wallet storage invariant failed: {message}")
             }
@@ -331,6 +550,51 @@ impl Error for WalletError {}
 
 fn proof_id(proof: &ProofFile) -> String {
     format!("{}:{}", proof.asset_id.to_hex(), proof.anchor_outpoint)
+}
+
+fn transfer_output_proof(
+    input_proof: &ProofFile,
+    amount: AssetAmount,
+    script_key: CompressedKey,
+    output_index: u32,
+) -> Result<ProofFile, WalletError> {
+    let leaf = AssetLeaf {
+        asset_id: input_proof.asset_id,
+        script_key,
+        amount,
+    };
+    let tap_asset_root = derive_hash_sum_root(&[leaf]).map_err(WalletError::Asset)?;
+    let anchor_hash = tagged_hash(
+        b"tap-ldk:regtest:transfer-anchor:v1",
+        format!(
+            "{}:{}:{}:{}",
+            input_proof.anchor_outpoint,
+            script_key.to_hex(),
+            amount.value(),
+            output_index
+        )
+        .as_bytes(),
+    );
+
+    Ok(ProofFile {
+        version: 0,
+        asset_id: input_proof.asset_id,
+        genesis_outpoint: input_proof.genesis_outpoint.clone(),
+        anchor_outpoint: format!("{}:{output_index}", anchor_hash.to_hex()),
+        amount,
+        script_key,
+        tap_asset_root,
+        verification_scope: VerificationScope::BoundedAnchorOnly,
+    })
+}
+
+fn tagged_hash(tag: &[u8], payload: &[u8]) -> Bytes32 {
+    let tag_hash = Sha256::digest(tag);
+    let mut hasher = Sha256::new();
+    hasher.update(tag_hash);
+    hasher.update(tag_hash);
+    hasher.update(payload);
+    Bytes32(hasher.finalize().into())
 }
 
 fn temp_path_for(path: &Path) -> PathBuf {
@@ -375,10 +639,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::{
-        asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
-        proof::VerificationScope,
-    };
+    use crate::{asset::RootHashSum, proof::VerificationScope};
 
     fn valid_proof() -> ProofFile {
         ProofFile {
@@ -463,6 +724,104 @@ mod tests {
         assert!(matches!(
             wallet.validate(),
             Err(WalletError::UnsupportedVersion(version)) if version == WALLET_SCHEMA_VERSION + 1
+        ));
+    }
+
+    #[test]
+    fn regtest_issuance_and_local_transfer_conserve_balance() {
+        let sender_script_key = CompressedKey::from_str(
+            "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+        )
+        .expect("sender script key parses");
+        let receiver_script_key = CompressedKey::from_str(
+            "03a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+        )
+        .expect("receiver script key parses");
+        let mut sender = WalletState::default();
+        let issue = sender
+            .issue_regtest_asset(RegtestIssueRequest::openusd(
+                AssetAmount::new(1_000),
+                sender_script_key,
+            ))
+            .expect("issuance succeeds");
+
+        let transfer = sender
+            .send_local_transfer(LocalTransferRequest {
+                asset_id: Bytes32::from_str(&issue.asset_id).expect("asset id parses"),
+                amount: AssetAmount::new(250),
+                receiver_script_key,
+            })
+            .expect("transfer succeeds");
+        let mut receiver = WalletState::default();
+        receiver
+            .import_encoded_proof(&transfer.receiver_proof_tlv)
+            .expect("receiver imports proof");
+
+        assert_eq!(
+            sender.balances().expect("sender balances"),
+            vec![AssetBalance {
+                asset_id: issue.asset_id.clone(),
+                spendable: 750
+            }]
+        );
+        assert_eq!(
+            receiver.balances().expect("receiver balances"),
+            vec![AssetBalance {
+                asset_id: issue.asset_id,
+                spendable: 250
+            }]
+        );
+        assert_eq!(transfer.change_amount, 750);
+        assert!(transfer.change_proof_id.is_some());
+    }
+
+    #[test]
+    fn local_transfer_rejects_wrong_asset_and_malformed_amounts() {
+        let script_key = CompressedKey::from_str(
+            "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+        )
+        .expect("script key parses");
+        let mut wallet = WalletState::default();
+        wallet
+            .issue_regtest_asset(RegtestIssueRequest::openusd(
+                AssetAmount::new(1_000),
+                script_key,
+            ))
+            .expect("issuance succeeds");
+
+        assert!(matches!(
+            wallet.send_local_transfer(LocalTransferRequest {
+                asset_id: Bytes32([9; 32]),
+                amount: AssetAmount::new(1),
+                receiver_script_key: script_key,
+            }),
+            Err(WalletError::InsufficientAssetBalance { .. })
+        ));
+        assert!(matches!(
+            wallet.send_local_transfer(LocalTransferRequest {
+                asset_id: Bytes32([9; 32]),
+                amount: AssetAmount::ZERO,
+                receiver_script_key: script_key,
+            }),
+            Err(WalletError::ZeroTransferAmount)
+        ));
+    }
+
+    #[test]
+    fn malformed_and_wrong_anchor_proofs_fail_import() {
+        let mut wallet = WalletState::default();
+        assert!(matches!(
+            wallet.import_encoded_proof(&[0x01, 0x20, 0xaa]),
+            Err(WalletError::Proof(ProofError::Tlv(_)))
+        ));
+
+        let mut proof = valid_proof();
+        proof.anchor_outpoint = "wrong-anchor-without-index".to_owned();
+        assert!(matches!(
+            wallet.import_verified_proof(proof),
+            Err(WalletError::Proof(ProofError::MalformedOutpoint(
+                "anchor_outpoint"
+            )))
         ));
     }
 

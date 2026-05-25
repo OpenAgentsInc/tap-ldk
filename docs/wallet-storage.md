@@ -12,6 +12,7 @@ showing balances.
 
 ```bash
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
+cargo run -p tap-ldk-cli -- wallet-issue-openusd target/demo-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
 cargo run -p tap-ldk-cli -- wallet-import-proof-fixture target/demo-wallet.json fixtures/synthetic/proof_anchor_valid.json
 cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-proofs target/demo-wallet.json
@@ -22,7 +23,31 @@ Raw encoded proof TLV files can also be imported and exported:
 ```bash
 cargo run -p tap-ldk-cli -- wallet-import-proof-file target/demo-wallet.json target/proof.tlv
 cargo run -p tap-ldk-cli -- wallet-export-proof-file target/demo-wallet.json '<proof-id>' target/proof.tlv
+cargo run -p tap-ldk-cli -- wallet-verify-proof-file target/proof.tlv
 ```
+
+## Local Regtest Transfer
+
+Before asset channels exist, the bounded local transfer command models a
+single on-chain asset split: the sender spends one verified proof, exports a
+receiver proof, and stores sender change as a new verified proof. The receiver
+then imports the exported proof file.
+
+```bash
+cargo run -p tap-ldk-cli -- wallet-init target/alice-wallet.json
+cargo run -p tap-ldk-cli -- wallet-init target/bob-wallet.json
+cargo run -p tap-ldk-cli -- wallet-issue-openusd target/alice-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
+cargo run -p tap-ldk-cli -- wallet-send-local target/alice-wallet.json '<asset-id>' 250000 03a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f target/bob-openusd-proof.tlv
+cargo run -p tap-ldk-cli -- wallet-verify-proof-file target/bob-openusd-proof.tlv
+cargo run -p tap-ldk-cli -- wallet-import-proof-file target/bob-wallet.json target/bob-openusd-proof.tlv
+cargo run -p tap-ldk-cli -- wallet-balances target/alice-wallet.json
+cargo run -p tap-ldk-cli -- wallet-balances target/bob-wallet.json
+```
+
+The issuance identity, issuer policy, mining/funding mechanics, and proof
+courier are mocked for this pre-channel regtest path. Issuance is the only
+operation that creates supply; local transfer uses split-conservation checks
+and fails if the requested amount exceeds a verified spendable UTXO.
 
 ## Schema Contract
 

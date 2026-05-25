@@ -7,7 +7,7 @@ use tap_ldk_core::{
     asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
-    wallet::WalletState,
+    wallet::{LocalTransferRequest, RegtestIssueRequest, WalletState},
 };
 
 fn main() {
@@ -51,6 +51,89 @@ fn main() {
                 process::exit(1);
             }
             println!("initialized wallet {wallet_path}");
+        }
+        [command, wallet_path, amount, script_key] if command == "wallet-issue-openusd" => {
+            let amount = parse_amount_or_exit(amount);
+            let script_key = parse_script_key_or_exit(script_key, "issuer script key");
+            let mut wallet = load_wallet_or_default_or_exit(wallet_path);
+            let outcome = match wallet.issue_regtest_asset(RegtestIssueRequest::openusd(
+                AssetAmount::new(amount),
+                script_key,
+            )) {
+                Ok(outcome) => outcome,
+                Err(err) => {
+                    eprintln!("failed to issue OPENUSD: {err}");
+                    process::exit(1);
+                }
+            };
+            save_wallet_or_exit(wallet_path, &wallet);
+            println!(
+                "{} {} amount={} asset_id={} proof_id={}",
+                outcome.status, outcome.ticker, outcome.amount, outcome.asset_id, outcome.proof_id
+            );
+        }
+        [
+            command,
+            wallet_path,
+            asset_id,
+            amount,
+            receiver_script_key,
+            receiver_proof_path,
+        ] if command == "wallet-send-local" => {
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let amount = parse_amount_or_exit(amount);
+            let receiver_script_key =
+                parse_script_key_or_exit(receiver_script_key, "receiver script key");
+            let mut wallet = load_wallet_or_exit(wallet_path);
+            let outcome = match wallet.send_local_transfer(LocalTransferRequest {
+                asset_id,
+                amount: AssetAmount::new(amount),
+                receiver_script_key,
+            }) {
+                Ok(outcome) => outcome,
+                Err(err) => {
+                    eprintln!("failed to send local transfer: {err}");
+                    process::exit(1);
+                }
+            };
+            if let Err(err) = fs::write(receiver_proof_path, &outcome.receiver_proof_tlv) {
+                eprintln!("failed to write receiver proof file {receiver_proof_path}: {err}");
+                process::exit(1);
+            }
+            save_wallet_or_exit(wallet_path, &wallet);
+            println!(
+                "sent amount={} asset_id={} receiver_proof_id={} receiver_proof_file={} change_amount={} change_proof_id={}",
+                outcome.sent_amount,
+                outcome.asset_id,
+                outcome.receiver_proof_id,
+                receiver_proof_path,
+                outcome.change_amount,
+                outcome.change_proof_id.as_deref().unwrap_or("none")
+            );
+        }
+        [command, proof_path] if command == "wallet-verify-proof-file" => {
+            let encoded = match fs::read(proof_path) {
+                Ok(encoded) => encoded,
+                Err(err) => {
+                    eprintln!("failed to read proof file {proof_path}: {err}");
+                    process::exit(1);
+                }
+            };
+            let proof = match ProofFile::decode(&encoded)
+                .and_then(|proof| proof.verify_bounded_anchor().map(|()| proof))
+            {
+                Ok(proof) => proof,
+                Err(err) => {
+                    eprintln!("failed to verify proof file {proof_path}: {err}");
+                    process::exit(1);
+                }
+            };
+            println!(
+                "verified proof asset_id={} amount={} anchor_outpoint={}",
+                proof.asset_id.to_hex(),
+                proof.amount.value(),
+                proof.anchor_outpoint
+            );
         }
         [command, wallet_path, proof_path] if command == "wallet-import-proof-file" => {
             let encoded = match fs::read(proof_path) {
@@ -131,6 +214,11 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk regtest-bitcoin-config");
     println!("  tap-ldk lightning-labs-counterparty-config");
     println!("  tap-ldk wallet-init <wallet.json>");
+    println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
+    println!(
+        "  tap-ldk wallet-send-local <wallet.json> <asset-id> <amount> <receiver-script-key> <receiver-proof.tlv>"
+    );
+    println!("  tap-ldk wallet-verify-proof-file <proof.tlv>");
     println!("  tap-ldk wallet-import-proof-file <wallet.json> <proof.tlv>");
     println!("  tap-ldk wallet-import-proof-fixture <wallet.json> <proof.json>");
     println!("  tap-ldk wallet-balances <wallet.json>");
@@ -139,13 +227,7 @@ fn print_help(info: ProjectInfo) {
 }
 
 fn import_encoded_proof(wallet_path: &str, encoded: &[u8]) {
-    let mut wallet = match WalletState::load_or_default(wallet_path) {
-        Ok(wallet) => wallet,
-        Err(err) => {
-            eprintln!("failed to load wallet {wallet_path}: {err}");
-            process::exit(1);
-        }
-    };
+    let mut wallet = load_wallet_or_default_or_exit(wallet_path);
     let outcome = match wallet.import_encoded_proof(encoded) {
         Ok(outcome) => outcome,
         Err(err) => {
@@ -153,12 +235,19 @@ fn import_encoded_proof(wallet_path: &str, encoded: &[u8]) {
             process::exit(1);
         }
     };
-    if let Err(err) = wallet.save_atomic(wallet_path) {
-        eprintln!("failed to save wallet {wallet_path}: {err}");
-        process::exit(1);
-    }
+    save_wallet_or_exit(wallet_path, &wallet);
 
     println!("{} proof {}", outcome.status(), outcome.proof_id());
+}
+
+fn load_wallet_or_default_or_exit(wallet_path: &str) -> WalletState {
+    match WalletState::load_or_default(wallet_path) {
+        Ok(wallet) => wallet,
+        Err(err) => {
+            eprintln!("failed to load wallet {wallet_path}: {err}");
+            process::exit(1);
+        }
+    }
 }
 
 fn load_wallet_or_exit(wallet_path: &str) -> WalletState {
@@ -167,6 +256,43 @@ fn load_wallet_or_exit(wallet_path: &str) -> WalletState {
         Err(err) => {
             eprintln!("failed to load wallet {wallet_path}: {err}");
             process::exit(1);
+        }
+    }
+}
+
+fn save_wallet_or_exit(wallet_path: &str, wallet: &WalletState) {
+    if let Err(err) = wallet.save_atomic(wallet_path) {
+        eprintln!("failed to save wallet {wallet_path}: {err}");
+        process::exit(1);
+    }
+}
+
+fn parse_amount_or_exit(value: &str) -> u64 {
+    match value.parse::<u64>() {
+        Ok(amount) => amount,
+        Err(err) => {
+            eprintln!("invalid amount {value}: {err}");
+            process::exit(2);
+        }
+    }
+}
+
+fn parse_asset_id_or_exit(value: &str) -> Bytes32 {
+    match Bytes32::from_str(value) {
+        Ok(asset_id) => asset_id,
+        Err(err) => {
+            eprintln!("invalid asset id {value}: {err}");
+            process::exit(2);
+        }
+    }
+}
+
+fn parse_script_key_or_exit(value: &str, field: &str) -> CompressedKey {
+    match CompressedKey::from_str(value) {
+        Ok(script_key) => script_key,
+        Err(err) => {
+            eprintln!("invalid {field} {value}: {err}");
+            process::exit(2);
         }
     }
 }
