@@ -1,6 +1,6 @@
 use std::{env, fs, process, str::FromStr};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use tap_ldk_core::{
     ProjectInfo,
@@ -10,6 +10,7 @@ use tap_ldk_core::{
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
+    rfq_quote_store::{RfqQuoteRequest, RfqQuoteStore},
     wallet::{LocalTransferRequest, RegtestIssueRequest, WalletState},
 };
 
@@ -120,6 +121,119 @@ fn main() {
                     process::exit(1);
                 }
             }
+        }
+        [command, store_path] if command == "rfq-store-init" => {
+            let store = RfqQuoteStore::default();
+            save_rfq_store_or_exit(store_path, &store);
+            println!("initialized RFQ store {store_path}");
+        }
+        [command, store_path, scid] if command == "rfq-register-real-scid" => {
+            let scid = parse_u64_or_exit(scid, "real local SCID");
+            let mut store = load_rfq_store_or_default_or_exit(store_path);
+            if let Err(err) = store.register_real_local_scid(scid) {
+                eprintln!("failed to register real local SCID: {err}");
+                process::exit(1);
+            }
+            save_rfq_store_or_exit(store_path, &store);
+            println!("registered real local SCID {scid}");
+        }
+        [
+            command,
+            store_path,
+            peer,
+            asset_id,
+            asset_amount,
+            expiry_unix_seconds,
+            invoice_context,
+            replay_domain,
+            now_unix_seconds,
+        ] if command == "rfq-request" => {
+            let mut store = load_rfq_store_or_default_or_exit(store_path);
+            let request = RfqQuoteRequest {
+                peer: peer.to_owned(),
+                asset_id: parse_asset_id_or_exit(asset_id),
+                asset_amount: parse_u64_or_exit(asset_amount, "asset amount"),
+                expiry_unix_seconds: parse_u64_or_exit(expiry_unix_seconds, "expiry unix seconds"),
+                invoice_context: parse_asset_id_or_exit(invoice_context),
+                replay_domain: replay_domain.to_owned(),
+                now_unix_seconds: parse_u64_or_exit(now_unix_seconds, "now unix seconds"),
+            };
+            let quote = match store.request_quote(request) {
+                Ok(quote) => quote,
+                Err(err) => {
+                    eprintln!("failed to request RFQ quote: {err}");
+                    process::exit(1);
+                }
+            };
+            save_rfq_store_or_exit(store_path, &store);
+            print_json_or_exit(&quote, "RFQ quote");
+        }
+        [command, store_path, quote_id, now_unix_seconds] if command == "rfq-accept" => {
+            let mut store = load_rfq_store_or_exit(store_path);
+            let now_unix_seconds = parse_u64_or_exit(now_unix_seconds, "now unix seconds");
+            let quote = match store.accept_quote(quote_id, now_unix_seconds) {
+                Ok(quote) => quote,
+                Err(err) => {
+                    eprintln!("failed to accept RFQ quote {quote_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            save_rfq_store_or_exit(store_path, &store);
+            print_json_or_exit(&quote, "RFQ quote");
+        }
+        [command, store_path, quote_id, now_unix_seconds] if command == "rfq-expire" => {
+            let mut store = load_rfq_store_or_exit(store_path);
+            let now_unix_seconds = parse_u64_or_exit(now_unix_seconds, "now unix seconds");
+            let quote = match store.expire_quote(quote_id, now_unix_seconds) {
+                Ok(quote) => quote,
+                Err(err) => {
+                    eprintln!("failed to expire RFQ quote {quote_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            save_rfq_store_or_exit(store_path, &store);
+            print_json_or_exit(&quote, "RFQ quote");
+        }
+        [command, store_path, quote_id, now_unix_seconds, reason] if command == "rfq-reject" => {
+            let mut store = load_rfq_store_or_exit(store_path);
+            let now_unix_seconds = parse_u64_or_exit(now_unix_seconds, "now unix seconds");
+            let quote = match store.reject_quote(quote_id, now_unix_seconds, reason.to_owned()) {
+                Ok(quote) => quote,
+                Err(err) => {
+                    eprintln!("failed to reject RFQ quote {quote_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            save_rfq_store_or_exit(store_path, &store);
+            print_json_or_exit(&quote, "RFQ quote");
+        }
+        [command, store_path, quote_id, now_unix_seconds] if command == "rfq-authorize-htlc" => {
+            let mut store = load_rfq_store_or_exit(store_path);
+            let now_unix_seconds = parse_u64_or_exit(now_unix_seconds, "now unix seconds");
+            let authorization = match store.authorize_asset_htlc(quote_id, now_unix_seconds) {
+                Ok(authorization) => authorization,
+                Err(err) => {
+                    eprintln!("failed to authorize RFQ HTLC for quote {quote_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            save_rfq_store_or_exit(store_path, &store);
+            print_json_or_exit(&authorization, "RFQ HTLC authorization");
+        }
+        [command, store_path, quote_id] if command == "rfq-quote" => {
+            let store = load_rfq_store_or_exit(store_path);
+            let quote = match store.inspect_quote(quote_id) {
+                Ok(quote) => quote,
+                Err(err) => {
+                    eprintln!("failed to inspect RFQ quote {quote_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&quote, "RFQ quote");
+        }
+        [command, store_path] if command == "rfq-quotes" => {
+            let store = load_rfq_store_or_exit(store_path);
+            print_json_or_exit(&store.quotes, "RFQ quotes");
         }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
@@ -294,6 +408,17 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk ldk-baseline-smoke <state.json>");
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");
+    println!("  tap-ldk rfq-store-init <store.json>");
+    println!("  tap-ldk rfq-register-real-scid <store.json> <real-local-scid>");
+    println!(
+        "  tap-ldk rfq-request <store.json> <peer> <asset-id> <asset-amount> <expiry-unix-seconds> <invoice-context> <replay-domain> <now-unix-seconds>"
+    );
+    println!("  tap-ldk rfq-accept <store.json> <quote-id> <now-unix-seconds>");
+    println!("  tap-ldk rfq-reject <store.json> <quote-id> <now-unix-seconds> <reason>");
+    println!("  tap-ldk rfq-expire <store.json> <quote-id> <now-unix-seconds>");
+    println!("  tap-ldk rfq-authorize-htlc <store.json> <quote-id> <now-unix-seconds>");
+    println!("  tap-ldk rfq-quote <store.json> <quote-id>");
+    println!("  tap-ldk rfq-quotes <store.json>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
@@ -348,11 +473,58 @@ fn save_wallet_or_exit(wallet_path: &str, wallet: &WalletState) {
     }
 }
 
+fn load_rfq_store_or_default_or_exit(store_path: &str) -> RfqQuoteStore {
+    match RfqQuoteStore::load_or_default(store_path) {
+        Ok(store) => store,
+        Err(err) => {
+            eprintln!("failed to load RFQ store {store_path}: {err}");
+            process::exit(1);
+        }
+    }
+}
+
+fn load_rfq_store_or_exit(store_path: &str) -> RfqQuoteStore {
+    match RfqQuoteStore::load(store_path) {
+        Ok(store) => store,
+        Err(err) => {
+            eprintln!("failed to load RFQ store {store_path}: {err}");
+            process::exit(1);
+        }
+    }
+}
+
+fn save_rfq_store_or_exit(store_path: &str, store: &RfqQuoteStore) {
+    if let Err(err) = store.save_atomic(store_path) {
+        eprintln!("failed to save RFQ store {store_path}: {err}");
+        process::exit(1);
+    }
+}
+
+fn print_json_or_exit<T: Serialize>(value: &T, label: &str) {
+    match serde_json::to_string_pretty(value) {
+        Ok(json) => println!("{json}"),
+        Err(err) => {
+            eprintln!("failed to render {label}: {err}");
+            process::exit(1);
+        }
+    }
+}
+
 fn parse_amount_or_exit(value: &str) -> u64 {
     match value.parse::<u64>() {
         Ok(amount) => amount,
         Err(err) => {
             eprintln!("invalid amount {value}: {err}");
+            process::exit(2);
+        }
+    }
+}
+
+fn parse_u64_or_exit(value: &str, field: &str) -> u64 {
+    match value.parse::<u64>() {
+        Ok(amount) => amount,
+        Err(err) => {
+            eprintln!("invalid {field} {value}: {err}");
             process::exit(2);
         }
     }

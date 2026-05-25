@@ -84,7 +84,7 @@ cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223
 - Native asset peer-message codecs, including funding proof fragments and RFQ
   request/accept/reject messages.
 - RFQ quote store, fixed regtest oracle, expiry/replay policy, and SCID alias
-  allocation.
+  allocation, documented in `docs/rfq-quote-store.md`.
 - Asset virtual transaction construction, asset-level signing, and nonce
   management.
 - Lightning Labs fixture and blob decoding for Track B compatibility tests.

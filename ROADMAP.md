@@ -348,6 +348,13 @@ Exit criteria:
 - Quotes bind to the asset ID, amount, rate, peer, and invoice context.
 - The wallet can select a quote and produce route metadata for payment.
 
+Current implementation note:
+
+- The local RFQ quote store, fixed `OPENUSD` regtest oracle, expiry/replay
+  checks, SCID alias allocation, and CLI inspection commands are implemented in
+  `tap-ldk-core::rfq_quote_store`. The next RFQ step is wiring these stored
+  quote bindings into native peer messages and invoice/payment metadata.
+
 ## Milestone 5: Asset Channel Funding
 
 Deliverables:
