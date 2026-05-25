@@ -31,6 +31,7 @@ Lightning Labs daemons.
 
 ## Source Material
 
+- `INVARIANTS.md`
 - `stablecoins-may25-transcript.md`
 - `blip-0029-taproot-assets-pr-29.md`
 - `tap-ldk-proof-of-concept-analysis.md`
@@ -42,6 +43,11 @@ Lightning Labs daemons.
 - No claim of production stablecoin issuance, redemption, compliance, or
   reserves.
 - No broad discovery marketplace as a prerequisite for the first demo.
+- No multi-asset-per-channel or multi-asset-per-HTLC demo in the first public
+  cut unless explicitly reopened after the single-asset path works.
+- No dual-funding asset-channel demo in the first public cut.
+- No change to BOLT 11 invoice format for the demo path; asset semantics live
+  in RFQ, route, and custom-record metadata.
 
 ## What Must Be Real
 
@@ -51,6 +57,11 @@ Lightning Labs daemons.
 - RFQ or quote binding that determines the BTC HTLC amount for an asset
   payment.
 - Asset-specific HTLC custom records.
+- Asset-channel feature negotiation and channel type handling.
+- Separate Taproot Asset proof messages for channel funding, so large proof
+  data does not bloat `open_channel`.
+- Asset-level witness, virtual transaction, MuSig2 signature, and nonce
+  handling for the Taproot Assets layer.
 - Channel persistence sufficient to restart the demo wallet without losing the
   asset-channel state.
 - A native `tap-ldk` to native `tap-ldk` payment path.
@@ -63,6 +74,39 @@ Lightning Labs daemons.
 - Discovery, using manual pubkeys, static peers, or a tiny local registry.
 - Universe/proof courier, using a local file or local service.
 - UI, using CLI or a simple local web view.
+
+## BLIP-0029 Scope Notes
+
+The BLIP frames Taproot Asset channels as a variant of simple taproot channels:
+asset balances are an overlay on normal initiator/responder balances, and the
+Taproot Assets commitment appears as an additional tapscript sibling in the
+relevant outputs. The demo should follow that shape rather than invent a
+parallel payment protocol.
+
+First public demo scope:
+
+- one asset ID per asset channel;
+- multiple funding proofs are allowed only to merge multiple inputs of the same
+  asset ID into one channel asset UTXO;
+- the asset proof sent during funding is the anchor proof needed for the final
+  resting place, while full history may come from a local universe/proof
+  service;
+- asset proof transport remains separate from `open_channel` to respect
+  Lightning message-size limits and minimize base message changes;
+- HTLC and revocation scripts are lifted to the Taproot Assets layer for the
+  single-asset case;
+- BOLT 11 invoices remain BTC/msat invoices, with Taproot Asset settlement
+  selected through RFQ and route metadata;
+- BOLT 12 compatibility is a design note, not a first-demo blocker.
+
+Follow-on scope:
+
+- multiple asset IDs in one channel output;
+- one outgoing HTLC using multiple asset IDs;
+- multi-part payments across a set of USD-backed channels;
+- dual-funded asset-channel opening;
+- variable exchange-rate precision, scaling exponent, or characteristic logic
+  for non-stablecoin Taproot Assets.
 
 ## Regtest Tooling
 
@@ -144,10 +188,10 @@ to carry both demos to completion.
 | 13 | Define the rust-lightning asset-channel extension boundary | The design maps each required LND aux hook to an LDK or forked `rust-lightning` surface with feature flags | Both |
 | 14 | Create required OpenAgentsInc forks | Any needed `rust-lightning` or dependency forks exist under `OpenAgentsInc` and are wired explicitly from `tap-ldk` | Both |
 | 15 | Add asset-channel feature negotiation | Peers can advertise, require, accept, and reject the experimental Taproot Assets channel feature | Both |
-| 16 | Add Taproot Asset peer messages | Proof exchange, channel funding metadata, RFQ, quote accept/reject, and asset HTLC messages round-trip between native peers | Both |
-| 17 | Implement RFQ quote store and fixed-rate oracle | Quotes bind asset ID, asset amount, BTC amount, peer, expiry, invoice context, and replay protection | Both |
-| 18 | Implement asset-channel funding for native peers | Two native wallets can open a single-asset channel and persist initial asset balances | A |
-| 19 | Implement asset commitment state transitions | Commitment updates move asset balances, reject malformed HTLC blobs, and preserve revocation semantics | Both |
+| 16 | Add Taproot Asset peer messages | Separate proof messages, channel funding metadata, RFQ request/accept/reject, and asset HTLC messages round-trip between native peers without bloating `open_channel` | Both |
+| 17 | Implement RFQ quote store and fixed-rate oracle | Quotes bind asset ID, asset amount, BTC amount, peer, absolute expiry, invoice context, SCID alias, and replay protection | Both |
+| 18 | Implement asset-channel funding for native peers | Two native wallets can open a single-asset channel, accept multiple same-asset input proofs, derive the final TAP asset root hash+sum, and persist initial asset balances | A |
+| 19 | Implement asset commitment state transitions | Commitment updates move asset balances, handle asset-level MuSig2 nonces/signatures per asset ID, reject malformed HTLC blobs, and preserve revocation semantics | Both |
 | 20 | Implement asset HTLC custom records and final-hop validation | Asset amount, asset ID, quote binding, and invoice metadata are encoded, decoded, and enforced | Both |
 | 21 | Implement native asset payment send/receive | Wallet A can pay Wallet B `OPENUSD` through the asset channel and both balances update | A |
 | 22 | Implement restart recovery for native channels | Restart after funding, quote acceptance, HTLC add, commitment sign, and settlement recovers the same asset state | A |
@@ -198,10 +242,16 @@ Deliverables:
   - proof file encoding;
   - virtual PSBT encoding.
 - Extract the important LND/tapd custom-channel flows into test notes:
+  - feature bit and channel type negotiation;
+  - Taproot Asset proof messages separate from `open_channel`;
   - asset channel funding;
+  - merged same-asset inputs into one channel asset UTXO;
+  - Taproot Asset root hash+sum handling;
+  - TAP virtual transaction signing and per-asset-ID nonce handling;
   - asset invoice creation;
   - direct asset payment;
   - RFQ quote flow;
+  - RFQ custom message type allocation;
   - mixed BTC/asset routing;
   - close and force-close behavior.
 
@@ -256,6 +306,10 @@ Deliverables:
 - If a fork is needed, create it under `OpenAgentsInc` first, for example
   `OpenAgentsInc/rust-lightning`, then wire `tap-ldk` to that fork explicitly.
 - Add feature flags so normal BTC Lightning behavior stays isolated.
+- Add or fork the message/channel-type plumbing needed for a new Taproot Asset
+  feature bit and channel type.
+- Define how asset-level MuSig2 nonces and partial signatures are carried
+  without reusing BTC-level nonces.
 - Define persistence data that must be written through channel monitors.
 
 Exit criteria:
@@ -273,7 +327,16 @@ Deliverables:
 - Fixed-rate mock oracle for `OPENUSD`.
 - SCID alias derivation for quote-bound routes.
 - Collision checks so RFQ SCIDs cannot collide with real local channel SCIDs.
-- Invoice binding so a quote and invoice expire coherently.
+- Absolute quote expiry, using a timestamp-style representation unless the
+  BLIP settles on a different self-contained encoding.
+- Invoice binding so a quote and invoice expire coherently and are treated as
+  a 1:1 pair for the first demo.
+- Taproot Assets custom message type allocation for quote request, quote
+  accept, and quote reject.
+- Optional reject reason/error payload if it can be added without blocking
+  interop.
+- Stablecoin fixed-rate representation using a scaled exchange rate; variable
+  precision/exponent handling stays follow-on.
 - Basic multi-peer quote query support.
 
 Exit criteria:
@@ -288,9 +351,16 @@ Exit criteria:
 Deliverables:
 
 - Asset-channel feature negotiation.
-- Funding flow with asset proof exchange.
+- Funding flow with separate asset proof exchange.
 - Support for multiple proof messages to avoid Lightning message-size limits.
+- Support for merging multiple inputs of the same asset ID into a single
+  channel asset UTXO.
+- Anchor-proof handling for the channel funding output, with full proof history
+  retrieved from local universe/proof service when needed.
 - Funding output construction with a Taproot Assets commitment sibling.
+- Final `tap_asset_root` hash+sum construction.
+- Asset-level `funding_signed` and channel-ready nonce handling, including
+  `next_local_nonce` per distinct asset ID.
 - Channel-level asset blob persistence.
 - Confirmation handling that validates anchor proofs against the funding
   transaction.
@@ -313,6 +383,10 @@ Deliverables:
 - Auxiliary leaves for local and remote commitment outputs.
 - Auxiliary leaves for second-level HTLC outputs.
 - Asset-level signatures or witnesses where the TAP layer requires them.
+- HTLC and revocation script semantics lifted onto the Taproot Assets layer for
+  the single-asset channel case.
+- A scoped answer for how multiple HTLCs in one single-asset channel map into
+  Taproot Assets leaves and second-level outputs.
 - Revocation handling that preserves breach semantics at the asset layer.
 
 Exit criteria:
@@ -415,7 +489,7 @@ The first public demo is ready when:
 
 - the `tap-ldk` wallet runs without LND or tapd as a sidecar;
 - the wallet can issue or load a demo stablecoin asset;
-- two native wallets can open an asset channel;
+- two native wallets can open a single-asset channel;
 - one wallet can pay the other using RFQ-bound asset HTLC metadata;
 - one native wallet can interoperate with a Lightning Labs LND/tapd node for an
   asset invoice payment;
@@ -430,6 +504,9 @@ The stronger demo adds:
 - BOLT 12 offer/invoice coverage;
 - force-close and proof export;
 - discovery through a node feature bit or TLV;
+- multiple asset IDs in one channel output;
+- MPP over multiple USD-backed channels;
+- dual-funded asset-channel opening;
 - a simple mobile or web presentation layer.
 
 ## Open Decisions
@@ -440,10 +517,22 @@ The stronger demo adds:
   changes can remain in `tap-ldk` extension crates.
 - How much of the TAP VM is required for the first demo versus full protocol
   coverage.
-- How to represent quote expiry: relative seconds are fragile; an absolute
-  timestamp is likely cleaner.
-- How to handle multiple USD-backed channels for one quote and MPP routing.
+- Whether to lock the native design to absolute quote expiry timestamps while
+  the BLIP still discusses relative expiry fields.
+- Whether quote and invoice expiry must be identical, or only coherent enough
+  that neither can outlive the other in a stale-payment path.
+- How to handle multiple USD-backed channels for one quote and MPP routing
+  after the single-asset direct demo works.
 - How to prevent RFQ SCID alias collisions and garbage-collect expired aliases.
+- Whether to use the proposed Taproot Assets custom-message type offset
+  `32768 + 20116` for request, accept, and reject messages.
+- Whether quote reject messages need an optional error field for interop.
+- How to represent scaled exchange rates, exponent/precision, and
+  characteristic-like metadata for non-stablecoin Taproot Assets.
+- How to support multiple asset IDs in one channel output after the first
+  single-asset demo.
+- How dual funding should alter proof exchange, asset input merging, and
+  funding transaction validation.
 - How much discovery belongs in node announcements versus an external registry
   or NIP-69-style intent layer.
 - Which direction the first LND/tapd interop payment should run:
@@ -452,21 +541,28 @@ The stronger demo adds:
 ## Immediate Next Steps
 
 1. Scaffold the `tap-ldk` Rust workspace.
-2. Copy or reference the TAP BIP test vectors from local synced refs.
-3. Implement asset TLV parsing and MS-SMT fixtures.
-4. Write the rust-lightning aux-hook-equivalent design document in `tap-ldk/`.
-5. Build the RFQ custom-message skeleton.
-6. Run a Polar smoke network and record the exact LND/`tapd`/`litd` topology
+2. Write a BLIP-0029 implementation note covering first-demo scope,
+   single-asset constraints, proof messages, RFQ expiry, SCID aliases, and
+   per-asset nonce/signature handling.
+3. Copy or reference the TAP BIP test vectors from local synced refs.
+4. Implement asset TLV parsing and MS-SMT fixtures.
+5. Write the rust-lightning aux-hook-equivalent design document in `tap-ldk/`.
+6. Build the RFQ custom-message skeleton.
+7. Run a Polar smoke network and record the exact LND/`tapd`/`litd` topology
    usable for the Lightning Labs interop demo.
-7. Build the headless regtest demo harness.
-8. Create the first native asset issuance and proof-verification CLI command.
-9. Start the asset-channel funding spike once the core asset proof path passes
+8. Build the headless regtest demo harness.
+9. Create the first native asset issuance and proof-verification CLI command.
+10. Start the asset-channel funding spike once the core asset proof path passes
    fixture tests.
 
 ## Risks
 
 - Scope is large: this is protocol work, not a wallet skin.
 - The BLIP and TAP BIP materials are still draft inputs.
+- BLIP-0029 has unresolved review questions around proof transport, per-asset
+  nonces, quote expiry, SCID aliases, scaling precision, multiple HTLCs, MPP,
+  and multi-asset channel outputs; first-demo scope should stay single-asset
+  until those edges are explicit.
 - Recovery must be designed early; adding it late risks invalid channel-state
   assumptions.
 - Polar is useful for manual and MCP-driven regtest orchestration, but relying
