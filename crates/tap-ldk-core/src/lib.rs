@@ -2,6 +2,7 @@ pub mod address;
 pub mod asset;
 pub mod asset_channel_boundary;
 pub mod asset_channel_negotiation;
+pub mod asset_peer_message;
 pub mod ldk_baseline;
 pub mod ldk_fork;
 pub mod proof;

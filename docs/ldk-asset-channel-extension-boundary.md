@@ -53,6 +53,30 @@ Smoke command:
 cargo run -p tap-ldk-cli -- asset-negotiation-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 ```
 
+## Native Peer Message Layer
+
+`crates/tap-ldk-core/src/asset_peer_message.rs` defines the first native TLV
+message layer for proof exchange, funding metadata, RFQ shells, and asset HTLC
+blob transport. The Taproot Asset channel message type base follows the
+Lightning Labs offset pattern:
+
+- Taproot Assets base: `32768 + 20116`
+- Channel message offset: base `+ 256`
+- Funding proof and funding acceptance messages: offset `+ 0..3`
+- Native RFQ shells: offset `+ 64..66`
+- Native asset HTLC blob shell: offset `+ 96`
+
+The funding proof path is separate from `open_channel`. Proof bytes are split
+into chunks with a SHA-256 digest and reassembled before funding can advance.
+Message decoding through `decode_negotiated_message` requires a negotiated
+asset channel; BTC-only channels reject asset messages.
+
+Smoke command:
+
+```bash
+cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
+```
+
 ## What Stays In `tap-ldk`
 
 - Taproot Asset proof parsing, proof import/export, wallet state, and local
