@@ -8,6 +8,7 @@ use tap_ldk_core::{
     asset_channel_funding::{AssetChannelStore, run_asset_channel_funding_smoke},
     asset_channel_negotiation::run_negotiation_smoke,
     asset_commitment::{AssetCommitmentStore, run_asset_commitment_smoke},
+    asset_htlc::run_asset_htlc_smoke,
     asset_peer_message::run_peer_message_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
@@ -307,6 +308,16 @@ fn main() {
             };
             print_json_or_exit(&state, "asset-commitment state");
         }
+        [command] if command == "asset-htlc-smoke" => {
+            let (_htlc_store, _commitment_store, report) = match run_asset_htlc_smoke() {
+                Ok(result) => result,
+                Err(err) => {
+                    eprintln!("failed asset-HTLC smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "asset-HTLC smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -498,6 +509,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-commitment-smoke <store.json>");
     println!("  tap-ldk asset-commitment-list <store.json>");
     println!("  tap-ldk asset-commitment-state <store.json> <channel-id>");
+    println!("  tap-ldk asset-htlc-smoke");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

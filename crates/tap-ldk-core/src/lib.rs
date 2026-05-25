@@ -4,6 +4,7 @@ pub mod asset_channel_boundary;
 pub mod asset_channel_funding;
 pub mod asset_channel_negotiation;
 pub mod asset_commitment;
+pub mod asset_htlc;
 pub mod asset_peer_message;
 pub mod ldk_baseline;
 pub mod ldk_fork;
