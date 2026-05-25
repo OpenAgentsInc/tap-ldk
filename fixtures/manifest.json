@@ -110,6 +110,18 @@
       }
     },
     {
+      "id": "synthetic-proof-anchor-invalid",
+      "category": "proof",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/proof_anchor_invalid.json",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/proof",
+        "commit": "743db21da57b",
+        "notes": "Bounded proof negative cases for parser and verifier fail-closed tests."
+      }
+    },
+    {
       "id": "synthetic-channel-trace-placeholder",
       "category": "channel_trace",
       "status": "synthetic_regtest",

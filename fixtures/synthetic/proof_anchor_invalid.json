@@ -1,0 +1,20 @@
+{
+  "kind": "synthetic-proof-anchor-invalid",
+  "description": "Bounded negative cases for proof import/export and anchor verification.",
+  "cases": [
+    {
+      "name": "zero-asset-id",
+      "mutate": {
+        "asset_id": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "error": "zero_asset_id"
+    },
+    {
+      "name": "root-sum-mismatch",
+      "mutate": {
+        "tap_asset_root_sum": 999999
+      },
+      "error": "root_sum_mismatch"
+    }
+  ]
+}

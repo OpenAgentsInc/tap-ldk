@@ -404,9 +404,11 @@ Do not claim these guarantees until implementation and verification exist:
 
 - There is not yet a Rust workspace, native wallet, or demo harness.
 - There is not yet a repo-local formal harness or TLA+ model.
-- Native strict BigSize/TLV primitives and bounded synthetic asset
-  identity/hash+sum conservation helpers exist, but full TAP BIP MS-SMT, TAP
-  VM, proof, address, and virtual PSBT validation are not implemented.
+- Native strict BigSize/TLV primitives, bounded synthetic asset
+  identity/hash+sum conservation helpers, and bounded proof-anchor import,
+  export, and verification helpers exist, but full TAP BIP MS-SMT, TAP VM,
+  address, virtual PSBT, and full-history proof validation are not
+  implemented.
 - Native asset-channel funding, commitments, HTLCs, close, recovery, and
   interop are not implemented.
 - `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not

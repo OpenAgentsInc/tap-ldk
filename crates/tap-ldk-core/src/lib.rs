@@ -1,4 +1,5 @@
 pub mod asset;
+pub mod proof;
 pub mod tlv;
 
 pub const PROJECT_NAME: &str = "tap-ldk";
