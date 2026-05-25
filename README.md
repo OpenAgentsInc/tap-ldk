@@ -27,6 +27,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Protocol References](docs/protocol-references.md)
 - [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
 - [LDK Asset-Channel Extension Boundary](docs/ldk-asset-channel-extension-boundary.md)
+- [OpenAgentsInc Rust-Lightning Fork](docs/openagents-rust-lightning-fork.md)
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
 - [Baseline LDK Node](docs/baseline-ldk-node.md)

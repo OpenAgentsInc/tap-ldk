@@ -2,6 +2,7 @@ pub mod address;
 pub mod asset;
 pub mod asset_channel_boundary;
 pub mod ldk_baseline;
+pub mod ldk_fork;
 pub mod proof;
 pub mod regtest;
 pub mod tlv;
