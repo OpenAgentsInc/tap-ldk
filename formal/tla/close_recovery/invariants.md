@@ -14,3 +14,8 @@
   checkpoints.
 - Recovery refuses checkpoints older than the latest durable asset commitment
   state and does not report those refusals as recovered.
+- `crates/tap-ldk-core/src/asset_close.rs` maps cooperative close to the latest
+  durable asset commitment and refuses proof material from obsolete commitment
+  views.
+- Force-close and sweep recovery remain a deferred gate; failed sweep state is
+  not reported as recovered.

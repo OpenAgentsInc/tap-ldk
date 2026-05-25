@@ -435,6 +435,9 @@ Current implementation note:
 - `tap-ldk-core::asset_recovery` adds bounded restart checkpoints for funding,
   quote acceptance, HTLC add, commitment sign, settlement, and close
   preparation, including stale-checkpoint refusal.
+- `tap-ldk-core::asset_close` adds bounded cooperative close and final owner
+  proof export from the latest asset commitment view. Force-close and sweep
+  recovery remain explicitly deferred.
 
 ## Milestone 7: Payment Send, Receive, And Routing
 
@@ -466,6 +469,9 @@ Current implementation note:
 - `tap-ldk-cli asset-recovery-smoke` verifies restart recovery across funding,
   RFQ, HTLC, commitment, settlement, and close-prep checkpoints. Close-prep is
   only a durable marker until the close/proof-export issue lands.
+- `tap-ldk-cli asset-close-smoke` closes the bounded native channel after the
+  demo payment, exports final owner proofs, imports them into wallets,
+  round-trips close state across restart, and rejects obsolete proof material.
 
 ## Milestone 8: Recovery, Close, And Proof Export
 

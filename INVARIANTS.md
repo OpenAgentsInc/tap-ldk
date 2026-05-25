@@ -432,9 +432,9 @@ Do not claim these guarantees until implementation and verification exist:
   signing, and full-history proof validation are not implemented.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
-  send/receive and restart-recovery smoke coverage exist for the first demo.
-  Native close, full Lightning dispatch, and interop payment execution are not
-  implemented.
+  send/receive, restart-recovery, cooperative-close, and proof-export smoke
+  coverage exist for the first demo. Native force-close, full Lightning
+  dispatch, and interop payment execution are not implemented.
 - `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not
   configured.
 - No public stablecoin issuance, redemption, compliance, or reserve guarantee

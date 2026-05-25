@@ -7,6 +7,7 @@ use tap_ldk_core::{
     asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
     asset_channel_funding::{AssetChannelStore, run_asset_channel_funding_smoke},
     asset_channel_negotiation::run_negotiation_smoke,
+    asset_close::run_native_asset_close_smoke,
     asset_commitment::{AssetCommitmentStore, run_asset_commitment_smoke},
     asset_htlc::run_asset_htlc_smoke,
     asset_payment::run_native_asset_payment_smoke,
@@ -341,6 +342,16 @@ fn main() {
             };
             print_json_or_exit(&report, "native asset recovery smoke");
         }
+        [command] if command == "asset-close-smoke" => {
+            let report = match run_native_asset_close_smoke() {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed native asset close smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "native asset close smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -535,6 +546,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-htlc-smoke");
     println!("  tap-ldk asset-payment-smoke");
     println!("  tap-ldk asset-recovery-smoke");
+    println!("  tap-ldk asset-close-smoke");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

@@ -3,6 +3,7 @@ pub mod asset;
 pub mod asset_channel_boundary;
 pub mod asset_channel_funding;
 pub mod asset_channel_negotiation;
+pub mod asset_close;
 pub mod asset_commitment;
 pub mod asset_htlc;
 pub mod asset_payment;
