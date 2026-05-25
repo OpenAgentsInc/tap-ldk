@@ -574,6 +574,11 @@ Current implementation note:
   metadata, expected balance deltas, replay and malformed/wrong metadata
   rejection, and restart-safe documented gap state. It does not yet claim live
   LND/`tapd` settlement or observed receiver balances.
+- `tap-ldk-core::lightning_labs_interop_checks` produces a consolidated Track
+  B check report across funding, TAPF proof fixtures, both payment directions,
+  restart round trips, metadata rejection checks, and expected balance deltas.
+  Failed comparisons include side, field, expected value, actual value, and
+  artifact path. Live daemon balance observation remains a documented gap.
 
 ## Public Demo Bar
 

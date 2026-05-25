@@ -13,6 +13,7 @@ pub mod ldk_baseline;
 pub mod ldk_fork;
 pub mod lightning_labs_blob;
 pub mod lightning_labs_funding;
+pub mod lightning_labs_interop_checks;
 pub mod lightning_labs_payment;
 pub mod lightning_labs_rfq;
 pub mod proof;

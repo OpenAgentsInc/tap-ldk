@@ -464,6 +464,9 @@ Do not claim these guarantees until implementation and verification exist:
   incoming payment until a live Lightning Labs sender payment is driven and a
   durable `tap-ldk` receiver balance is observed and matches the expected asset
   delta.
+- Consolidated Track B interop check reports may pass fixture-backed automated
+  checks while still carrying live-daemon documented gaps. A report with
+  `live_daemon_gaps_remaining=true` is not a settled interop success.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
   send/receive, restart-recovery, cooperative-close, and proof-export smoke

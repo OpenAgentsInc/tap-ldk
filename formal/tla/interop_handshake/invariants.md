@@ -21,6 +21,8 @@
   but cannot be modeled as settled interop payment until a live Lightning Labs
   sender is driven and the durable `tap-ldk` receiver balance agrees with the
   expected asset delta.
+- A consolidated interop check can pass fixture-backed checks while the model
+  still remains in a documented-gap state for live daemon balance observation.
 - Unsupported required blob fields and malformed blob structure lead to a
   documented gap or rejection state, never a successful interop state.
 - A settled interop payment requires proof sync, an open compatible channel,

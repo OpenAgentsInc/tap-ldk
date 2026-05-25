@@ -16,6 +16,7 @@ use tap_ldk_core::{
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     lightning_labs_blob::decode_fixture_hexdumps,
     lightning_labs_funding::run_lightning_labs_funding_interop_fixture_smoke,
+    lightning_labs_interop_checks::run_lightning_labs_interop_check_smoke,
     lightning_labs_payment::{
         run_lightning_labs_incoming_payment_smoke, run_lightning_labs_outgoing_payment_smoke,
     },
@@ -456,6 +457,36 @@ fn main() {
             }
             print_json_or_exit(&report, "Lightning Labs incoming payment smoke");
         }
+        [
+            command,
+            tapchannel_fixture_dir,
+            proof_fixture_dir,
+            report_path,
+        ] if command == "lightning-labs-interop-check-smoke" => {
+            let funding =
+                read_fixture_hexdump_or_exit(tapchannel_fixture_dir, "funding-blob.hexdump");
+            let commitment =
+                read_fixture_hexdump_or_exit(tapchannel_fixture_dir, "commitment-blob.hexdump");
+            let proof_file_hex = read_fixture_text_or_exit(proof_fixture_dir, "proof-file.hex");
+            let single_proof_hex = read_fixture_text_or_exit(proof_fixture_dir, "proof.hex");
+            let report = match run_lightning_labs_interop_check_smoke(
+                &funding,
+                &commitment,
+                &proof_file_hex,
+                &single_proof_hex,
+                tapchannel_fixture_dir,
+                proof_fixture_dir,
+                report_path,
+            ) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed Lightning Labs interop check smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            save_json_or_exit(report_path, &report, "Lightning Labs interop check report");
+            print_json_or_exit(&report, "Lightning Labs interop check smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -706,6 +737,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk lightning-labs-rfq-invoice-compat-smoke <asset-id>");
     println!("  tap-ldk lightning-labs-outgoing-payment-smoke <fixture-dir> <store.json>");
     println!("  tap-ldk lightning-labs-incoming-payment-smoke <fixture-dir> <store.json>");
+    println!(
+        "  tap-ldk lightning-labs-interop-check-smoke <tapchannel-fixture-dir> <proof-fixture-dir> <report.json>"
+    );
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
@@ -861,6 +895,29 @@ fn print_json_or_exit<T: Serialize>(value: &T, label: &str) {
             eprintln!("failed to render {label}: {err}");
             process::exit(1);
         }
+    }
+}
+
+fn save_json_or_exit<T: Serialize>(path: &str, value: &T, label: &str) {
+    let path_ref = Path::new(path);
+    if let Some(parent) = path_ref.parent() {
+        if !parent.as_os_str().is_empty() {
+            if let Err(err) = fs::create_dir_all(parent) {
+                eprintln!("failed to create parent directory for {path}: {err}");
+                process::exit(1);
+            }
+        }
+    }
+    let raw = match serde_json::to_vec_pretty(value) {
+        Ok(raw) => raw,
+        Err(err) => {
+            eprintln!("failed to render {label}: {err}");
+            process::exit(1);
+        }
+    };
+    if let Err(err) = fs::write(path_ref, raw) {
+        eprintln!("failed to write {label} {path}: {err}");
+        process::exit(1);
     }
 }
 
