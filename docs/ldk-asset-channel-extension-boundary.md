@@ -31,6 +31,28 @@ The same boundary is encoded in
 `crates/tap-ldk-core/src/asset_channel_boundary.rs` so later work has a typed
 ledger to test against.
 
+## Experimental Feature And Channel Type
+
+The first native negotiation surface is encoded in
+`crates/tap-ldk-core/src/asset_channel_negotiation.rs`.
+
+- Required feature bit: `54032`
+- Optional feature bit: `54033`
+- Protocol version: `1`
+- First channel type: `SingleAsset { asset_id, protocol_version }`
+
+The feature numbers are local experimental values for the proof of concept.
+They must be replaced or mapped when the BLIP process assigns stable feature or
+message values. Until negotiation succeeds, asset-channel funding messages,
+proof fragments, RFQ-bound asset HTLC metadata, and asset close/recovery
+messages must be rejected.
+
+Smoke command:
+
+```bash
+cargo run -p tap-ldk-cli -- asset-negotiation-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
+```
+
 ## What Stays In `tap-ldk`
 
 - Taproot Asset proof parsing, proof import/export, wallet state, and local

@@ -5,6 +5,7 @@ use serde::Deserialize;
 use tap_ldk_core::{
     ProjectInfo,
     asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
+    asset_channel_negotiation::run_negotiation_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
@@ -77,6 +78,23 @@ fn main() {
                 state.bob.restart_count,
                 state.asset_channel_features_enabled
             );
+        }
+        [command, asset_id] if command == "asset-negotiation-smoke" => {
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let report = match run_negotiation_smoke(asset_id) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed asset negotiation smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            match serde_json::to_string_pretty(&report) {
+                Ok(json) => println!("{json}"),
+                Err(err) => {
+                    eprintln!("failed to render asset negotiation smoke: {err}");
+                    process::exit(1);
+                }
+            }
         }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
@@ -249,6 +267,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk lightning-labs-counterparty-config");
     println!("  tap-ldk ldk-baseline-plan <base-dir>");
     println!("  tap-ldk ldk-baseline-smoke <state.json>");
+    println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
