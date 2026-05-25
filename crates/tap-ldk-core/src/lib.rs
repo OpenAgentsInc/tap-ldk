@@ -1,5 +1,6 @@
 pub mod address;
 pub mod asset;
+pub mod ldk_baseline;
 pub mod proof;
 pub mod regtest;
 pub mod tlv;

@@ -12,6 +12,8 @@ cargo test
 cargo run -p tap-ldk-cli -- --help
 cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
+cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
+cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-issue-openusd target/demo-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
 cargo run -p tap-ldk-cli -- wallet-import-proof-fixture target/demo-wallet.json fixtures/synthetic/proof_anchor_valid.json
@@ -26,6 +28,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
+- [Baseline LDK Node](docs/baseline-ldk-node.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
 - [Wallet Storage](docs/wallet-storage.md)

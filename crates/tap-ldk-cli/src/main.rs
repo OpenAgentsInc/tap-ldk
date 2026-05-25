@@ -5,6 +5,7 @@ use serde::Deserialize;
 use tap_ldk_core::{
     ProjectInfo,
     asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
+    ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     wallet::{LocalTransferRequest, RegtestIssueRequest, WalletState},
@@ -43,6 +44,39 @@ fn main() {
                     process::exit(1);
                 }
             }
+        }
+        [command, base_dir] if command == "ldk-baseline-plan" => {
+            let plan = BaselineLdkPlan::for_base_dir(base_dir);
+            match plan.to_json() {
+                Ok(json) => println!("{json}"),
+                Err(err) => {
+                    eprintln!("failed to render baseline LDK plan: {err}");
+                    process::exit(1);
+                }
+            }
+        }
+        [command, state_path] if command == "ldk-baseline-smoke" => {
+            let state = match BaselineBtcSmokeState::run_btc_only_smoke() {
+                Ok(state) => state,
+                Err(err) => {
+                    eprintln!("failed baseline BTC-only smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            if let Err(err) = state.save_atomic(state_path) {
+                eprintln!("failed to save baseline smoke state {state_path}: {err}");
+                process::exit(1);
+            }
+            println!(
+                "baseline-btc-smoke settled_payment={} bob_restarts={} asset_channels_enabled={}",
+                state
+                    .payment
+                    .as_ref()
+                    .map(|payment| payment.payment_id.as_str())
+                    .unwrap_or("none"),
+                state.bob.restart_count,
+                state.asset_channel_features_enabled
+            );
         }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
@@ -213,6 +247,8 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk --version");
     println!("  tap-ldk regtest-bitcoin-config");
     println!("  tap-ldk lightning-labs-counterparty-config");
+    println!("  tap-ldk ldk-baseline-plan <base-dir>");
+    println!("  tap-ldk ldk-baseline-smoke <state.json>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
