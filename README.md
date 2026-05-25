@@ -18,3 +18,4 @@ cargo run -p tap-ldk-cli -- --help
 - [Invariants](INVARIANTS.md)
 - [Protocol References](docs/protocol-references.md)
 - [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
+- [Polar Regtest Topology](docs/polar-regtest-topology.md)
