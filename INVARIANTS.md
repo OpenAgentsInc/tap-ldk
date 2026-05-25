@@ -155,6 +155,10 @@ These are the contracts we definitely want around the rust-lightning work.
   the wallet's sidecar.
 - Interop claims require a compatibility matrix that says which direction works
   and which protocol or implementation gap remains.
+- Lightning Labs funding, HTLC, and commitment blob compatibility claims must
+  be fixture-backed. Decoding produces a read-only field map; parsing a blob
+  must not mutate wallet state, advance channel state, or silently drop
+  unsupported required fields.
 - After an interop payment, both sides must report compatible payment state and
   asset balance state, or the mismatch must be documented as a failing gap.
 

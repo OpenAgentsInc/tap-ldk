@@ -1,4 +1,4 @@
-use std::{env, fs, process, str::FromStr};
+use std::{env, fs, path::Path, process, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +14,7 @@ use tap_ldk_core::{
     asset_peer_message::run_peer_message_smoke,
     asset_recovery::run_native_asset_recovery_matrix_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
+    lightning_labs_blob::decode_fixture_hexdumps,
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
@@ -352,6 +353,19 @@ fn main() {
             };
             print_json_or_exit(&report, "native asset close smoke");
         }
+        [command, fixture_dir] if command == "lightning-labs-blob-fixture-smoke" => {
+            let funding = read_fixture_hexdump_or_exit(fixture_dir, "funding-blob.hexdump");
+            let htlc = read_fixture_hexdump_or_exit(fixture_dir, "htlc-blob.hexdump");
+            let commitment = read_fixture_hexdump_or_exit(fixture_dir, "commitment-blob.hexdump");
+            let report = match decode_fixture_hexdumps(&funding, &htlc, &commitment) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed Lightning Labs blob fixture smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "Lightning Labs blob fixture smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -547,6 +561,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-payment-smoke");
     println!("  tap-ldk asset-recovery-smoke");
     println!("  tap-ldk asset-close-smoke");
+    println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
@@ -643,6 +658,17 @@ fn load_asset_commitment_store_or_exit(store_path: &str) -> AssetCommitmentStore
         Ok(store) => store,
         Err(err) => {
             eprintln!("failed to load asset-commitment store {store_path}: {err}");
+            process::exit(1);
+        }
+    }
+}
+
+fn read_fixture_hexdump_or_exit(fixture_dir: &str, file_name: &str) -> String {
+    let path = Path::new(fixture_dir).join(file_name);
+    match fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            eprintln!("failed to read fixture {}: {err}", path.display());
             process::exit(1);
         }
     }

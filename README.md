@@ -24,6 +24,7 @@ cargo run -p tap-ldk-cli -- asset-htlc-smoke
 cargo run -p tap-ldk-cli -- asset-payment-smoke
 cargo run -p tap-ldk-cli -- asset-recovery-smoke
 cargo run -p tap-ldk-cli -- asset-close-smoke
+cargo run -p tap-ldk-cli -- lightning-labs-blob-fixture-smoke fixtures/lightning-labs/tapchannelmsg/testdata
 ./scripts/path-a-native-demo.sh
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-issue-openusd target/demo-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
@@ -43,6 +44,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
 - [Baseline LDK Node](docs/baseline-ldk-node.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
+- [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
 - [Wallet Storage](docs/wallet-storage.md)
 - [Path A Native-To-Native Demo](docs/path-a-native-demo.md)

@@ -3,13 +3,14 @@ EXTENDS Naturals
 
 LlRole == "independent_counterparty"
 
-VARIABLES nativeState, llState, proofSync, channelState, rfqState, paymentState, balancesAgree, gap
+VARIABLES nativeState, llState, blobState, proofSync, channelState, rfqState, paymentState, balancesAgree, gap
 
-vars == <<nativeState, llState, proofSync, channelState, rfqState, paymentState, balancesAgree, gap>>
+vars == <<nativeState, llState, blobState, proofSync, channelState, rfqState, paymentState, balancesAgree, gap>>
 
 Init ==
     /\ nativeState = "ready"
     /\ llState = LlRole
+    /\ blobState = "none"
     /\ proofSync = FALSE
     /\ channelState = "none"
     /\ rfqState = "none"
@@ -17,22 +18,36 @@ Init ==
     /\ balancesAgree = FALSE
     /\ gap = FALSE
 
+DecodeLightningLabsBlobs ==
+    /\ blobState = "none"
+    /\ blobState' = "decoded"
+    /\ UNCHANGED <<nativeState, llState, proofSync, channelState, rfqState, paymentState, balancesAgree, gap>>
+
+RejectLightningLabsBlobs ==
+    /\ blobState = "none"
+    /\ blobState' = "rejected"
+    /\ gap' = TRUE
+    /\ paymentState' = "gap"
+    /\ balancesAgree' = FALSE
+    /\ UNCHANGED <<nativeState, llState, proofSync, channelState, rfqState>>
+
 SyncProofs ==
     /\ proofSync = FALSE
     /\ proofSync' = TRUE
-    /\ UNCHANGED <<nativeState, llState, channelState, rfqState, paymentState, balancesAgree, gap>>
+    /\ UNCHANGED <<nativeState, llState, blobState, channelState, rfqState, paymentState, balancesAgree, gap>>
 
 OpenInteropChannel ==
     /\ proofSync = TRUE
+    /\ blobState = "decoded"
     /\ channelState = "none"
     /\ channelState' = "open"
-    /\ UNCHANGED <<nativeState, llState, proofSync, rfqState, paymentState, balancesAgree, gap>>
+    /\ UNCHANGED <<nativeState, llState, blobState, proofSync, rfqState, paymentState, balancesAgree, gap>>
 
 NegotiateRfq ==
     /\ channelState = "open"
     /\ rfqState = "none"
     /\ rfqState' = "accepted"
-    /\ UNCHANGED <<nativeState, llState, proofSync, channelState, paymentState, balancesAgree, gap>>
+    /\ UNCHANGED <<nativeState, llState, blobState, proofSync, channelState, paymentState, balancesAgree, gap>>
 
 PayInteropInvoice ==
     /\ channelState = "open"
@@ -40,7 +55,7 @@ PayInteropInvoice ==
     /\ paymentState = "none"
     /\ paymentState' = "settled"
     /\ balancesAgree' = TRUE
-    /\ UNCHANGED <<nativeState, llState, proofSync, channelState, rfqState, gap>>
+    /\ UNCHANGED <<nativeState, llState, blobState, proofSync, channelState, rfqState, gap>>
 
 DocumentCompatibilityGap ==
     /\ paymentState = "none"
@@ -48,13 +63,15 @@ DocumentCompatibilityGap ==
     /\ gap' = TRUE
     /\ paymentState' = "gap"
     /\ balancesAgree' = FALSE
-    /\ UNCHANGED <<nativeState, llState, proofSync, channelState, rfqState>>
+    /\ UNCHANGED <<nativeState, llState, blobState, proofSync, channelState, rfqState>>
 
 TerminalStutter ==
     /\ paymentState \in {"settled", "gap"}
     /\ UNCHANGED vars
 
 Next ==
+    \/ DecodeLightningLabsBlobs
+    \/ RejectLightningLabsBlobs
     \/ SyncProofs
     \/ OpenInteropChannel
     \/ NegotiateRfq
@@ -69,6 +86,7 @@ LightningLabsIsCounterparty ==
 
 SettledRequiresFullHandshake ==
     paymentState = "settled" =>
+        /\ blobState = "decoded"
         /\ proofSync = TRUE
         /\ channelState = "open"
         /\ rfqState = "accepted"
@@ -79,5 +97,11 @@ GapIsNotSuccess ==
 
 NoSidecarClaim ==
     nativeState = "ready" /\ llState = LlRole
+
+BlobDecodeIsReadOnly ==
+    blobState = "decoded" => nativeState = "ready"
+
+RejectedBlobIsGap ==
+    blobState = "rejected" => gap = TRUE /\ paymentState = "gap" /\ balancesAgree = FALSE
 
 ====

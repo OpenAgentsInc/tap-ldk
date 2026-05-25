@@ -37,9 +37,9 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Channel feature/channel type | `docs/blip-0029-implementation-note.md`; `tapchannelmsg/records.go`; `tapchannelmsg/wire_msgs_test.go` | Add experimental asset-channel negotiation; normal BTC channels remain BTC-only. | Required |
 | Funding proof transport | `docs/blip-0029-implementation-note.md`; `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records_test.go` | Send proof data outside `open_channel`, reconstruct fragments, and reject incomplete proofs before funding advances. | Required |
 | Funding message names | `tapchannelmsg/wire_msgs_test.go` | Track `TxAssetInputProof`, `TxAssetOutputProof`, `AssetFundingCreated`, and `AssetFundingAccepted` equivalents. | Required |
-| Funding blob shape | `tapchannelmsg/testdata/funding-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go` | Add fixture decoding before claiming funding interop. | Required |
-| Commitment blob shape | `tapchannelmsg/testdata/commitment-blob.hexdump`; `tapchannelmsg/records.go` | Preserve local/remote/outgoing/incoming asset outputs with the matching commitment number. | Required |
-| HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests | Encode asset ID, amount, quote binding, and final-hop validation context in custom records. | Required |
+| Funding blob shape | `tapchannelmsg/testdata/funding-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps decimal display, optional group key, funded asset outputs, proof digests, and raw digest before any funding state can advance. | Partially implemented |
+| Commitment blob shape | `tapchannelmsg/testdata/commitment-blob.hexdump`; `tapchannelmsg/records.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps local/remote/outgoing/incoming asset output sections, aux leaves, optional STXO, and raw digest. Full commitment-number integration remains required. | Partially implemented |
+| HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps asset balances when present, RFQ id, available RFQ ids, noop flag, and visible optional odd records. Full send/receive enforcement remains required. | Partially implemented |
 | Asset signatures | `tapchannelmsg/records.go`; `tapchannel/aux_leaf_signer_test.go` | Maintain asset-level signing/nonce context separate from BTC-level signatures. | Required |
 | Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go` | Import/export compatible proof data and preserve anchor/proof material across restart. | Required |
 | Address encoding | `../projects/lightninglabs/repos/bips/bip-tap-addr.mediawiki`; `address/address.go`; `address/encoding.go` | Native address encode/decode already passes imported TAP BIP vectors; still needs wallet integration. | Partially implemented |
@@ -73,8 +73,8 @@ native receiver invoice/final-hop path in `tap-ldk`.
 
 ## Follow-Up Implementation Issues
 
-- Decode Lightning Labs funding, HTLC, and commitment blob fixtures from
-  `tapchannelmsg/testdata`.
+- Use the decoded Lightning Labs funding, HTLC, and commitment fixture field
+  maps as the input boundary for funding, RFQ, payment, and balance interop.
 - Implement native RFQ request/accept/reject messages against `rfqmsg` vectors.
 - Implement proof import/export compatibility with `tapd`.
 - Extend the headless harness to start Bitcoin Core plus LND/`tapd` using the
@@ -88,6 +88,7 @@ native receiver invoice/final-hop path in `tap-ldk`.
 
 - `tap-ldk` does not yet implement native asset-channel funding.
 - `tap-ldk` does not yet construct full virtual PSBT state transitions.
-- `tap-ldk` does not yet parse Lightning Labs funding/HTLC/commitment blobs.
+- `tap-ldk` parses fixture-backed Lightning Labs funding/HTLC/commitment blob
+  field maps, but does not yet apply them to live interop channel state.
 - `tap-ldk` does not yet implement RFQ wire compatibility.
 - `tap-ldk` does not yet perform either Track B payment direction.

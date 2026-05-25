@@ -58,6 +58,7 @@ fn required_fixture_categories_are_reachable() {
         "channel_trace",
         "ms_smt",
         "proof",
+        "tapchannelmsg",
         "virtual_psbt",
         "vm",
     ] {
@@ -77,10 +78,35 @@ fn imported_fixture_json_files_are_valid_json() {
 
     for fixture in fixtures {
         let path = required_str(fixture, "path");
+        if !path.ends_with(".json") {
+            continue;
+        }
+
         let raw = fs::read_to_string(repo_root().join(path))
             .unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
         serde_json::from_str::<Value>(&raw)
             .unwrap_or_else(|err| panic!("fixture is not valid JSON: {path}: {err}"));
+    }
+}
+
+#[test]
+fn imported_hexdump_files_contain_parseable_bytes() {
+    let manifest = load_manifest();
+    let fixtures = manifest["fixtures"]
+        .as_array()
+        .expect("fixtures must be an array");
+
+    for fixture in fixtures {
+        let path = required_str(fixture, "path");
+        if !path.ends_with(".hexdump") {
+            continue;
+        }
+
+        let raw = fs::read_to_string(repo_root().join(path))
+            .unwrap_or_else(|err| panic!("failed to read {path}: {err}"));
+        let bytes = tap_ldk_core::lightning_labs_blob::extract_hexdump_bytes(&raw)
+            .unwrap_or_else(|err| panic!("fixture is not a parseable hexdump: {path}: {err}"));
+        assert!(!bytes.is_empty(), "hexdump fixture has no bytes: {path}");
     }
 }
 

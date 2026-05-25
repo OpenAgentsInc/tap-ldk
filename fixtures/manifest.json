@@ -132,6 +132,42 @@
         "commit": "743db21da57b",
         "notes": "Placeholder shape for future LND/tapd asset-channel traces."
       }
+    },
+    {
+      "id": "lightning-labs-tapchannelmsg-funding-blob",
+      "category": "tapchannelmsg",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/tapchannelmsg/testdata/funding-blob.hexdump",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/tapchannelmsg/testdata/funding-blob.hexdump",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs OpenChannel funding blob fixture decoded by tap-ldk for first-demo field compatibility."
+      }
+    },
+    {
+      "id": "lightning-labs-tapchannelmsg-htlc-blob",
+      "category": "tapchannelmsg",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/tapchannelmsg/testdata/htlc-blob.hexdump",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/tapchannelmsg/testdata/htlc-blob.hexdump",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs RFQ HTLC custom-record blob fixture decoded by tap-ldk for first-demo field compatibility."
+      }
+    },
+    {
+      "id": "lightning-labs-tapchannelmsg-commitment-blob",
+      "category": "tapchannelmsg",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/tapchannelmsg/testdata/commitment-blob.hexdump",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/tapchannelmsg/testdata/commitment-blob.hexdump",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs Commitment blob fixture decoded by tap-ldk for first-demo local/remote/HTLC/aux-leaf field compatibility."
+      }
     }
   ]
 }

@@ -201,14 +201,15 @@ to carry both demos to completion.
 | 24 | Script the native-to-native demo | One command starts regtest, starts two wallets, issues `OPENUSD`, opens an asset channel, pays, restarts, and prints balances | A |
 | 25 | Extract Lightning Labs interop protocol matrix | `tapd`/`litd` flows for issuance, proof sync, channel funding, RFQ, invoices, payments, close, and balance checks are mapped to native code surfaces | B |
 | 26 | Build the Lightning Labs counterparty harness | The headless harness or Polar-backed manual harness can start Bitcoin Core plus LND/`tapd` or `litd` with stable connection material | B |
-| 27 | Implement proof import/export compatibility with `tapd` | `tap-ldk` and the Lightning Labs node can share or verify the same demo asset proof data | B |
-| 28 | Implement asset-channel funding interop | `tap-ldk` can open or attach to the compatible asset-channel setup used by the Lightning Labs counterparty | B |
-| 29 | Implement RFQ and invoice compatibility | `tap-ldk` can create, parse, accept, or pay the quote-bound invoice format used by the Lightning Labs stack | B |
-| 30 | Implement `tap-ldk` to Lightning Labs payment | `tap-ldk` pays an asset invoice to the LND/`tapd` or `litd` counterparty and both sides agree on payment and balance state | B |
-| 31 | Implement Lightning Labs to `tap-ldk` payment | The Lightning Labs counterparty pays a `tap-ldk` asset invoice, or the gap is documented as the only remaining demo limitation | B |
-| 32 | Add interop balance, proof, and restart checks | After each interop payment, both sides report expected balances and `tap-ldk` survives restart with the same state | B |
-| 33 | Automate the full demo harness | CI or a local smoke command can run Track A fully and run Track B as far as external container dependencies allow | Both |
-| 34 | Write the public demo runbook | The README or demo doc explains exact commands, mocked pieces, expected output, and compatibility limitations | Both |
+| 27 | Decode Lightning Labs blob fixtures | Funding, HTLC, and commitment fixtures from `tapchannelmsg/testdata` decode into native read-only field maps and reject malformed data | B |
+| 28 | Implement proof import/export compatibility with `tapd` | `tap-ldk` and the Lightning Labs node can share or verify the same demo asset proof data | B |
+| 29 | Implement asset-channel funding interop | `tap-ldk` can open or attach to the compatible asset-channel setup used by the Lightning Labs counterparty | B |
+| 30 | Implement RFQ and invoice compatibility | `tap-ldk` can create, parse, accept, or pay the quote-bound invoice format used by the Lightning Labs stack | B |
+| 31 | Implement `tap-ldk` to Lightning Labs payment | `tap-ldk` pays an asset invoice to the LND/`tapd` or `litd` counterparty and both sides agree on payment and balance state | B |
+| 32 | Implement Lightning Labs to `tap-ldk` payment | The Lightning Labs counterparty pays a `tap-ldk` asset invoice, or the gap is documented as the only remaining demo limitation | B |
+| 33 | Add interop balance, proof, and restart checks | After each interop payment, both sides report expected balances and `tap-ldk` survives restart with the same state | B |
+| 34 | Automate the full demo harness | CI or a local smoke command can run Track A fully and run Track B as far as external container dependencies allow | Both |
+| 35 | Write the public demo runbook | The README or demo doc explains exact commands, mocked pieces, expected output, and compatibility limitations | Both |
 
 ## Milestone 0: Repo And Harness Setup
 
@@ -542,6 +543,15 @@ Exit criteria:
   participation.
 - Any use of LND/tapd is clearly labeled as a compatibility peer, not a sidecar.
 - Gaps are reduced to explicit protocol or implementation issues.
+
+Current implementation note:
+
+- `tap-ldk-core::lightning_labs_blob` decodes the imported Lightning Labs
+  funding, HTLC, and commitment hexdump fixtures into read-only native field
+  maps with raw digests, asset output summaries, RFQ id data, aux leaf
+  summaries, and fail-closed malformed/truncated/non-canonical tests. Applying
+  those maps to live funding, RFQ, payment, and balance state remains the next
+  Track B work.
 
 ## Public Demo Bar
 
