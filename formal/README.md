@@ -17,6 +17,12 @@ or a clear model-boundary exception.
 formal/
   README.md
   tla/
+    asset_conservation/
+      AssetConservation.tla
+      AssetConservation.cfg
+      assumptions.md
+      boundaries.md
+      invariants.md
     asset_channel/
       AssetChannel.tla
       AssetChannel.cfg
@@ -25,6 +31,12 @@ formal/
       invariants.md
       counterexamples/
         README.md
+    rfq_lifecycle/
+      RfqLifecycle.tla
+      RfqLifecycle.cfg
+      assumptions.md
+      boundaries.md
+      invariants.md
 scripts/
   formal-check.sh
 ```
