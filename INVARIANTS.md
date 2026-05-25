@@ -106,6 +106,8 @@ These are the contracts we definitely want around the rust-lightning work.
 - BTC amounts exposed to the Lightning layer are quote-derived for asset
   payments.
 - Normal BTC payments are unaffected by asset-payment metadata.
+- Asset-level signing and nonce contexts must remain separate from BTC-level
+  signing and nonce contexts.
 
 ## Funding, Commitment, And Balance Invariants
 
@@ -406,9 +408,10 @@ Do not claim these guarantees until implementation and verification exist:
 - There is not yet a repo-local formal harness or TLA+ model.
 - Native strict BigSize/TLV primitives, bounded synthetic asset
   identity/hash+sum conservation helpers, and bounded proof-anchor import,
-  export, and verification helpers exist, but full TAP BIP MS-SMT, TAP VM,
-  address, virtual PSBT, and full-history proof validation are not
-  implemented.
+  export, and verification helpers exist. Bounded Taproot Asset address
+  encode/decode and virtual PSBT summary validation exist for the first-demo
+  fixture surface, but full TAP BIP MS-SMT, TAP VM, virtual transaction
+  signing, and full-history proof validation are not implemented.
 - Native asset-channel funding, commitments, HTLCs, close, recovery, and
   interop are not implemented.
 - `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not

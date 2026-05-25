@@ -1,6 +1,8 @@
+pub mod address;
 pub mod asset;
 pub mod proof;
 pub mod tlv;
+pub mod virtual_psbt;
 
 pub const PROJECT_NAME: &str = "tap-ldk";
 pub const PROJECT_SUMMARY: &str =
