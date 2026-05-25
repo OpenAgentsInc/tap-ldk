@@ -1,0 +1,42 @@
+{
+  "kind": "synthetic-tlv-codec",
+  "description": "Strict BigSize/TLV stream fixtures for early codec tests.",
+  "valid_streams": [
+    {
+      "name": "ordered-records-with-extended-type",
+      "hex": "01020102fd00fd04aaaaaaaa",
+      "records": [
+        {
+          "type_id": 1,
+          "value": "0102"
+        },
+        {
+          "type_id": 253,
+          "value": "aaaaaaaa"
+        }
+      ]
+    }
+  ],
+  "invalid_streams": [
+    {
+      "name": "non-canonical-type",
+      "hex": "fd00fc00",
+      "error": "non_canonical_big_size"
+    },
+    {
+      "name": "duplicate-type",
+      "hex": "01000100",
+      "error": "duplicate_type"
+    },
+    {
+      "name": "out-of-order-type",
+      "hex": "02000100",
+      "error": "out_of_order"
+    },
+    {
+      "name": "truncated-record-value",
+      "hex": "010201",
+      "error": "truncated_record"
+    }
+  ]
+}

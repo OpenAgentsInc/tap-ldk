@@ -1,3 +1,5 @@
+pub mod tlv;
+
 pub const PROJECT_NAME: &str = "tap-ldk";
 pub const PROJECT_SUMMARY: &str =
     "Experimental native Taproot Assets support for Rust Lightning/LDK.";

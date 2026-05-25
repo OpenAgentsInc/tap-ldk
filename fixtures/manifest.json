@@ -62,6 +62,18 @@
       }
     },
     {
+      "id": "synthetic-tlv-codec",
+      "category": "tlv",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/tlv_codec.json",
+      "source": {
+        "upstream": "https://github.com/lightningnetwork/lnd",
+        "local_path": "../projects/lightninglabs/repos/lnd/tlv",
+        "commit": "9f03672bdaba",
+        "notes": "Bounded BigSize/TLV stream fixture for strict parser tests."
+      }
+    },
+    {
       "id": "synthetic-ms-smt-smoke",
       "category": "ms_smt",
       "status": "synthetic_regtest",
