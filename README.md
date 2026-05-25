@@ -61,5 +61,6 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [tapd Proof Import/Export](docs/tapd-proof-import-export.md)
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
 - [Wallet Storage](docs/wallet-storage.md)
+- [Public Demo Runbook](docs/public-demo-runbook.md)
 - [Path A Native-To-Native Demo](docs/path-a-native-demo.md)
 - [Path B Lightning Labs Demo](docs/path-b-lightning-labs-demo.md)
