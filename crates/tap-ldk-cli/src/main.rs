@@ -16,6 +16,7 @@ use tap_ldk_core::{
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     lightning_labs_blob::decode_fixture_hexdumps,
     lightning_labs_funding::run_lightning_labs_funding_interop_fixture_smoke,
+    lightning_labs_payment::run_lightning_labs_outgoing_payment_smoke,
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
@@ -411,6 +412,27 @@ fn main() {
             };
             print_json_or_exit(&report, "Lightning Labs RFQ invoice compatibility smoke");
         }
+        [command, fixture_dir, store_path]
+            if command == "lightning-labs-outgoing-payment-smoke" =>
+        {
+            let funding = read_fixture_hexdump_or_exit(fixture_dir, "funding-blob.hexdump");
+            let commitment = read_fixture_hexdump_or_exit(fixture_dir, "commitment-blob.hexdump");
+            let (store, report) =
+                match run_lightning_labs_outgoing_payment_smoke(&funding, &commitment) {
+                    Ok(result) => result,
+                    Err(err) => {
+                        eprintln!("failed Lightning Labs outgoing payment smoke: {err}");
+                        process::exit(1);
+                    }
+                };
+            if let Err(err) = store.save_atomic(store_path) {
+                eprintln!(
+                    "failed to save Lightning Labs outgoing payment store {store_path}: {err}"
+                );
+                process::exit(1);
+            }
+            print_json_or_exit(&report, "Lightning Labs outgoing payment smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -659,6 +681,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-funding-interop-smoke <fixture-dir> <store.json>");
     println!("  tap-ldk lightning-labs-rfq-invoice-compat-smoke <asset-id>");
+    println!("  tap-ldk lightning-labs-outgoing-payment-smoke <fixture-dir> <store.json>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

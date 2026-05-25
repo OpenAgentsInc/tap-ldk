@@ -455,6 +455,10 @@ Do not claim these guarantees until implementation and verification exist:
   exists for the bounded first-demo message surface. Live LND/`tapd` RFQ
   session execution, accept-signature verification, and interop payment
   settlement are not implemented.
+- Sender-side `tap-ldk` to Lightning Labs payment artifacts can be built and
+  persisted as a documented-gap state. Do not claim a successful Track B
+  outgoing payment until a live Lightning Labs receiver balance is observed and
+  matches the expected asset delta.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
   send/receive, restart-recovery, cooperative-close, and proof-export smoke

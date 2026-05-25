@@ -568,6 +568,12 @@ Current implementation note:
   `rfqmsg.ID.Scid()` does, and binds decoded requests to native quote-bound
   invoice state. Live daemon RFQ exchange, accept-signature verification, and
   payment execution remain the next Track B work.
+- `tap-ldk-core::lightning_labs_payment` builds and persists the sender-side
+  Track B outgoing payment artifacts: fixture-backed funding state, Lightning
+  Labs RFQ payloads, quote-bound invoice, asset HTLC metadata, expected balance
+  delta, replay rejection, wrong-asset rejection, and restart-safe documented
+  gap state. It does not yet claim live LND/`tapd` settlement or observed
+  receiver balance.
 
 ## Public Demo Bar
 

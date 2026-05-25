@@ -14,6 +14,9 @@
 - Lightning Labs RFQ request, accept, and reject payload compatibility is
   bounded to TLV transport, message IDs, RFQ-ID-derived aliases, quote/invoice
   expiry, and replay checks until live daemon signature verification exists.
+- Sender-side outgoing payment artifacts may enter a documented-gap state, but
+  cannot be modeled as settled interop payment until the Lightning Labs
+  receiver balance is observed and agrees with the expected asset delta.
 - Unsupported required blob fields and malformed blob structure lead to a
   documented gap or rejection state, never a successful interop state.
 - A settled interop payment requires proof sync, an open compatible channel,
