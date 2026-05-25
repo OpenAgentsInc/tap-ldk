@@ -4,6 +4,7 @@ pub mod proof;
 pub mod regtest;
 pub mod tlv;
 pub mod virtual_psbt;
+pub mod wallet;
 
 pub const PROJECT_NAME: &str = "tap-ldk";
 pub const PROJECT_SUMMARY: &str =

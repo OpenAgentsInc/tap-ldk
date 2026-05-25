@@ -12,6 +12,9 @@ cargo test
 cargo run -p tap-ldk-cli -- --help
 cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
+cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
+cargo run -p tap-ldk-cli -- wallet-import-proof-fixture target/demo-wallet.json fixtures/synthetic/proof_anchor_valid.json
+cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 ```
 
 ## Planning Docs
@@ -24,3 +27,4 @@ cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
+- [Wallet Storage](docs/wallet-storage.md)
