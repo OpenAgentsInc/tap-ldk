@@ -49,3 +49,6 @@ those fields fails store validation on load.
 - This store does not alter normal BTC invoice behavior.
 
 The matching model boundary is `formal/tla/rfq_lifecycle/`.
+
+The native invoice binding layer that consumes accepted quotes is documented
+in `docs/rfq-invoice-binding.md`.

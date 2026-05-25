@@ -352,8 +352,11 @@ Current implementation note:
 
 - The local RFQ quote store, fixed `OPENUSD` regtest oracle, expiry/replay
   checks, SCID alias allocation, and CLI inspection commands are implemented in
-  `tap-ldk-core::rfq_quote_store`. The next RFQ step is wiring these stored
-  quote bindings into native peer messages and invoice/payment metadata.
+  `tap-ldk-core::rfq_quote_store`.
+- Native RFQ peer request/accept/reject messages are wired to quote storage,
+  and `tap-ldk-core::rfq_invoice` binds accepted quotes to opaque BOLT 11
+  invoice text without changing the invoice format. The next step is consuming
+  this binding in asset HTLC custom records and payment state.
 
 ## Milestone 5: Asset Channel Funding
 

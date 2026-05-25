@@ -10,6 +10,7 @@ use tap_ldk_core::{
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
+    rfq_invoice::run_rfq_invoice_smoke,
     rfq_quote_store::{RfqQuoteRequest, RfqQuoteStore},
     wallet::{LocalTransferRequest, RegtestIssueRequest, WalletState},
 };
@@ -235,6 +236,17 @@ fn main() {
             let store = load_rfq_store_or_exit(store_path);
             print_json_or_exit(&store.quotes, "RFQ quotes");
         }
+        [command, asset_id] if command == "rfq-invoice-smoke" => {
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let report = match run_rfq_invoice_smoke(asset_id) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed RFQ invoice smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "RFQ invoice smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -419,6 +431,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk rfq-authorize-htlc <store.json> <quote-id> <now-unix-seconds>");
     println!("  tap-ldk rfq-quote <store.json> <quote-id>");
     println!("  tap-ldk rfq-quotes <store.json>");
+    println!("  tap-ldk rfq-invoice-smoke <asset-id>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

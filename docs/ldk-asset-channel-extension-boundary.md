@@ -85,6 +85,8 @@ cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223
   request/accept/reject messages.
 - RFQ quote store, fixed regtest oracle, expiry/replay policy, and SCID alias
   allocation, documented in `docs/rfq-quote-store.md`.
+- Native RFQ invoice binding, documented in `docs/rfq-invoice-binding.md`,
+  with BOLT 11 kept opaque and unchanged.
 - Asset virtual transaction construction, asset-level signing, and nonce
   management.
 - Lightning Labs fixture and blob decoding for Track B compatibility tests.

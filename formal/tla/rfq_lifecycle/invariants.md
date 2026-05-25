@@ -15,3 +15,5 @@
   single-use replay protection.
 - The implementation tracks quote SCID aliases against both real local SCIDs
   and other requested/accepted quote aliases.
+- `crates/tap-ldk-core/src/rfq_invoice.rs` enforces the invoice-expiry boundary
+  by rejecting invoice bindings whose expiry outlives the accepted quote.

@@ -39,6 +39,8 @@ const TYPE_BTC_MSAT: u64 = 27;
 const TYPE_EXPIRY_UNIX_SECONDS: u64 = 29;
 const TYPE_INVOICE_CONTEXT: u64 = 31;
 const TYPE_HTLC_BLOB: u64 = 33;
+const TYPE_QUOTE_ID: u64 = 35;
+const TYPE_SCID_ALIAS: u64 = 37;
 
 const KNOWN_TYPES: &[u64] = &[
     TYPE_MESSAGE_KIND,
@@ -58,6 +60,8 @@ const KNOWN_TYPES: &[u64] = &[
     TYPE_EXPIRY_UNIX_SECONDS,
     TYPE_INVOICE_CONTEXT,
     TYPE_HTLC_BLOB,
+    TYPE_QUOTE_ID,
+    TYPE_SCID_ALIAS,
 ];
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -126,8 +130,10 @@ pub enum AssetPeerMessage {
     },
     RfqAccept {
         rfq_id: Bytes32,
+        quote_id: Bytes32,
         btc_msat: u64,
         expiry_unix_seconds: u64,
+        scid_alias: u64,
     },
     RfqReject {
         rfq_id: Bytes32,
@@ -223,15 +229,19 @@ impl AssetPeerMessage {
             }
             Self::RfqAccept {
                 rfq_id,
+                quote_id,
                 btc_msat,
                 expiry_unix_seconds,
+                scid_alias,
             } => {
                 records.push(TlvRecord::new(TYPE_RFQ_ID, rfq_id.0));
+                records.push(TlvRecord::new(TYPE_QUOTE_ID, quote_id.0));
                 records.push(TlvRecord::new(TYPE_BTC_MSAT, btc_msat.to_be_bytes()));
                 records.push(TlvRecord::new(
                     TYPE_EXPIRY_UNIX_SECONDS,
                     expiry_unix_seconds.to_be_bytes(),
                 ));
+                records.push(TlvRecord::new(TYPE_SCID_ALIAS, scid_alias.to_be_bytes()));
             }
             Self::RfqReject {
                 rfq_id,
@@ -301,11 +311,13 @@ impl AssetPeerMessage {
             }),
             RFQ_ACCEPT_TYPE => Ok(Self::RfqAccept {
                 rfq_id: parse_bytes32(required(&fields, TYPE_RFQ_ID)?)?,
+                quote_id: parse_bytes32(required(&fields, TYPE_QUOTE_ID)?)?,
                 btc_msat: parse_u64(required(&fields, TYPE_BTC_MSAT)?, "btc_msat")?,
                 expiry_unix_seconds: parse_u64(
                     required(&fields, TYPE_EXPIRY_UNIX_SECONDS)?,
                     "expiry_unix_seconds",
                 )?,
+                scid_alias: parse_u64(required(&fields, TYPE_SCID_ALIAS)?, "scid_alias")?,
             }),
             RFQ_REJECT_TYPE => Ok(Self::RfqReject {
                 rfq_id: parse_bytes32(required(&fields, TYPE_RFQ_ID)?)?,
@@ -695,8 +707,10 @@ mod tests {
             },
             AssetPeerMessage::RfqAccept {
                 rfq_id,
+                quote_id: Bytes32([11; 32]),
                 btc_msat: 1_000,
                 expiry_unix_seconds: 2_000,
+                scid_alias: 101,
             },
             AssetPeerMessage::RfqReject {
                 rfq_id,

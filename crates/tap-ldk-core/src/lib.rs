@@ -7,6 +7,7 @@ pub mod ldk_baseline;
 pub mod ldk_fork;
 pub mod proof;
 pub mod regtest;
+pub mod rfq_invoice;
 pub mod rfq_quote_store;
 pub mod tlv;
 pub mod virtual_psbt;
