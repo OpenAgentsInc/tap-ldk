@@ -1,0 +1,16 @@
+[package]
+name = "tap-ldk-cli"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "tap-ldk"
+path = "src/main.rs"
+
+[dependencies]
+tap-ldk-core = { path = "../tap-ldk-core" }
+
+[lints]
+workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "tap-ldk-core"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "tap_ldk_core"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
