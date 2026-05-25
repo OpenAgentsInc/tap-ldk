@@ -459,6 +459,11 @@ Do not claim these guarantees until implementation and verification exist:
   persisted as a documented-gap state. Do not claim a successful Track B
   outgoing payment until a live Lightning Labs receiver balance is observed and
   matches the expected asset delta.
+- Receiver-side Lightning Labs to `tap-ldk` payment artifacts can be built and
+  persisted as a documented-gap state. Do not claim a successful Track B
+  incoming payment until a live Lightning Labs sender payment is driven and a
+  durable `tap-ldk` receiver balance is observed and matches the expected asset
+  delta.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
   send/receive, restart-recovery, cooperative-close, and proof-export smoke

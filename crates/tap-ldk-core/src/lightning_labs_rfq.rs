@@ -434,6 +434,67 @@ impl LightningLabsRfqRequest {
         Ok(())
     }
 
+    pub fn validate_receive_against_invoice(
+        &self,
+        envelope_peer: &str,
+        invoice: &QuoteBoundInvoice,
+        now_unix_seconds: u64,
+    ) -> Result<(), LightningLabsRfqError> {
+        self.validate_at(now_unix_seconds)?;
+        if envelope_peer != invoice.peer {
+            return Err(LightningLabsRfqError::PeerMismatch {
+                expected: invoice.peer.clone(),
+                actual: envelope_peer.to_owned(),
+            });
+        }
+        if self.transfer_type != LightningLabsTransferType::ReceivePayment {
+            return Err(LightningLabsRfqError::UnexpectedTransferType {
+                expected: LightningLabsTransferType::ReceivePayment,
+                actual: self.transfer_type,
+            });
+        }
+        if self.in_asset_id != Some(invoice.asset_id) || self.out_asset_id != Some(Bytes32::ZERO) {
+            return Err(LightningLabsRfqError::AssetIdMismatch {
+                expected: invoice.asset_id,
+                actual: self.in_asset_id.unwrap_or(Bytes32::ZERO),
+            });
+        }
+        if self.max_in_asset != invoice.asset_amount {
+            return Err(LightningLabsRfqError::AssetAmountMismatch {
+                expected: invoice.asset_amount,
+                actual: self.max_in_asset,
+            });
+        }
+        if let Some(min_in_asset) = self.min_in_asset {
+            if min_in_asset > invoice.asset_amount {
+                return Err(LightningLabsRfqError::AssetAmountMismatch {
+                    expected: invoice.asset_amount,
+                    actual: min_in_asset,
+                });
+            }
+        }
+        if self.expiry_unix_seconds > invoice.quote_expiry_unix_seconds
+            || invoice.invoice_expiry_unix_seconds > self.expiry_unix_seconds
+        {
+            return Err(LightningLabsRfqError::InvoiceExpiryOutlivesQuote {
+                request_expiry_unix_seconds: self.expiry_unix_seconds,
+                quote_expiry_unix_seconds: invoice.quote_expiry_unix_seconds,
+                invoice_expiry_unix_seconds: invoice.invoice_expiry_unix_seconds,
+            });
+        }
+        if self.oracle_metadata != invoice.invoice_context.0 {
+            return Err(LightningLabsRfqError::InvoiceContextMismatch);
+        }
+        let expected_rate = asset_units_per_btc_rate(invoice)?;
+        if self.in_asset_rate_hint.as_ref() != Some(&expected_rate) {
+            return Err(LightningLabsRfqError::AssetAmountMismatch {
+                expected: invoice.asset_amount,
+                actual: 0,
+            });
+        }
+        Ok(())
+    }
+
     pub fn scid_alias(&self) -> u64 {
         lightning_labs_rfq_id_to_scid_alias(self.id)
     }
@@ -731,6 +792,32 @@ pub fn lightning_labs_sell_request_from_invoice(
     })
 }
 
+pub fn lightning_labs_buy_request_from_invoice(
+    invoice: &QuoteBoundInvoice,
+    rfq_id: Bytes32,
+) -> Result<LightningLabsRfqRequest, LightningLabsRfqError> {
+    Ok(LightningLabsRfqRequest {
+        version: LIGHTNING_LABS_RFQ_WIRE_VERSION,
+        id: rfq_id,
+        transfer_type: LightningLabsTransferType::ReceivePayment,
+        expiry_unix_seconds: invoice
+            .invoice_expiry_unix_seconds
+            .min(invoice.quote_expiry_unix_seconds),
+        in_asset_id: Some(invoice.asset_id),
+        in_asset_group_key: None,
+        out_asset_id: Some(Bytes32::ZERO),
+        out_asset_group_key: None,
+        max_in_asset: invoice.asset_amount,
+        in_asset_rate_hint: Some(asset_units_per_btc_rate(invoice)?),
+        out_asset_rate_hint: None,
+        min_in_asset: Some(invoice.asset_amount),
+        min_out_asset: None,
+        oracle_metadata: invoice.invoice_context.0.to_vec(),
+        asset_rate_limit: Some(asset_units_per_btc_rate(invoice)?),
+        execution_policy: Some(LightningLabsExecutionPolicy::FillOrKill),
+    })
+}
+
 pub fn lightning_labs_accept_from_invoice(
     invoice: &QuoteBoundInvoice,
     rfq_id: Bytes32,
@@ -743,6 +830,21 @@ pub fn lightning_labs_accept_from_invoice(
         in_asset_rate: LightningLabsFixedPoint::msat_per_btc(),
         out_asset_rate: asset_units_per_btc_rate(invoice)?,
         max_in_asset: Some(invoice.btc_msat),
+    })
+}
+
+pub fn lightning_labs_buy_accept_from_invoice(
+    invoice: &QuoteBoundInvoice,
+    rfq_id: Bytes32,
+) -> Result<LightningLabsRfqAccept, LightningLabsRfqError> {
+    Ok(LightningLabsRfqAccept {
+        version: LIGHTNING_LABS_RFQ_WIRE_VERSION,
+        id: rfq_id,
+        expiry_unix_seconds: invoice.quote_expiry_unix_seconds,
+        signature: vec![0; 64],
+        in_asset_rate: asset_units_per_btc_rate(invoice)?,
+        out_asset_rate: LightningLabsFixedPoint::msat_per_btc(),
+        max_in_asset: Some(invoice.asset_amount),
     })
 }
 
@@ -1356,6 +1458,41 @@ mod tests {
         assert!(matches!(
             expired.validate_at(1_000),
             Err(LightningLabsRfqError::ExpiredRequest { .. })
+        ));
+    }
+
+    #[test]
+    fn receive_payment_request_round_trips_with_buy_direction_fields() {
+        let invoice = sample_invoice();
+        let rfq_id = rfq_id_with_scid_alias(RFQ_ALIAS_BASE | 45);
+
+        let request = lightning_labs_buy_request_from_invoice(&invoice, rfq_id).expect("request");
+        assert_eq!(
+            request.transfer_type,
+            LightningLabsTransferType::ReceivePayment
+        );
+        assert_eq!(request.in_asset_id, Some(invoice.asset_id));
+        assert_eq!(request.out_asset_id, Some(Bytes32::ZERO));
+        assert_eq!(request.max_in_asset, invoice.asset_amount);
+        let request_bytes = request.encode().expect("request encodes");
+        let decoded_request =
+            LightningLabsRfqRequest::decode(&request_bytes).expect("request decodes");
+        decoded_request
+            .validate_receive_against_invoice(&invoice.peer, &invoice, 1_001)
+            .expect("request validates against invoice");
+
+        let accept = lightning_labs_buy_accept_from_invoice(&invoice, rfq_id).expect("accept");
+        let accept_bytes = accept.encode().expect("accept encodes");
+        let decoded_accept = LightningLabsRfqAccept::decode(&accept_bytes).expect("accept decodes");
+        decoded_accept
+            .validate_for_request(&decoded_request, 1_001)
+            .expect("accept validates against request");
+
+        let mut wrong_amount = decoded_request.clone();
+        wrong_amount.max_in_asset += 1;
+        assert!(matches!(
+            wrong_amount.validate_receive_against_invoice(&invoice.peer, &invoice, 1_001),
+            Err(LightningLabsRfqError::AssetAmountMismatch { .. })
         ));
     }
 

@@ -51,7 +51,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Quote expiry | `itest/custom_channels/invoice_expiry_test.go`; `rfq/manager_test.go`; `docs/lightning-labs-rfq-invoice.md` | RFQ request/accept expiry, invoice expiry, quote expiry, and replay checks are enforced in the bounded interop smoke. Live daemon expiry behavior still needs Track B payment execution. | Partially implemented |
 | Multi-RFQ and routing | `itest/custom_channels/multi_rfq_test.go`; `itest/custom_channels/multi_channel_pathfinding_test.go` | Out of first-demo scope except as a compatibility note. | Deferred |
 | Payment direction: `tap-ldk` pays Lightning Labs | `itest/custom_channels/core_test.go`; `itest/custom_channels/single_asset_multi_input_test.go`; `itest/custom_channels/strict_forwarding_test.go`; `docs/lightning-labs-outgoing-payment.md` | Sender-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs RFQ payloads, quote-bound invoice, asset HTLC metadata, expected balance delta, replay rejection, wrong-asset rejection, and documented live-daemon settlement gap. | Stopped at live daemon gap |
-| Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go` | Implement after native receive invoice and final-hop validation are real; document as gap until then. | Second direction |
+| Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go`; `docs/lightning-labs-incoming-payment.md` | Receiver-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs buy-direction RFQ payloads, native quote-bound receive invoice, final-hop asset HTLC metadata, expected balance delta, stale/wrong-amount/malformed/replay rejection, and documented live-daemon settlement gap. | Stopped at live daemon gap |
 | Balance comparison | `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records.go`; `itest/custom_channels/balance_consistency_test.go` | Track both sides' asset ID, amount, payment state, and resulting balances after each interop payment. | Required |
 | Cooperative close | `tapchannel/aux_closer.go`; `itest/custom_channels/restart_coop_close_test.go` | Close/proof export is required for a strong demo; may remain after first payment interop if documented. | Stronger-demo gate |
 | Force close | `tapchannel/aux_sweeper.go`; `itest/custom_channels/force_close_test.go`; `itest/custom_channels/htlc_force_close_test.go` | Do not claim force-close recovery until proof ownership and sweep state are implemented. | Deferred |
@@ -69,7 +69,10 @@ Reason:
   balance through the Lightning Labs daemon APIs.
 
 Lightning Labs pays `tap-ldk` is the second direction because it requires a
-native receiver invoice/final-hop path in `tap-ldk`.
+native receiver invoice/final-hop path in `tap-ldk`. The bounded receive-side
+artifacts now exist, but live LND/`tapd` sender execution and observed durable
+`tap-ldk` balance comparison are still required before this direction can be
+reported as settled interop.
 
 ## Follow-Up Implementation Issues
 
@@ -85,7 +88,8 @@ native receiver invoice/final-hop path in `tap-ldk`.
   selected versions.
 - Use `scripts/lightning-labs-counterparty.sh` for the first external
   counterparty smoke path once Docker is available.
-- Add balance comparison checks after each interop payment.
+- Replace expected-only payment deltas with observed balance comparison checks
+  after each live interop payment.
 - Document any mismatch as a failing compatibility gap, not a partial success.
 
 ## Current Known Gaps
@@ -102,5 +106,6 @@ native receiver invoice/final-hop path in `tap-ldk`.
 - `tap-ldk` builds sender-side artifacts for the `tap-ldk` pays Lightning Labs
   direction, but does not yet drive a live LND/`tapd` receiver or observe the
   Lightning Labs receiver balance.
-- `tap-ldk` does not yet perform the Lightning Labs pays `tap-ldk` Track B
-  direction.
+- `tap-ldk` builds receiver-side artifacts for the Lightning Labs pays
+  `tap-ldk` direction, but does not yet drive a live LND/`tapd` sender or
+  observe a durable `tap-ldk` receiver balance.

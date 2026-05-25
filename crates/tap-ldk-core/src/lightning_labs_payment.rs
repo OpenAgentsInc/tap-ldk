@@ -23,7 +23,8 @@ use crate::{
         LIGHTNING_LABS_RFQ_ACCEPT_TYPE, LIGHTNING_LABS_RFQ_REJECT_TYPE,
         LIGHTNING_LABS_RFQ_REQUEST_TYPE, LIGHTNING_LABS_TAPROOT_ASSETS_COMMIT,
         LightningLabsRfqAccept, LightningLabsRfqError, LightningLabsRfqRequest,
-        lightning_labs_accept_from_invoice, lightning_labs_rfq_id_to_scid_alias,
+        lightning_labs_accept_from_invoice, lightning_labs_buy_accept_from_invoice,
+        lightning_labs_buy_request_from_invoice, lightning_labs_rfq_id_to_scid_alias,
         lightning_labs_sell_request_from_invoice,
     },
     rfq_invoice::{
@@ -35,6 +36,8 @@ use crate::{
 
 pub const LIGHTNING_LABS_OUTGOING_PAYMENT_SCHEMA_VERSION: u32 = 1;
 pub const LIGHTNING_LABS_OUTGOING_PAYMENT_AMOUNT: u64 = 125;
+pub const LIGHTNING_LABS_INCOMING_PAYMENT_SCHEMA_VERSION: u32 = 1;
+pub const LIGHTNING_LABS_INCOMING_PAYMENT_AMOUNT: u64 = 125;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LightningLabsOutgoingPaymentStore {
@@ -300,6 +303,271 @@ pub struct LightningLabsOutgoingPaymentReport {
     pub documented_gap: FundingInteropGap,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LightningLabsIncomingPaymentStore {
+    pub version: u32,
+    pub metadata: LightningLabsIncomingPaymentMetadata,
+    pub payments: BTreeMap<String, LightningLabsIncomingPaymentState>,
+}
+
+impl Default for LightningLabsIncomingPaymentStore {
+    fn default() -> Self {
+        Self {
+            version: LIGHTNING_LABS_INCOMING_PAYMENT_SCHEMA_VERSION,
+            metadata: LightningLabsIncomingPaymentMetadata::default(),
+            payments: BTreeMap::new(),
+        }
+    }
+}
+
+impl LightningLabsIncomingPaymentStore {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, LightningLabsOutgoingPaymentError> {
+        let raw =
+            fs::read_to_string(path.as_ref()).map_err(LightningLabsOutgoingPaymentError::Io)?;
+        let store =
+            serde_json::from_str::<Self>(&raw).map_err(LightningLabsOutgoingPaymentError::Json)?;
+        store.validate()?;
+        Ok(store)
+    }
+
+    pub fn save_atomic(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<(), LightningLabsOutgoingPaymentError> {
+        self.validate()?;
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent).map_err(LightningLabsOutgoingPaymentError::Io)?;
+            }
+        }
+
+        let raw =
+            serde_json::to_vec_pretty(self).map_err(LightningLabsOutgoingPaymentError::Json)?;
+        let temp_path = temp_path_for(path);
+        fs::write(&temp_path, raw).map_err(LightningLabsOutgoingPaymentError::Io)?;
+        fs::rename(&temp_path, path).map_err(LightningLabsOutgoingPaymentError::Io)?;
+        Ok(())
+    }
+
+    pub fn insert_payment(
+        &mut self,
+        payment: LightningLabsIncomingPaymentState,
+    ) -> Result<(), LightningLabsOutgoingPaymentError> {
+        if self.payments.contains_key(&payment.payment_id) {
+            return Err(LightningLabsOutgoingPaymentError::DuplicatePayment(
+                payment.payment_id,
+            ));
+        }
+        let mut next = self.clone();
+        next.payments.insert(payment.payment_id.clone(), payment);
+        next.validate()?;
+        *self = next;
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), LightningLabsOutgoingPaymentError> {
+        if self.version != LIGHTNING_LABS_INCOMING_PAYMENT_SCHEMA_VERSION {
+            return Err(LightningLabsOutgoingPaymentError::UnsupportedVersion(
+                self.version,
+            ));
+        }
+        self.metadata.validate()?;
+        for (payment_id, payment) in &self.payments {
+            if payment_id != &payment.payment_id || payment.binding_id() != *payment_id {
+                return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                    "incoming payment id binding mismatch".to_owned(),
+                ));
+            }
+            payment.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LightningLabsIncomingPaymentMetadata {
+    pub implementation: String,
+    pub schema: String,
+    pub source_commit: String,
+}
+
+impl Default for LightningLabsIncomingPaymentMetadata {
+    fn default() -> Self {
+        Self {
+            implementation: "tap-ldk Lightning Labs incoming payment interop".to_owned(),
+            schema: "bounded-incoming-payment-interop-v1".to_owned(),
+            source_commit: LIGHTNING_LABS_TAPROOT_ASSETS_COMMIT.to_owned(),
+        }
+    }
+}
+
+impl LightningLabsIncomingPaymentMetadata {
+    fn validate(&self) -> Result<(), LightningLabsOutgoingPaymentError> {
+        for (field, value) in [
+            ("implementation", self.implementation.as_str()),
+            ("schema", self.schema.as_str()),
+            ("source_commit", self.source_commit.as_str()),
+        ] {
+            if value.trim().is_empty() {
+                return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                    format!("metadata {field} is empty"),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LightningLabsIncomingPaymentStatus {
+    StoppedAtLiveDaemonGap,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LightningLabsIncomingPaymentState {
+    pub payment_id: String,
+    pub status: LightningLabsIncomingPaymentStatus,
+    pub channel_id: String,
+    pub peer: String,
+    pub rfq_id: Bytes32,
+    pub quote_id: String,
+    pub asset_id: Bytes32,
+    pub asset_amount: u64,
+    pub btc_msat: u64,
+    pub payment_hash: Bytes32,
+    pub invoice_context: Bytes32,
+    pub lightning_labs_scid_alias: u64,
+    pub native_scid_alias: u64,
+    pub tap_ldk_receiver_balance_before: u64,
+    pub lightning_labs_sender_balance_before: u64,
+    pub expected_tap_ldk_receiver_balance_after: u64,
+    pub expected_lightning_labs_sender_balance_after: u64,
+    pub funding_interop_id: String,
+    pub funding_blob_digest: Bytes32,
+    pub commitment_blob_digest: Bytes32,
+    pub request_message_type: u64,
+    pub accept_message_type: u64,
+    pub reject_message_type: u64,
+    pub request_data_digest: Bytes32,
+    pub accept_data_digest: Bytes32,
+    pub asset_htlc_digest: Bytes32,
+    pub final_hop_validated: bool,
+    pub stale_htlc_rejected: bool,
+    pub wrong_amount_rejected: bool,
+    pub malformed_htlc_rejected: bool,
+    pub quote_replay_rejected: bool,
+    pub expected_balance_conserved: bool,
+    pub restart_state_matches: bool,
+    pub observed_tap_ldk_receiver_balance_after: Option<u64>,
+    pub documented_gap: FundingInteropGap,
+}
+
+impl LightningLabsIncomingPaymentState {
+    fn validate(&self) -> Result<(), LightningLabsOutgoingPaymentError> {
+        if self.payment_id.trim().is_empty()
+            || self.channel_id.trim().is_empty()
+            || self.peer.trim().is_empty()
+            || self.quote_id.trim().is_empty()
+            || self.funding_interop_id.trim().is_empty()
+        {
+            return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                "incoming payment identity fields cannot be empty".to_owned(),
+            ));
+        }
+        if self.asset_id == Bytes32::ZERO || self.asset_amount == 0 || self.btc_msat == 0 {
+            return Err(LightningLabsOutgoingPaymentError::InvalidAmount);
+        }
+        if self.lightning_labs_sender_balance_before < self.asset_amount {
+            return Err(LightningLabsOutgoingPaymentError::BalanceUnderflow);
+        }
+        let expected_receiver = self
+            .tap_ldk_receiver_balance_before
+            .checked_add(self.asset_amount)
+            .ok_or(LightningLabsOutgoingPaymentError::BalanceOverflow)?;
+        let expected_sender = self.lightning_labs_sender_balance_before - self.asset_amount;
+        if expected_receiver != self.expected_tap_ldk_receiver_balance_after
+            || expected_sender != self.expected_lightning_labs_sender_balance_after
+        {
+            return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                "expected incoming payment balances do not match amount".to_owned(),
+            ));
+        }
+        if !self.final_hop_validated
+            || !self.stale_htlc_rejected
+            || !self.wrong_amount_rejected
+            || !self.malformed_htlc_rejected
+            || !self.quote_replay_rejected
+            || !self.expected_balance_conserved
+            || !self.restart_state_matches
+        {
+            return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                "incoming payment safety checks must be true".to_owned(),
+            ));
+        }
+        if self.observed_tap_ldk_receiver_balance_after.is_some() {
+            return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                "bounded incoming smoke must not claim an observed tap-ldk receiver balance"
+                    .to_owned(),
+            ));
+        }
+        if self.lightning_labs_scid_alias != lightning_labs_rfq_id_to_scid_alias(self.rfq_id) {
+            return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
+                "Lightning Labs SCID alias does not match RFQ ID".to_owned(),
+            ));
+        }
+        self.documented_gap
+            .validate_for_outgoing_payment()
+            .map_err(LightningLabsOutgoingPaymentError::StorageInvariant)?;
+        Ok(())
+    }
+
+    fn binding_id(&self) -> String {
+        derive_payment_id(
+            &self.channel_id,
+            self.rfq_id,
+            &self.quote_id,
+            self.payment_hash,
+            self.asset_id,
+            self.asset_amount,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LightningLabsIncomingPaymentReport {
+    pub payment_id: String,
+    pub status: LightningLabsIncomingPaymentStatus,
+    pub channel_id: String,
+    pub peer: String,
+    pub asset_id: Bytes32,
+    pub asset_amount: u64,
+    pub btc_msat: u64,
+    pub quote_id: String,
+    pub request_message_type: u64,
+    pub accept_message_type: u64,
+    pub reject_message_type: u64,
+    pub lightning_labs_scid_alias: u64,
+    pub native_scid_alias: u64,
+    pub tap_ldk_receiver_balance_before: u64,
+    pub lightning_labs_sender_balance_before: u64,
+    pub expected_tap_ldk_receiver_balance_after: u64,
+    pub expected_lightning_labs_sender_balance_after: u64,
+    pub observed_tap_ldk_receiver_balance_after: Option<u64>,
+    pub final_hop_validated: bool,
+    pub stale_htlc_rejected: bool,
+    pub wrong_amount_rejected: bool,
+    pub malformed_htlc_rejected: bool,
+    pub quote_replay_rejected: bool,
+    pub expected_balance_conserved: bool,
+    pub restart_state_matches: bool,
+    pub request_data_digest: Bytes32,
+    pub accept_data_digest: Bytes32,
+    pub asset_htlc_digest: Bytes32,
+    pub documented_gap: FundingInteropGap,
+}
+
 pub fn run_lightning_labs_outgoing_payment_smoke(
     funding_hexdump: &str,
     commitment_hexdump: &str,
@@ -352,6 +620,70 @@ pub fn run_lightning_labs_outgoing_payment_smoke(
         expected_balance_conserved: state.expected_balance_conserved,
         quote_replay_rejected: state.quote_replay_rejected,
         wrong_asset_rejected: state.wrong_asset_rejected,
+        restart_state_matches,
+        request_data_digest: state.request_data_digest,
+        accept_data_digest: state.accept_data_digest,
+        asset_htlc_digest: state.asset_htlc_digest,
+        documented_gap: state.documented_gap,
+    };
+
+    Ok((store, report))
+}
+
+pub fn run_lightning_labs_incoming_payment_smoke(
+    funding_hexdump: &str,
+    commitment_hexdump: &str,
+) -> Result<
+    (
+        LightningLabsIncomingPaymentStore,
+        LightningLabsIncomingPaymentReport,
+    ),
+    LightningLabsOutgoingPaymentError,
+> {
+    let (_funding_store, funding_report) =
+        run_lightning_labs_funding_interop_fixture_smoke(funding_hexdump, commitment_hexdump)?;
+    let state = build_incoming_payment_state(&funding_report)?;
+    let restart_state_matches = serde_json::from_slice::<LightningLabsIncomingPaymentState>(
+        &serde_json::to_vec_pretty(&state)?,
+    )? == state;
+    let mut state = state;
+    state.restart_state_matches = restart_state_matches;
+
+    let mut store = LightningLabsIncomingPaymentStore::default();
+    store.insert_payment(state.clone())?;
+
+    let restart_store = serde_json::from_slice::<LightningLabsIncomingPaymentStore>(
+        &serde_json::to_vec_pretty(&store)?,
+    )?;
+    restart_store.validate()?;
+    let restart_state_matches = restart_store.payments.get(&state.payment_id) == Some(&state);
+
+    let report = LightningLabsIncomingPaymentReport {
+        payment_id: state.payment_id,
+        status: state.status,
+        channel_id: state.channel_id,
+        peer: state.peer,
+        asset_id: state.asset_id,
+        asset_amount: state.asset_amount,
+        btc_msat: state.btc_msat,
+        quote_id: state.quote_id,
+        request_message_type: state.request_message_type,
+        accept_message_type: state.accept_message_type,
+        reject_message_type: state.reject_message_type,
+        lightning_labs_scid_alias: state.lightning_labs_scid_alias,
+        native_scid_alias: state.native_scid_alias,
+        tap_ldk_receiver_balance_before: state.tap_ldk_receiver_balance_before,
+        lightning_labs_sender_balance_before: state.lightning_labs_sender_balance_before,
+        expected_tap_ldk_receiver_balance_after: state.expected_tap_ldk_receiver_balance_after,
+        expected_lightning_labs_sender_balance_after: state
+            .expected_lightning_labs_sender_balance_after,
+        observed_tap_ldk_receiver_balance_after: state.observed_tap_ldk_receiver_balance_after,
+        final_hop_validated: state.final_hop_validated,
+        stale_htlc_rejected: state.stale_htlc_rejected,
+        wrong_amount_rejected: state.wrong_amount_rejected,
+        malformed_htlc_rejected: state.malformed_htlc_rejected,
+        quote_replay_rejected: state.quote_replay_rejected,
+        expected_balance_conserved: state.expected_balance_conserved,
         restart_state_matches,
         request_data_digest: state.request_data_digest,
         accept_data_digest: state.accept_data_digest,
@@ -504,6 +836,164 @@ fn build_outgoing_payment_state(
                     .to_owned(),
             next_step:
                 "run the same artifacts through the headless or Polar-backed Lightning Labs counterparty and replace the expected receiver balance with an observed daemon balance"
+                    .to_owned(),
+        },
+    })
+}
+
+fn build_incoming_payment_state(
+    funding_report: &LightningLabsFundingInteropReport,
+) -> Result<LightningLabsIncomingPaymentState, LightningLabsOutgoingPaymentError> {
+    let peer = "lightning-labs-counterparty";
+    let now = 1_000;
+    let rfq_id = rfq_id_with_scid_alias(RFQ_ALIAS_BASE | 43);
+    let invoice_context = Bytes32([41; 32]);
+    let payment_hash = Bytes32([42; 32]);
+    let asset_amount = LIGHTNING_LABS_INCOMING_PAYMENT_AMOUNT;
+
+    if funding_report.remote_balance < asset_amount {
+        return Err(LightningLabsOutgoingPaymentError::BalanceUnderflow);
+    }
+
+    let mut quote_store = RfqQuoteStore::default();
+    let rfq = AssetPeerMessage::RfqRequest {
+        rfq_id,
+        asset_id: funding_report.asset_id,
+        asset_amount,
+        invoice_context,
+    };
+    let native_accept = receive_native_rfq_request(
+        &mut quote_store,
+        peer,
+        &rfq,
+        now,
+        NativeRfqPolicy::default(),
+    )?;
+    let invoice = bind_quote_to_invoice(
+        &native_accept.quote,
+        QuoteBoundInvoiceRequest {
+            invoice: "lnbcrt1lightninglabsincomingpayment".to_owned(),
+            payment_hash,
+            peer: peer.to_owned(),
+            asset_id: funding_report.asset_id,
+            asset_amount,
+            btc_msat: native_accept.quote.btc_msat,
+            invoice_context,
+            invoice_expiry_unix_seconds: native_accept.quote.expiry_unix_seconds,
+            now_unix_seconds: now + 1,
+        },
+    )?;
+    let quote_payment = pay_quote_bound_invoice(&mut quote_store, invoice.clone(), now + 2)?;
+    let records =
+        AssetHtlcCustomRecords::from_authorization(&invoice, &quote_payment.authorization)?;
+    let htlc_bytes = records.encode_tlv()?;
+    let decoded_records = match decode_custom_records(&htlc_bytes)? {
+        AssetHtlcDecode::Asset(records) => records,
+        AssetHtlcDecode::BtcOnly => {
+            return Err(LightningLabsOutgoingPaymentError::MissingAssetHtlc);
+        }
+    };
+
+    let final_hop_validated = validate_final_hop(
+        &decoded_records,
+        &invoice,
+        &quote_payment.authorization,
+        now + 3,
+    )
+    .is_ok();
+    let stale_htlc_rejected = validate_final_hop(
+        &decoded_records,
+        &invoice,
+        &quote_payment.authorization,
+        invoice.quote_expiry_unix_seconds + 1,
+    )
+    .is_err();
+    let mut wrong_amount_records = decoded_records.clone();
+    wrong_amount_records.asset_amount += 1;
+    let wrong_amount_rejected = validate_final_hop(
+        &wrong_amount_records,
+        &invoice,
+        &quote_payment.authorization,
+        now + 3,
+    )
+    .is_err();
+    let malformed_htlc_rejected = decode_custom_records(&[0xfd]).is_err();
+    let quote_replay_rejected =
+        pay_quote_bound_invoice(&mut quote_store, invoice.clone(), now + 4).is_err();
+
+    let ll_request = lightning_labs_buy_request_from_invoice(&invoice, rfq_id)?;
+    let request_data = ll_request.encode()?;
+    let decoded_request = LightningLabsRfqRequest::decode(&request_data)?;
+    decoded_request.validate_receive_against_invoice(peer, &invoice, now + 2)?;
+    let ll_accept = lightning_labs_buy_accept_from_invoice(&invoice, rfq_id)?;
+    let accept_data = ll_accept.encode()?;
+    let decoded_accept = LightningLabsRfqAccept::decode(&accept_data)?;
+    decoded_accept.validate_for_request(&decoded_request, now + 2)?;
+
+    let expected_receiver_balance_after = funding_report
+        .local_balance
+        .checked_add(asset_amount)
+        .ok_or(LightningLabsOutgoingPaymentError::BalanceOverflow)?;
+    let expected_sender_balance_after = funding_report.remote_balance - asset_amount;
+    let expected_balance_conserved = funding_report
+        .local_balance
+        .checked_add(funding_report.remote_balance)
+        .ok_or(LightningLabsOutgoingPaymentError::BalanceOverflow)?
+        == expected_receiver_balance_after
+            .checked_add(expected_sender_balance_after)
+            .ok_or(LightningLabsOutgoingPaymentError::BalanceOverflow)?;
+
+    let payment_id = derive_payment_id(
+        &funding_report.interop_id,
+        rfq_id,
+        &quote_payment.authorization.quote_id,
+        payment_hash,
+        funding_report.asset_id,
+        asset_amount,
+    );
+
+    Ok(LightningLabsIncomingPaymentState {
+        payment_id,
+        status: LightningLabsIncomingPaymentStatus::StoppedAtLiveDaemonGap,
+        channel_id: funding_report.interop_id.clone(),
+        peer: peer.to_owned(),
+        rfq_id,
+        quote_id: quote_payment.authorization.quote_id,
+        asset_id: funding_report.asset_id,
+        asset_amount,
+        btc_msat: quote_payment.authorization.btc_msat,
+        payment_hash,
+        invoice_context,
+        lightning_labs_scid_alias: lightning_labs_rfq_id_to_scid_alias(rfq_id),
+        native_scid_alias: quote_payment.authorization.scid_alias,
+        tap_ldk_receiver_balance_before: funding_report.local_balance,
+        lightning_labs_sender_balance_before: funding_report.remote_balance,
+        expected_tap_ldk_receiver_balance_after: expected_receiver_balance_after,
+        expected_lightning_labs_sender_balance_after: expected_sender_balance_after,
+        funding_interop_id: funding_report.interop_id.clone(),
+        funding_blob_digest: funding_report.funding_blob_digest,
+        commitment_blob_digest: funding_report.commitment_blob_digest,
+        request_message_type: LIGHTNING_LABS_RFQ_REQUEST_TYPE,
+        accept_message_type: LIGHTNING_LABS_RFQ_ACCEPT_TYPE,
+        reject_message_type: LIGHTNING_LABS_RFQ_REJECT_TYPE,
+        request_data_digest: sha256_digest(&request_data),
+        accept_data_digest: sha256_digest(&accept_data),
+        asset_htlc_digest: sha256_digest(&htlc_bytes),
+        final_hop_validated,
+        stale_htlc_rejected,
+        wrong_amount_rejected,
+        malformed_htlc_rejected,
+        quote_replay_rejected,
+        expected_balance_conserved,
+        restart_state_matches: false,
+        observed_tap_ldk_receiver_balance_after: None,
+        documented_gap: FundingInteropGap {
+            field: "live_lnd_tapd_sender_payment_settlement".to_owned(),
+            reason:
+                "receiver-side invoice, RFQ, final-hop metadata, and expected balance delta are validated, but no live LND/tapd sender was driven in this bounded smoke"
+                    .to_owned(),
+            next_step:
+                "run the same artifacts through the headless or Polar-backed Lightning Labs sender and replace the expected tap-ldk receiver balance with an observed durable tap-ldk settlement balance"
                     .to_owned(),
         },
     })
@@ -712,6 +1202,50 @@ mod tests {
             .expect("payment exists");
         state.observed_lightning_labs_receiver_balance_after =
             Some(state.expected_lightning_labs_receiver_balance_after);
+        assert!(state.validate().is_err());
+    }
+
+    #[test]
+    fn incoming_payment_smoke_builds_gap_state_and_survives_restart() {
+        let (store, report) =
+            run_lightning_labs_incoming_payment_smoke(FUNDING_HEXDUMP, COMMITMENT_HEXDUMP)
+                .expect("incoming smoke passes");
+        assert_eq!(
+            report.status,
+            LightningLabsIncomingPaymentStatus::StoppedAtLiveDaemonGap
+        );
+        assert_eq!(report.asset_amount, LIGHTNING_LABS_INCOMING_PAYMENT_AMOUNT);
+        assert_eq!(
+            report.expected_tap_ldk_receiver_balance_after,
+            report.tap_ldk_receiver_balance_before + report.asset_amount
+        );
+        assert_eq!(
+            report.expected_lightning_labs_sender_balance_after,
+            report.lightning_labs_sender_balance_before - report.asset_amount
+        );
+        assert_eq!(report.observed_tap_ldk_receiver_balance_after, None);
+        assert!(report.final_hop_validated);
+        assert!(report.stale_htlc_rejected);
+        assert!(report.wrong_amount_rejected);
+        assert!(report.malformed_htlc_rejected);
+        assert!(report.quote_replay_rejected);
+        assert!(report.expected_balance_conserved);
+        assert!(report.restart_state_matches);
+        assert!(store.payments.contains_key(&report.payment_id));
+    }
+
+    #[test]
+    fn incoming_payment_store_rejects_claimed_observed_balance_in_gap_state() {
+        let (store, report) =
+            run_lightning_labs_incoming_payment_smoke(FUNDING_HEXDUMP, COMMITMENT_HEXDUMP)
+                .expect("incoming smoke passes");
+        let mut state = store
+            .payments
+            .get(&report.payment_id)
+            .cloned()
+            .expect("payment exists");
+        state.observed_tap_ldk_receiver_balance_after =
+            Some(state.expected_tap_ldk_receiver_balance_after);
         assert!(state.validate().is_err());
     }
 }

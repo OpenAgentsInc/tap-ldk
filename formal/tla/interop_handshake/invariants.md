@@ -17,6 +17,10 @@
 - Sender-side outgoing payment artifacts may enter a documented-gap state, but
   cannot be modeled as settled interop payment until the Lightning Labs
   receiver balance is observed and agrees with the expected asset delta.
+- Receiver-side incoming payment artifacts may enter a documented-gap state,
+  but cannot be modeled as settled interop payment until a live Lightning Labs
+  sender is driven and the durable `tap-ldk` receiver balance agrees with the
+  expected asset delta.
 - Unsupported required blob fields and malformed blob structure lead to a
   documented gap or rejection state, never a successful interop state.
 - A settled interop payment requires proof sync, an open compatible channel,
