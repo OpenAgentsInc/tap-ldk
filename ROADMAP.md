@@ -416,6 +416,15 @@ Exit criteria:
 - Wrong asset amount, wrong asset ID, stale quote, or malformed HTLC blob fails.
 - Restart tests recover the same asset-channel state.
 
+Current implementation note:
+
+- `tap-ldk-core::asset_commitment` implements bounded commitment-numbered
+  balance transitions, previous-state revocation, asset nonce reuse checks,
+  deterministic asset virtual transaction/witness/signature contexts, BTC-vs-
+  asset signing-domain separation, and restart validation through a persisted
+  commitment monitor blob. Real MuSig2/Taproot Assets witness integration and
+  HTLC custom records remain the next surfaces.
+
 ## Milestone 7: Payment Send, Receive, And Routing
 
 Deliverables:

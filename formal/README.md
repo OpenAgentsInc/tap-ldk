@@ -37,6 +37,12 @@ formal/
       assumptions.md
       boundaries.md
       invariants.md
+    asset_commitment/
+      AssetCommitment.tla
+      AssetCommitment.cfg
+      assumptions.md
+      boundaries.md
+      invariants.md
     asset_htlc/
       AssetHtlc.tla
       AssetHtlc.cfg

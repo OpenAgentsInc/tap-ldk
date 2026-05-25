@@ -7,6 +7,7 @@ use tap_ldk_core::{
     asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
     asset_channel_funding::{AssetChannelStore, run_asset_channel_funding_smoke},
     asset_channel_negotiation::run_negotiation_smoke,
+    asset_commitment::{AssetCommitmentStore, run_asset_commitment_smoke},
     asset_peer_message::run_peer_message_smoke,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     proof::{ProofFile, VerificationScope},
@@ -277,6 +278,35 @@ fn main() {
             };
             print_json_or_exit(&balances, "asset-channel balances");
         }
+        [command, store_path] if command == "asset-commitment-smoke" => {
+            let (store, report) = match run_asset_commitment_smoke() {
+                Ok(result) => result,
+                Err(err) => {
+                    eprintln!("failed asset-commitment smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            if let Err(err) = store.save_atomic(store_path) {
+                eprintln!("failed to save asset-commitment store {store_path}: {err}");
+                process::exit(1);
+            }
+            print_json_or_exit(&report, "asset-commitment smoke");
+        }
+        [command, store_path] if command == "asset-commitment-list" => {
+            let store = load_asset_commitment_store_or_exit(store_path);
+            print_json_or_exit(&store.channels, "asset commitment channels");
+        }
+        [command, store_path, channel_id] if command == "asset-commitment-state" => {
+            let store = load_asset_commitment_store_or_exit(store_path);
+            let state = match store.channel_state(channel_id) {
+                Ok(state) => state,
+                Err(err) => {
+                    eprintln!("failed to load asset-commitment state {channel_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&state, "asset-commitment state");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -465,6 +495,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-channel-funding-smoke <store.json>");
     println!("  tap-ldk asset-channel-list <store.json>");
     println!("  tap-ldk asset-channel-balances <store.json> <channel-id>");
+    println!("  tap-ldk asset-commitment-smoke <store.json>");
+    println!("  tap-ldk asset-commitment-list <store.json>");
+    println!("  tap-ldk asset-commitment-state <store.json> <channel-id>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(
@@ -551,6 +584,16 @@ fn load_asset_channel_store_or_exit(store_path: &str) -> AssetChannelStore {
         Ok(store) => store,
         Err(err) => {
             eprintln!("failed to load asset-channel store {store_path}: {err}");
+            process::exit(1);
+        }
+    }
+}
+
+fn load_asset_commitment_store_or_exit(store_path: &str) -> AssetCommitmentStore {
+    match AssetCommitmentStore::load(store_path) {
+        Ok(store) => store,
+        Err(err) => {
+            eprintln!("failed to load asset-commitment store {store_path}: {err}");
             process::exit(1);
         }
     }

@@ -193,6 +193,8 @@ Current checked-in model map:
   gate.
 - `formal/tla/rfq_lifecycle/`: RFQ quote, invoice binding, expiry, alias, and
   single-use lifecycle.
+- `formal/tla/asset_commitment/`: commitment-numbered balance transitions,
+  revocation, nonce reuse, signing-domain separation, and durability.
 - `formal/tla/asset_htlc/`: quote-bound asset HTLC offer, settle, fail, revoke,
   and durability lifecycle.
 - `formal/tla/close_recovery/`: cooperative close, force-close recovery,
@@ -428,9 +430,9 @@ Do not claim these guarantees until implementation and verification exist:
   encode/decode and virtual PSBT summary validation exist for the first-demo
   fixture surface, but full TAP BIP MS-SMT, TAP VM, virtual transaction
   signing, and full-history proof validation are not implemented.
-- Bounded native asset-channel funding exists for the first demo. Native asset
-  commitments, HTLCs, close, recovery, and interop payment execution are not
-  implemented.
+- Bounded native asset-channel funding and commitment-numbered asset balance
+  transitions exist for the first demo. Native asset HTLCs, close, recovery,
+  and interop payment execution are not implemented.
 - `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not
   configured.
 - No public stablecoin issuance, redemption, compliance, or reserve guarantee
