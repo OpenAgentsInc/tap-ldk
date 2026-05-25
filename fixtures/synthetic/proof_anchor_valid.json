@@ -1,0 +1,14 @@
+{
+  "kind": "synthetic-proof-anchor",
+  "description": "Bounded regtest proof fixture for parser, import/export, and persistence tests. This is not a production Taproot Assets proof.",
+  "asset_id": "7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93",
+  "genesis_outpoint": "9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0",
+  "anchor_outpoint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1",
+  "amount": 1000000,
+  "script_key": "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+  "tap_asset_root": {
+    "hash": "f6c25024e8fcb7f2ecafccaae6b2f3b0b9dffb839c4e41a3fa40d3804f383f6c",
+    "sum": 1000000
+  },
+  "verification_scope": "bounded-anchor-only"
+}

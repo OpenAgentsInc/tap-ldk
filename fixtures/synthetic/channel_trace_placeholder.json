@@ -1,0 +1,18 @@
+{
+  "kind": "synthetic-channel-trace-placeholder",
+  "description": "Shape placeholder for future Lightning Labs asset-channel traces.",
+  "counterparties": {
+    "native": "tap-ldk",
+    "external": "lnd-plus-tapd"
+  },
+  "steps": [
+    "issue-or-import-demo-asset",
+    "sync-proof",
+    "negotiate-asset-channel-feature",
+    "send-funding-proof-messages",
+    "bind-rfq-to-bolt11-invoice",
+    "send-asset-htlc",
+    "compare-payment-and-balance-state"
+  ],
+  "status": "placeholder"
+}

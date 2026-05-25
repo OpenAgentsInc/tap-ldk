@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "fixtures": [
+    {
+      "id": "tap-bip-address-valid",
+      "category": "address",
+      "status": "imported",
+      "path": "fixtures/tap-bips/address_tlv_encoding_generated.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap-addr/address_tlv_encoding_generated.json",
+        "commit": "bd3cdc153bea",
+        "notes": "TAP address TLV positive vectors."
+      }
+    },
+    {
+      "id": "tap-bip-address-error-cases",
+      "category": "address",
+      "status": "imported",
+      "path": "fixtures/tap-bips/address_tlv_encoding_error_cases.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap-addr/address_tlv_encoding_error_cases.json",
+        "commit": "bd3cdc153bea",
+        "notes": "TAP address TLV negative vectors."
+      }
+    },
+    {
+      "id": "tap-bip-vm-valid",
+      "category": "vm",
+      "status": "imported",
+      "path": "fixtures/tap-bips/vm_validation_generated.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap-vm/vm_validation_generated.json",
+        "commit": "bd3cdc153bea",
+        "notes": "TAP VM generated positive validation vectors covering asset leaves, split commitments, and proofs."
+      }
+    },
+    {
+      "id": "tap-bip-vm-error-cases",
+      "category": "vm",
+      "status": "imported",
+      "path": "fixtures/tap-bips/vm_validation_generated_error_cases.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap-vm/vm_validation_generated_error_cases.json",
+        "commit": "bd3cdc153bea",
+        "notes": "TAP VM generated negative validation vectors."
+      }
+    },
+    {
+      "id": "tap-bip-virtual-psbt-valid",
+      "category": "virtual_psbt",
+      "status": "imported",
+      "path": "fixtures/tap-bips/psbt_encoding_generated.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap-psbt/psbt_encoding_generated.json",
+        "commit": "bd3cdc153bea",
+        "notes": "Generated virtual PSBT encoding vectors."
+      }
+    },
+    {
+      "id": "synthetic-ms-smt-smoke",
+      "category": "ms_smt",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/ms_smt_smoke.json",
+      "source": {
+        "upstream": "https://github.com/Roasbeef/bips",
+        "local_path": "../projects/lightninglabs/repos/bips/bip-tap-ms-smt.mediawiki",
+        "commit": "bd3cdc153bea",
+        "notes": "Bounded smoke fixture for early Rust hash+sum and conservation tests; replace or extend with upstream vectors when published."
+      }
+    },
+    {
+      "id": "synthetic-proof-anchor",
+      "category": "proof",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/proof_anchor_valid.json",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/proof",
+        "commit": "743db21da57b",
+        "notes": "Bounded proof file fixture for early parser and persistence tests; not a production proof."
+      }
+    },
+    {
+      "id": "synthetic-channel-trace-placeholder",
+      "category": "channel_trace",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/channel_trace_placeholder.json",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/itest/custom_channels",
+        "commit": "743db21da57b",
+        "notes": "Placeholder shape for future LND/tapd asset-channel traces."
+      }
+    }
+  ]
+}

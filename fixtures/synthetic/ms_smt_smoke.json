@@ -1,0 +1,21 @@
+{
+  "kind": "synthetic-ms-smt-smoke",
+  "description": "Bounded regtest fixture for early MS-SMT hash+sum and conservation tests.",
+  "asset_id": "7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93",
+  "input_sum": 1000000,
+  "outputs": [
+    {
+      "script_key": "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+      "amount": 750000
+    },
+    {
+      "script_key": "03f32d239904d1addae728d1917a94bc1d20455b12b251a9222d035e5014a9f759",
+      "amount": 250000
+    }
+  ],
+  "expected": {
+    "conserved": true,
+    "root_hash": "f6c25024e8fcb7f2ecafccaae6b2f3b0b9dffb839c4e41a3fa40d3804f383f6c",
+    "root_sum": 1000000
+  }
+}
