@@ -1,6 +1,6 @@
 use std::{env, process};
 
-use tap_ldk_core::ProjectInfo;
+use tap_ldk_core::{ProjectInfo, regtest::BitcoinRegtestConfig};
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
@@ -15,6 +15,16 @@ fn main() {
         }
         [flag] if flag == "--version" || flag == "-V" => {
             println!("{} {}", info.name, info.version);
+        }
+        [command] if command == "regtest-bitcoin-config" => {
+            let config = BitcoinRegtestConfig::default();
+            match config.connection_material_json() {
+                Ok(json) => println!("{json}"),
+                Err(err) => {
+                    eprintln!("invalid default regtest config: {err}");
+                    process::exit(1);
+                }
+            }
         }
         [unknown, ..] => {
             eprintln!("unknown argument: {unknown}");
@@ -31,4 +41,5 @@ fn print_help(info: ProjectInfo) {
     println!("Usage:");
     println!("  tap-ldk [--help]");
     println!("  tap-ldk --version");
+    println!("  tap-ldk regtest-bitcoin-config");
 }

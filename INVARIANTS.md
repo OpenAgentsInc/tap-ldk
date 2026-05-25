@@ -47,6 +47,8 @@ regression test or a documented model-boundary exception.
   implementations.
 - Polar may orchestrate a manual regtest/interop network, but it is not the
   native wallet runtime and not the only automated harness.
+- The headless Bitcoin regtest harness is infrastructure only; it must not
+  become wallet logic or an implicit sidecar dependency.
 - The public demo must clearly label mocked pieces: issuer identity, price
   oracle, discovery, proof courier, UI, and any compatibility gaps.
 

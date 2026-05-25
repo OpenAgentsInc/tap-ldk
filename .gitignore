@@ -4,3 +4,4 @@
 .env
 .env.*
 !.env.example
+.tap-ldk/

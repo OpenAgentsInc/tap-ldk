@@ -10,6 +10,7 @@ Run the current setup checks from the repo root:
 cargo fmt --check
 cargo test
 cargo run -p tap-ldk-cli -- --help
+cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 ```
 
 ## Planning Docs
@@ -19,3 +20,4 @@ cargo run -p tap-ldk-cli -- --help
 - [Protocol References](docs/protocol-references.md)
 - [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)
+- [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
