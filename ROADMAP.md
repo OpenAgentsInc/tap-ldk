@@ -121,6 +121,49 @@ Track B: `tap-ldk` to Lightning Labs TAP-D.
    counterparty.
 9. Show both sides agree on the resulting asset balance and payment state.
 
+## Implementation Issue Sequence
+
+These are the implementation issues to open or execute in order. Each issue
+should stay small enough to review independently, but the sequence is intended
+to carry both demos to completion.
+
+| Seq | Issue | Exit condition | Demo |
+| --- | --- | --- | --- |
+| 1 | Scaffold Rust workspace and CLI shell | `cargo test`, formatting, linting, and a no-op `tap-ldk` CLI run in CI | Both |
+| 2 | Pin protocol references and fixture sources | Local paths, upstream commits, and fixture provenance are recorded for TAP BIP, `tapd`, `lnd`, and `rust-lightning` | Both |
+| 3 | Import TAP BIP and Taproot Assets fixture vectors | Fixture tests exist for TLV, MS-SMT, address, proof, and virtual PSBT encoding, even if implementation initially fails | Both |
+| 4 | Build a headless Bitcoin regtest harness | Tests can start, mine, fund, and stop Bitcoin Core without Polar or a desktop app | Both |
+| 5 | Run and document the Polar smoke topology | A Polar network proves the usable LND/`tapd`/`litd` versions, ports, credentials, mining flow, and asset-channel flow for manual interop | B |
+| 6 | Implement strict Taproot Assets TLV primitives | Native Rust encode/decode passes fixture tests and rejects malformed or non-canonical data | Both |
+| 7 | Implement asset identity and commitment primitives | Genesis, asset ID, group key, script key, split commitments, and MS-SMT roots verify against fixtures | Both |
+| 8 | Implement proof file parsing and verification | The CLI can load, verify, export, and reject invalid Taproot Asset proofs | Both |
+| 9 | Implement address and virtual PSBT support | The CLI can create/decode Taproot Asset addresses and construct local asset transfer PSBT data | Both |
+| 10 | Implement local asset wallet storage | Proofs, balances, spendable asset UTXOs, and wallet metadata persist across restart | Both |
+| 11 | Implement regtest issuance and local transfer commands | The CLI can issue `OPENUSD`, verify the proof, send it on-chain, and show balances without Lightning | Both |
+| 12 | Bring up a baseline LDK wallet node | Two `tap-ldk` nodes can peer, sync regtest, open a normal BTC channel, and make a normal BTC payment | A |
+| 13 | Define the rust-lightning asset-channel extension boundary | The design maps each required LND aux hook to an LDK or forked `rust-lightning` surface with feature flags | Both |
+| 14 | Create required OpenAgentsInc forks | Any needed `rust-lightning` or dependency forks exist under `OpenAgentsInc` and are wired explicitly from `tap-ldk` | Both |
+| 15 | Add asset-channel feature negotiation | Peers can advertise, require, accept, and reject the experimental Taproot Assets channel feature | Both |
+| 16 | Add Taproot Asset peer messages | Proof exchange, channel funding metadata, RFQ, quote accept/reject, and asset HTLC messages round-trip between native peers | Both |
+| 17 | Implement RFQ quote store and fixed-rate oracle | Quotes bind asset ID, asset amount, BTC amount, peer, expiry, invoice context, and replay protection | Both |
+| 18 | Implement asset-channel funding for native peers | Two native wallets can open a single-asset channel and persist initial asset balances | A |
+| 19 | Implement asset commitment state transitions | Commitment updates move asset balances, reject malformed HTLC blobs, and preserve revocation semantics | Both |
+| 20 | Implement asset HTLC custom records and final-hop validation | Asset amount, asset ID, quote binding, and invoice metadata are encoded, decoded, and enforced | Both |
+| 21 | Implement native asset payment send/receive | Wallet A can pay Wallet B `OPENUSD` through the asset channel and both balances update | A |
+| 22 | Implement restart recovery for native channels | Restart after funding, quote acceptance, HTLC add, commitment sign, and settlement recovers the same asset state | A |
+| 23 | Implement close and proof export for native channels | Cooperative close returns the expected asset allocation and exports the owner proof; force-close is either implemented or explicitly a stretch gate | A |
+| 24 | Script the native-to-native demo | One command starts regtest, starts two wallets, issues `OPENUSD`, opens an asset channel, pays, restarts, and prints balances | A |
+| 25 | Extract Lightning Labs interop protocol matrix | `tapd`/`litd` flows for issuance, proof sync, channel funding, RFQ, invoices, payments, close, and balance checks are mapped to native code surfaces | B |
+| 26 | Build the Lightning Labs counterparty harness | The headless harness or Polar-backed manual harness can start Bitcoin Core plus LND/`tapd` or `litd` with stable connection material | B |
+| 27 | Implement proof import/export compatibility with `tapd` | `tap-ldk` and the Lightning Labs node can share or verify the same demo asset proof data | B |
+| 28 | Implement asset-channel funding interop | `tap-ldk` can open or attach to the compatible asset-channel setup used by the Lightning Labs counterparty | B |
+| 29 | Implement RFQ and invoice compatibility | `tap-ldk` can create, parse, accept, or pay the quote-bound invoice format used by the Lightning Labs stack | B |
+| 30 | Implement `tap-ldk` to Lightning Labs payment | `tap-ldk` pays an asset invoice to the LND/`tapd` or `litd` counterparty and both sides agree on payment and balance state | B |
+| 31 | Implement Lightning Labs to `tap-ldk` payment | The Lightning Labs counterparty pays a `tap-ldk` asset invoice, or the gap is documented as the only remaining demo limitation | B |
+| 32 | Add interop balance, proof, and restart checks | After each interop payment, both sides report expected balances and `tap-ldk` survives restart with the same state | B |
+| 33 | Automate the full demo harness | CI or a local smoke command can run Track A fully and run Track B as far as external container dependencies allow | Both |
+| 34 | Write the public demo runbook | The README or demo doc explains exact commands, mocked pieces, expected output, and compatibility limitations | Both |
+
 ## Milestone 0: Repo And Harness Setup
 
 Deliverables:
