@@ -451,6 +451,10 @@ Do not claim these guarantees until implementation and verification exist:
   funded amount, and initial local/remote allocation. Live LND/`tapd` channel
   funding, funding outpoint binding, and proof-to-output verification are not
   implemented.
+- Lightning Labs RFQ request, accept, and reject TLV payload compatibility
+  exists for the bounded first-demo message surface. Live LND/`tapd` RFQ
+  session execution, accept-signature verification, and interop payment
+  settlement are not implemented.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
   send/receive, restart-recovery, cooperative-close, and proof-export smoke

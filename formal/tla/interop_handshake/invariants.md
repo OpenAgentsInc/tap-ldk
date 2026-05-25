@@ -11,6 +11,9 @@
 - Fixture-backed Lightning Labs `TAPF` proof-file import validates the
   transport envelope before proof sync can become available in the model, and
   raw proof-file export preserves the imported bytes.
+- Lightning Labs RFQ request, accept, and reject payload compatibility is
+  bounded to TLV transport, message IDs, RFQ-ID-derived aliases, quote/invoice
+  expiry, and replay checks until live daemon signature verification exists.
 - Unsupported required blob fields and malformed blob structure lead to a
   documented gap or rejection state, never a successful interop state.
 - A settled interop payment requires proof sync, an open compatible channel,

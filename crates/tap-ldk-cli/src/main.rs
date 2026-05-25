@@ -16,6 +16,7 @@ use tap_ldk_core::{
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     lightning_labs_blob::decode_fixture_hexdumps,
     lightning_labs_funding::run_lightning_labs_funding_interop_fixture_smoke,
+    lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
@@ -399,6 +400,17 @@ fn main() {
             }
             print_json_or_exit(&report, "Lightning Labs funding interop smoke");
         }
+        [command, asset_id] if command == "lightning-labs-rfq-invoice-compat-smoke" => {
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let report = match run_lightning_labs_rfq_invoice_compat_smoke(asset_id) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed Lightning Labs RFQ invoice compatibility smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "Lightning Labs RFQ invoice compatibility smoke");
+        }
         [command, wallet_path] if command == "wallet-init" => {
             let wallet = WalletState::default();
             if let Err(err) = wallet.save_atomic(wallet_path) {
@@ -646,6 +658,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-funding-interop-smoke <fixture-dir> <store.json>");
+    println!("  tap-ldk lightning-labs-rfq-invoice-compat-smoke <asset-id>");
     println!("  tap-ldk wallet-init <wallet.json>");
     println!("  tap-ldk wallet-issue-openusd <wallet.json> <amount> <issuer-script-key>");
     println!(

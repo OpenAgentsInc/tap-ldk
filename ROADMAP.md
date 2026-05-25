@@ -562,6 +562,12 @@ Current implementation note:
   proofs for tapd file tooling, and stores raw tapd proof-file bytes in wallet
   state for restart-safe export. Full Taproot Asset proof ancestry validation
   remains later Track B work before live funding can depend on these proofs.
+- `tap-ldk-core::lightning_labs_rfq` implements bounded Lightning Labs RFQ
+  request, accept, and reject TLV payload compatibility for message types
+  `52884..52886`, derives SCID aliases from RFQ IDs the same way
+  `rfqmsg.ID.Scid()` does, and binds decoded requests to native quote-bound
+  invoice state. Live daemon RFQ exchange, accept-signature verification, and
+  payment execution remain the next Track B work.
 
 ## Public Demo Bar
 

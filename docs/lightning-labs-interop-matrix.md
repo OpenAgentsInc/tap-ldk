@@ -46,9 +46,9 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Virtual PSBT | `../projects/lightninglabs/repos/bips/bip-tap-psbt.mediawiki`; `tappsbt/interface.go`; `tappsbt/decode.go`; `fixtures/tap-bips/psbt_encoding_generated.json` | Current `tap-ldk` summary validates fixtures; full VPacket signing and state transition construction remains required. | Partially implemented |
 | Issuance and proof sync | `itest/assets_test.go`; `itest/mint_fund_seal_test.go`; `proof` package | First interop harness can mint/import on Lightning Labs side, export proof, then import into `tap-ldk`. | Required |
 | Universe/proof courier | `bip-tap-universe.mediawiki`; `proof/courier.go`; `itest/universe_test.go` | Use local proof/universe courier for demo; do not make it production infrastructure. | Mocked for first demo |
-| RFQ message types | `rfqmsg/request_test.go`; `rfqmsg/accept_test.go`; `rfqmsg/reject_test.go`; `rfqmsg/messages_test.go` | Implement request/accept/reject and bind asset amount, BTC amount, peer, invoice context, route context, and expiry. | Required |
-| Invoice behavior | `tapchannel/aux_invoice_manager.go`; `itest/custom_channels/decode_invoice_test.go`; `itest/custom_channels/invoice_expiry_test.go` | Keep BOLT 11 invoice format; select asset semantics through RFQ and metadata. | Required |
-| Quote expiry | `itest/custom_channels/invoice_expiry_test.go`; `rfq/manager_test.go` | Invoice expiry must not outlive quote validity in a way that permits stale settlement. | Required |
+| RFQ message types | `rfqmsg/request_test.go`; `rfqmsg/accept_test.go`; `rfqmsg/reject_test.go`; `rfqmsg/messages_test.go`; `docs/lightning-labs-rfq-invoice.md` | Lightning Labs request/accept/reject payloads round-trip with message types `52884..52886`, RFQ-ID-derived SCID aliases, fixed-point rates, and fail-closed version/expiry checks. Native `tap-ldk` RFQ shell message types remain intentionally separate. | Partially implemented |
+| Invoice behavior | `tapchannel/aux_invoice_manager.go`; `itest/custom_channels/decode_invoice_test.go`; `itest/custom_channels/invoice_expiry_test.go`; `docs/lightning-labs-rfq-invoice.md` | BOLT 11 invoice text stays opaque; Lightning Labs RFQ metadata is checked against native quote-bound invoice fields before HTLC/payment state can advance. | Partially implemented |
+| Quote expiry | `itest/custom_channels/invoice_expiry_test.go`; `rfq/manager_test.go`; `docs/lightning-labs-rfq-invoice.md` | RFQ request/accept expiry, invoice expiry, quote expiry, and replay checks are enforced in the bounded interop smoke. Live daemon expiry behavior still needs Track B payment execution. | Partially implemented |
 | Multi-RFQ and routing | `itest/custom_channels/multi_rfq_test.go`; `itest/custom_channels/multi_channel_pathfinding_test.go` | Out of first-demo scope except as a compatibility note. | Deferred |
 | Payment direction: `tap-ldk` pays Lightning Labs | `itest/custom_channels/core_test.go`; `itest/custom_channels/single_asset_multi_input_test.go`; `itest/custom_channels/strict_forwarding_test.go` | Implement first because `tap-ldk` can construct RFQ/payment from native state and compare Lightning Labs receiver balance. | First direction |
 | Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go` | Implement after native receive invoice and final-hop validation are real; document as gap until then. | Second direction |
@@ -77,7 +77,8 @@ native receiver invoice/final-hop path in `tap-ldk`.
   `docs/lightning-labs-funding-interop.md`: drive a headless or Polar-backed
   LND/`tapd` channel funding attempt and bind the live funding outpoint to the
   proof and funding blob.
-- Implement native RFQ request/accept/reject messages against `rfqmsg` vectors.
+- Drive a live LND/`tapd` RFQ exchange and verify Lightning Labs accept
+  signatures against the peer/session once payment execution begins.
 - Extend proof import/export from byte-compatible `TAPF` preservation to full
   semantic proof ancestry validation.
 - Extend the headless harness to start Bitcoin Core plus LND/`tapd` using the
@@ -95,5 +96,7 @@ native receiver invoice/final-hop path in `tap-ldk`.
   full proof ancestry, virtual transactions, or on-chain anchor semantics.
 - `tap-ldk` parses fixture-backed Lightning Labs funding/HTLC/commitment blob
   field maps, but does not yet apply them to live interop channel state.
-- `tap-ldk` does not yet implement RFQ wire compatibility.
+- `tap-ldk` implements bounded Lightning Labs RFQ request/accept/reject payload
+  compatibility, but does not yet run the live daemon RFQ session or verify the
+  Lightning Labs accept signature.
 - `tap-ldk` does not yet perform either Track B payment direction.

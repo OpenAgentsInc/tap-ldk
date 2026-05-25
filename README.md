@@ -27,6 +27,7 @@ cargo run -p tap-ldk-cli -- asset-close-smoke
 cargo run -p tap-ldk-cli -- lightning-labs-blob-fixture-smoke fixtures/lightning-labs/tapchannelmsg/testdata
 cargo run -p tap-ldk-cli -- lightning-labs-proof-fixture-smoke fixtures/lightning-labs/proof/testdata
 cargo run -p tap-ldk-cli -- lightning-labs-funding-interop-smoke fixtures/lightning-labs/tapchannelmsg/testdata target/lightning-labs-funding-interop.json
+cargo run -p tap-ldk-cli -- lightning-labs-rfq-invoice-compat-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 ./scripts/path-a-native-demo.sh
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-issue-openusd target/demo-wallet.json 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f
@@ -48,6 +49,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Funding Interop](docs/lightning-labs-funding-interop.md)
+- [Lightning Labs RFQ Invoice Compatibility](docs/lightning-labs-rfq-invoice.md)
 - [tapd Proof Import/Export](docs/tapd-proof-import-export.md)
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
 - [Wallet Storage](docs/wallet-storage.md)
