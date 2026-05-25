@@ -19,6 +19,10 @@ BOB_PROOF="$ARTIFACT_DIR/bob-openusd-proof.tlv"
 CHANNEL_STORE="$ARTIFACT_DIR/asset-channels.json"
 COMMITMENT_STORE="$ARTIFACT_DIR/asset-commitments.json"
 SUMMARY="$ARTIFACT_DIR/summary.txt"
+CLOSE_REPORT="$ARTIFACT_DIR/native-close.json"
+CLOSE_LOCAL_PROOF_HEX="$ARTIFACT_DIR/native-close-local-proof.hex"
+CLOSE_REMOTE_PROOF_HEX="$ARTIFACT_DIR/native-close-remote-proof.hex"
+CLOSE_RECOVERY_STATUS="$ARTIFACT_DIR/close-recovery-status.json"
 
 ISSUER_KEY="02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f"
 BOB_KEY="03a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f"
@@ -47,6 +51,55 @@ run_text_capture() {
   "$@" 2>"$LOG_DIR/$name.err" | tee "$LOG_DIR/$name.out"
 }
 
+json_string_field() {
+  local file="$1"
+  local field="$2"
+  sed -n "s/.*\"$field\": \"\\([^\"]*\\)\".*/\\1/p" "$file" | head -n 1
+}
+
+json_scalar_field() {
+  local file="$1"
+  local field="$2"
+  sed -n "s/.*\"$field\": \\([^,}]*\\).*/\\1/p" "$file" | head -n 1
+}
+
+capture_close_artifacts() {
+  local local_proof
+  local remote_proof
+  local force_close_status
+  local restart_after_close_matches
+  local obsolete_proof_rejected
+  local failed_sweep_not_reported_recovered
+
+  local_proof="$(json_string_field "$CLOSE_REPORT" local_proof_tlv_hex)"
+  remote_proof="$(json_string_field "$CLOSE_REPORT" remote_proof_tlv_hex)"
+  force_close_status="$(json_string_field "$CLOSE_REPORT" force_close_status)"
+  restart_after_close_matches="$(json_scalar_field "$CLOSE_REPORT" restart_after_close_matches)"
+  obsolete_proof_rejected="$(json_scalar_field "$CLOSE_REPORT" obsolete_proof_rejected)"
+  failed_sweep_not_reported_recovered="$(json_scalar_field "$CLOSE_REPORT" failed_sweep_not_reported_recovered)"
+
+  if [ -z "$local_proof" ] || [ -z "$remote_proof" ] || [ -z "$force_close_status" ]; then
+    echo "path-a-native-demo: failed to extract close proof artifacts." >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$local_proof" >"$CLOSE_LOCAL_PROOF_HEX"
+  printf '%s\n' "$remote_proof" >"$CLOSE_REMOTE_PROOF_HEX"
+  cat >"$CLOSE_RECOVERY_STATUS" <<STATUS_JSON
+{
+  "cooperative_close_report": "$CLOSE_REPORT",
+  "local_proof_hex": "$CLOSE_LOCAL_PROOF_HEX",
+  "remote_proof_hex": "$CLOSE_REMOTE_PROOF_HEX",
+  "force_close_status": "$force_close_status",
+  "force_close_supported": false,
+  "force_close_deferred_reason": "native force-close and sweep recovery are explicitly deferred; the demo must not claim force-close support",
+  "restart_after_close_matches": $restart_after_close_matches,
+  "obsolete_proof_rejected": $obsolete_proof_rejected,
+  "failed_sweep_not_reported_recovered": $failed_sweep_not_reported_recovered
+}
+STATUS_JSON
+}
+
 echo "path-a-native-demo: artifacts=$ARTIFACT_DIR"
 
 run_log regtest-start ./scripts/regtest-bitcoin.sh start
@@ -71,7 +124,8 @@ run_json asset-channel-funding "$ARTIFACT_DIR/asset-channel-funding.json" cargo 
 run_json asset-commitment "$ARTIFACT_DIR/asset-commitment.json" cargo run -q -p tap-ldk-cli -- asset-commitment-smoke "$COMMITMENT_STORE"
 run_json native-payment "$ARTIFACT_DIR/native-payment.json" cargo run -q -p tap-ldk-cli -- asset-payment-smoke
 run_json native-recovery "$ARTIFACT_DIR/native-recovery.json" cargo run -q -p tap-ldk-cli -- asset-recovery-smoke
-run_json native-close "$ARTIFACT_DIR/native-close.json" cargo run -q -p tap-ldk-cli -- asset-close-smoke
+run_json native-close "$CLOSE_REPORT" cargo run -q -p tap-ldk-cli -- asset-close-smoke
+capture_close_artifacts
 
 cp "$BOB_WALLET" "$BOB_RESTART_WALLET"
 run_json bob-wallet-balances-after-restart "$ARTIFACT_DIR/bob-wallet-balances-after-restart.json" cargo run -q -p tap-ldk-cli -- wallet-balances "$BOB_RESTART_WALLET"
@@ -91,6 +145,8 @@ Expected demo path:
 - native payment settles 125 OPENUSD to bob
 - recovery smoke checks funding/RFQ/HTLC/commitment/settlement/close-prep restart boundaries
 - cooperative close exports final proofs at alice=575 bob=425
+- close proofs are captured at $CLOSE_LOCAL_PROOF_HEX and $CLOSE_REMOTE_PROOF_HEX
+- force-close status is machine-visible in $CLOSE_RECOVERY_STATUS and remains deferred
 - bob wallet reload after restart keeps the same imported proof balance
 SUMMARY_TEXT
 
@@ -105,3 +161,6 @@ cat "$ARTIFACT_DIR/native-recovery.json"
 echo
 echo "--- native-close.json ---"
 cat "$ARTIFACT_DIR/native-close.json"
+echo
+echo "--- close-recovery-status.json ---"
+cat "$CLOSE_RECOVERY_STATUS"

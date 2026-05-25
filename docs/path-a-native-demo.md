@@ -25,3 +25,12 @@ Path A native-to-native demo artifacts: ...
 The command makes mocked pieces visible in `summary.txt`: bounded local issuer,
 fixed regtest oracle, local proof courier, and headless CLI UI. It does not use
 LND or `tapd` for wallet duties.
+
+Close/recovery artifacts are captured separately:
+
+- `native-close-local-proof.hex`
+- `native-close-remote-proof.hex`
+- `close-recovery-status.json`
+
+`close-recovery-status.json` is the machine-visible force-close gate. It keeps
+`force_close_supported=false` until a real force-close/sweep smoke exists.

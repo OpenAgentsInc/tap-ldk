@@ -584,6 +584,10 @@ Current implementation note:
   Docker/counterparty dependency gap when the independent Lightning Labs target
   cannot be started. `scripts/full-demo-smoke.sh` runs Path A and Path B into a
   single ignored artifact tree.
+- `scripts/path-a-native-demo.sh` now exports cooperative close proof artifacts
+  and `close-recovery-status.json`, which makes restart-after-close,
+  obsolete-proof rejection, failed-sweep gating, and deferred force-close
+  status machine-visible in the demo artifact directory.
 
 ## Public Demo Bar
 
