@@ -62,8 +62,10 @@ What does not work yet:
   before observed balance comparison from both sides.
 - The new live peer smoke is localhost `tap-ldk` to `tap-ldk`. It is not yet a
   Lightning Labs daemon-backed P2P session.
-- The live Lightning Labs checks need Docker or Podman so the independent
-  regtest Bitcoin Core, LND, and `tapd` counterparty can run.
+- The live Lightning Labs checks run through Docker or Podman. The scripts now
+  bound image pull and container startup time and write blocked reports when
+  the independent regtest Bitcoin Core, LND, and `tapd` counterparty cannot
+  start.
 - Full semantic Taproot Assets proof ancestry validation is still open; the
   live proof binding preserves and binds TAPF material with bounded anchor
   checks until issue #60 lands.

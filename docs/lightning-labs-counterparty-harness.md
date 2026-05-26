@@ -31,6 +31,8 @@ Smoke:
 The script prefers Docker, including the Docker Desktop app bundle CLI, and
 falls back to Podman. Set `TAP_LDK_CONTAINER_RUNTIME=docker`,
 `TAP_LDK_CONTAINER_RUNTIME=podman`, or a runtime binary path to force one.
+Set `TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS` to bound image pull and
+container startup time.
 Generated state and credentials live under `.tap-ldk/regtest/lightning-labs`
 by default and are ignored by Git.
 

@@ -21,6 +21,7 @@ LND_WALLET_PASSWORD="${TAP_LDK_LL_LND_WALLET_PASSWORD:-tapldk-regtest-lnd-wallet
 STATE_DIR="${TAP_LDK_LL_STATE_DIR:-$ROOT/.tap-ldk/regtest/lightning-labs}"
 WAIT_TIMEOUT_SECONDS="${TAP_LDK_LL_WAIT_TIMEOUT_SECONDS:-180}"
 WAIT_INTERVAL_SECONDS="${TAP_LDK_LL_WAIT_INTERVAL_SECONDS:-2}"
+CONTAINER_RUN_TIMEOUT_SECONDS="${TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS:-300}"
 LND_FUND_TARGET_SAT="${TAP_LDK_LL_LND_FUND_TARGET_SAT:-100000000}"
 LND_FUND_BTC="${TAP_LDK_LL_LND_FUND_BTC:-10}"
 LND_HOST_P2P_PORT="${TAP_LDK_LL_LND_HOST_P2P_PORT:-19735}"
@@ -46,6 +47,8 @@ does not run LND or tapd as a sidecar inside the native tap-ldk wallet.
 Set TAP_LDK_CONTAINER_RUNTIME=docker or TAP_LDK_CONTAINER_RUNTIME=podman to
 force a specific runtime. By default the script prefers Docker, including the
 Docker Desktop app bundle CLI, then Podman.
+Set TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS to bound image pull/container
+startup time.
 USAGE
 }
 
@@ -150,6 +153,36 @@ wait_until() {
 
 wait_for_host_file() {
   test -f "$1"
+}
+
+run_with_timeout() {
+  local label="$1"
+  shift
+  local start now elapsed pid status
+
+  "$@" &
+  pid=$!
+  start="$(date +%s)"
+
+  while kill -0 "$pid" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$CONTAINER_RUN_TIMEOUT_SECONDS" ]; then
+      kill "$pid" 2>/dev/null || true
+      sleep 1
+      kill -9 "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      echo "lightning-labs-counterparty: timed out waiting for $label after ${CONTAINER_RUN_TIMEOUT_SECONDS}s" >&2
+      return 1
+    fi
+    sleep 1
+  done
+
+  set +e
+  wait "$pid"
+  status=$?
+  set -e
+  return "$status"
 }
 
 exec_container() {
@@ -263,7 +296,8 @@ start_bitcoind() {
   fi
 
   mkdir -p "$STATE_DIR/bitcoind"
-  "$CONTAINER_RUNTIME_BIN" run -d --rm \
+  run_with_timeout "bitcoind image pull/container start" \
+    "$CONTAINER_RUNTIME_BIN" run -d --rm \
     --name "$BITCOIND_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:18443:18443 \
@@ -298,7 +332,8 @@ start_lnd() {
   fi
 
   mkdir -p "$STATE_DIR/lnd"
-  "$CONTAINER_RUNTIME_BIN" run -d --rm \
+  run_with_timeout "LND image pull/container start" \
+    "$CONTAINER_RUNTIME_BIN" run -d --rm \
     --name "$LND_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:10009:10009 \
@@ -341,7 +376,8 @@ start_tapd() {
   fi
 
   mkdir -p "$STATE_DIR/tapd"
-  "$CONTAINER_RUNTIME_BIN" run -d --rm \
+  run_with_timeout "tapd image pull/container start" \
+    "$CONTAINER_RUNTIME_BIN" run -d --rm \
     --name "$TAPD_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:10029:10029 \
