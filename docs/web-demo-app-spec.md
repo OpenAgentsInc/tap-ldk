@@ -190,7 +190,7 @@ and a new JSON run plan before adding a long-lived wallet daemon.
    - standalone LND/`tapd` readiness;
    - integrated `litd` readiness;
    - live `tapd` proof binding;
-   - native LDK to `litd` peer preflight;
+   - upstream `ldk-node` to `litd` peer preflight;
    - fixture checks;
    - live settlement gate.
 6. If Path B stops at the current known gap, the app labels it as blocked at
@@ -565,10 +565,12 @@ conservation across the displayed topology.
 - Add Polar attachment/start support after the Polar topology is stable enough
   to automate.
 - Render LND/`tapd`/`litd` readiness separately.
-- Render live `tapd` proof binding and native LDK to `litd` preflight.
-- Keep current live settlement blocked state visible until #57 is done, keep
-  the reverse direction blocked until #58 is done, and do not show Path B as
-  complete until #59 replaces expected balances with observed balances.
+- Render live `tapd` proof binding and upstream `ldk-node` to `litd`
+  preflight.
+- Keep current live settlement blocked state visible until #77 through #81 and
+  #57 are done, keep the reverse direction blocked until #58 is done, and do
+  not show Path B as complete until #59 replaces expected balances with
+  observed balances.
 
 Exit condition: The app can run the current Path B wrapper, show fixture checks
 as passed, and show live settlement as blocked unless observed balances exist.

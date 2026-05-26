@@ -18,16 +18,19 @@ Lightning Labs receiver balance after settlement. The live gate now also runs
 the ordered native asset-payment wire session over a localhost `tap-ldk`
 socket, asks standalone `tapd` for the current asset balance when reachable,
 and starts the integrated `litd` counterparty that exposes the asset-channel
-RPC surface. It then starts a native LDK node and connects it to that `litd`
-node over the Lightning P2P address. It records the expected balance change and
-the exact remaining gap instead of reporting a successful interop settlement.
+RPC surface. It then starts an upstream `ldk-node 0.7.0` node and connects it
+to that `litd` node over the Lightning P2P address. It records the expected
+balance change and the exact remaining gap instead of reporting a successful
+interop settlement.
 
 Current #57 state: the gate reaches proof binding, native payment-session
-readiness, integrated `litd` readiness, native LDK-to-`litd` peer connection,
-and a pre-settlement Lightning Labs balance observation. That balance is not
-the close condition. #57 closes only after the live asset-channel
-funding/payment flow runs over the connected `litd` peer and the report records
-the Lightning Labs receiver balance after settlement.
+readiness, integrated `litd` readiness, upstream `ldk-node` to `litd` peer
+connection, and a pre-settlement Lightning Labs balance observation. That
+balance is not the close condition, and the peer preflight is not the final
+runtime because it cannot reach the OpenAgentsInc `rust-lightning` fork hooks.
+#57 closes only after #77 through #81 provide fork-backed `ldk-node`, the live
+asset-channel funding/payment flow runs over the connected `litd` peer, and
+the report records the Lightning Labs receiver balance after settlement.
 
 ## Checks
 
@@ -44,18 +47,20 @@ the Lightning Labs receiver balance after settlement.
   live counterparty is available.
 - Starts the integrated Lightning Labs `litd` counterparty with LND,
   taproot-assets, the aux funding controller, and asset-channel RPCs enabled.
-- Starts a native LDK node and connects it to the integrated `litd` node ID and
-  P2P address.
+- Starts an upstream `ldk-node` preflight node and connects it to the
+  integrated `litd` node ID and P2P address.
 - The live gate report links the live `tapd` proof-binding artifact to the
   outgoing payment artifact, native payment-session artifact, and integrated
-  `litd` readiness and native LDK peer preflight artifacts, and keeps
+  `litd` readiness and upstream `ldk-node` peer preflight artifacts, and keeps
   `issue_57_acceptance_met=false` until a real Lightning Labs receiver balance
   is observed after settlement.
 
 ## Next Step
 
-Run the asset-channel funding and payment flow over the connected independent
-Lightning Labs `litd` peer, then replace the expected receiver balance with an
-observed post-settlement daemon balance before claiming Track B payment
-success. After that, #58 implements the reverse live payment direction and #59
-turns both observed balances into the Path B completion gate.
+Finish #77 through #81 first: create `OpenAgentsInc/ldk-node`, pin it to the
+OpenAgentsInc `rust-lightning` fork, expose simple-taproot/Taproot Asset
+config, and wire asset messages/payment APIs. Then run the asset-channel
+funding and payment flow over the connected independent Lightning Labs `litd`
+peer, replace the expected receiver balance with an observed post-settlement
+daemon balance, implement #58, and let #59 turn both observed balances into
+the Path B completion gate.

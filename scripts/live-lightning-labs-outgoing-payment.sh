@@ -32,6 +32,7 @@ write_report() {
   local payment_id asset_id asset_amount quote_id expected_sender_after
   local expected_receiver_after wrong_asset wrong_amount quote_replay proof_status native_session_status current_observed_balance
   local litd_topology litd_identity_pubkey litd_asset_channel_rpc_ready native_litd_peer_connected native_litd_node_id
+  local live_node_runtime live_node_uses_fork openagents_rust_lightning_rev fork_asset_channel_hooks_reachable
   payment_id="$(jq -r '.payment_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_id="$(jq -r '.asset_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_amount="$(jq -r '.asset_amount // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
@@ -49,6 +50,10 @@ write_report() {
   litd_asset_channel_rpc_ready="$(jq -r '.litd.asset_channel_rpc_ready // empty' "$LITD_COUNTERPARTY_REPORT" 2>/dev/null || true)"
   native_litd_peer_connected="$(jq -r '.peer_connected // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
   native_litd_node_id="$(jq -r '.native_node_id // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  live_node_runtime="$(jq -r '.live_node_runtime // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  live_node_uses_fork="$(jq -r '.live_node_uses_openagents_rust_lightning_fork // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  openagents_rust_lightning_rev="$(jq -r '.openagents_rust_lightning_rev // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  fork_asset_channel_hooks_reachable="$(jq -r '.fork_asset_channel_hooks_reachable_from_live_node // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
 
   jq -n \
     --arg source "live-lightning-labs-outgoing-payment" \
@@ -79,6 +84,10 @@ write_report() {
     --arg litd_asset_channel_rpc_ready "$litd_asset_channel_rpc_ready" \
     --arg native_litd_peer_connected "$native_litd_peer_connected" \
     --arg native_litd_node_id "$native_litd_node_id" \
+    --arg live_node_runtime "$live_node_runtime" \
+    --arg live_node_uses_fork "$live_node_uses_fork" \
+    --arg openagents_rust_lightning_rev "$openagents_rust_lightning_rev" \
+    --arg fork_asset_channel_hooks_reachable "$fork_asset_channel_hooks_reachable" \
     '{
       schema_version: 1,
       source: $source,
@@ -118,9 +127,14 @@ write_report() {
       integrated_litd_identity_pubkey: ($litd_identity_pubkey | if length > 0 then . else null end),
       native_litd_peer_connected: ($native_litd_peer_connected == "true"),
       native_ldk_node_id: ($native_litd_node_id | if length > 0 then . else null end),
+      live_node_runtime: ($live_node_runtime | if length > 0 then . else null end),
+      live_node_uses_openagents_rust_lightning_fork: ($live_node_uses_fork == "true"),
+      openagents_rust_lightning_rev: ($openagents_rust_lightning_rev | if length > 0 then . else null end),
+      fork_asset_channel_hooks_reachable_from_live_node: ($fork_asset_channel_hooks_reachable == "true"),
       issue_57_acceptance_met: false,
       next_required_work: [
         "replace the loopback native payment-session message exchange with the connected independent Lightning Labs litd peer",
+        "replace the ldk-node upstream-runtime preflight with a live node built on the OpenAgentsInc rust-lightning fork, or patch ldk-node to expose that fork",
         "drive native LDK asset-channel funding against the Lightning Labs peer",
         "turn the current tapd balance observation into a post-settlement receiver balance"
       ]
@@ -223,6 +237,6 @@ fi
 write_report \
   "blocked" \
   "live_asset_channel_payment_settlement" \
-  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, current tapd balance observation, an integrated litd counterparty with asset-channel RPCs ready, and a native LDK peer connection to litd, but this repo does not yet drive asset-channel funding/payment over that connected peer and post-settlement receiver-balance check."
+  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, current tapd balance observation, an integrated litd counterparty with asset-channel RPCs ready, and a native LDK peer connection to litd. That peer connection is still an ldk-node upstream-runtime preflight, so #57 needs a live node built on the OpenAgentsInc rust-lightning fork before this repo can drive asset-channel funding/payment over the connected peer and record the post-settlement receiver-balance check."
 
 cat "$REPORT_PATH"

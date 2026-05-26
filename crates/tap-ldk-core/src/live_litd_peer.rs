@@ -14,6 +14,8 @@ use ldk_node::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::ldk_fork::OPENAGENTS_RUST_LIGHTNING_REV;
+
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LiveLitdPeerPreflightRequest {
     pub storage_dir_path: PathBuf,
@@ -96,6 +98,10 @@ pub struct LiveLitdPeerPreflightReport {
     pub status: String,
     pub network: String,
     pub storage_dir_path: String,
+    pub live_node_runtime: String,
+    pub live_node_uses_openagents_rust_lightning_fork: bool,
+    pub openagents_rust_lightning_rev: String,
+    pub fork_asset_channel_hooks_reachable_from_live_node: bool,
     pub native_node_id: String,
     pub native_listening_socket: String,
     pub litd_node_id: String,
@@ -145,6 +151,10 @@ pub fn run_live_litd_peer_preflight(
         status: "connected".to_owned(),
         network: "regtest".to_owned(),
         storage_dir_path: request.storage_dir_path.display().to_string(),
+        live_node_runtime: "ldk-node 0.7.0".to_owned(),
+        live_node_uses_openagents_rust_lightning_fork: false,
+        openagents_rust_lightning_rev: OPENAGENTS_RUST_LIGHTNING_REV.to_owned(),
+        fork_asset_channel_hooks_reachable_from_live_node: false,
         native_node_id: native_node_id.to_string(),
         native_listening_socket: request.listening_socket.to_string(),
         litd_node_id: request.litd_node_id.to_string(),
@@ -154,7 +164,7 @@ pub fn run_live_litd_peer_preflight(
         peer_persisted,
         known_peer_count: peer_details.len(),
         asset_channel_settlement_ready: false,
-        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer, but asset-channel funding/payment still needs the fork hooks wired through live channel-manager and HTLC call sites before #57 can settle."
+        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer, but this preflight uses ldk-node's upstream Lightning runtime. #57 still needs a live node built directly on the OpenAgentsInc rust-lightning fork, or an ldk-node patch that exposes that fork's simple-taproot and Taproot Asset channel-manager surfaces, before asset-channel funding/payment can settle."
             .to_owned(),
     })
 }

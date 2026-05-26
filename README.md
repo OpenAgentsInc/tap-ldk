@@ -6,59 +6,21 @@ This is an experimental effort to explore native Taproot Assets support in Rust 
 
 Last updated: 2026-05-26
 
-Works today:
+Path A works as a bounded native demo: issue demo `OPENUSD`, exchange proofs,
+open a single-asset channel, pay, restart, close, export proofs, and exercise
+the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
-- Native Path A runs between two local wallets: issue demo `OPENUSD`, exchange
-  proofs, use a single-asset channel, pay, restart, close, export proofs, and
-  run the simple-taproot asset-channel lifecycle through the rust-lightning
-  fork state machine.
-- Path B has Lightning Labs fixture/RFQ/payment checks, `tapd` proof binding,
-  local peer smokes, an integrated `litd` harness, and an LDK preflight
-  connection. Its consolidated vector check now ties funding, HTLC, RFQ, TAPF
-  proof, close/recovery, and the simple-taproot asset-channel lifecycle
-  together. It still refuses completion until live receiver balances are
-  observed after settlement.
-- `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `cbc508b8ae972fd1134b0c5f1dc1792139276268`, with BOLT simple-taproot
-  issues #62 through #70 implemented: negotiation, TLVs, MuSig2 primitives,
-  P2TR funding, P2TR commitment outputs/control-block data, commitment
-  update/reestablish nonce state, cooperative close, HTLC outputs, and
-  second-level HTLC signing helpers, plus BOLT vector replay coverage for
-  those surfaces. #75 is also implemented: the fork now exposes
-  `TaprootAssetChannelState`, and `tap-ldk` drives negotiation, proof
-  exchange, funding, monitor aux persistence, HTLC settlement, cooperative
-  close, and proof-ownership recovery through that lifecycle state.
-- #72 is implemented in `tap-ldk-core::mssmt`: native MS-SMT root calculation,
-  inclusion/exclusion proofs, compressed proof encoding, overflow checks, and
-  Lightning Labs fixture replay now back the bounded hash+sum helper.
-- #73 is implemented in `tap-ldk-core::taproot_commitment`: asset commitment
-  keys, inner `AssetCommitment`s, outer `TapCommitment`s, tap leaf script
-  parsing, output-root binding, and funding roots now use the MS-SMT path.
-- #74 is implemented in `tap-ldk-core::tap_vm`: native virtual transitions now
-  validate issuance, transfer/split, channel funding, and commitment-update
-  amount conservation, witness presence, supported TAP script witnesses, and
-  generated TAP BIP valid/error vectors before deriving virtual IDs.
+Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
+checks, live `tapd` proof binding, integrated `litd`, and a peer-connection
+preflight. The current preflight uses upstream `ldk-node 0.7.0`, so it proves
+connectivity but cannot use the forked simple-taproot/Taproot Asset channel
+hooks. Issues #77 through #81 now track the required OpenAgentsInc `ldk-node`
+fork path.
 
-Open work, in closure order:
-
-- #57 is the next live Path B implementation step. The current gate reaches
-  live `tapd` proof binding, native payment-session readiness, integrated
-  `litd` readiness, native LDK-to-`litd` peer connection, and a
-  pre-settlement Lightning Labs balance observation. It still must run
-  asset-channel funding/payment over that connected independent `litd` peer
-  and record the Lightning Labs receiver balance after settlement.
-- #58 follows with the reverse direction: Lightning Labs pays `tap-ldk`, and
-  `tap-ldk` must persist the received asset balance across restart.
-- #59 closes the reporting gap only after #57 and #58 pass. Path B reports
-  must stop relying on expected fixture balances and require observed live
-  balances in both directions.
-- #60 replaces the remaining shallow/bounded proof boundary with semantic
-  Taproot Assets proof ancestry validation wired through funding, HTLC
-  receipt, cooperative close, and recovery.
-- #61 stays open until BTC-only simple-taproot LDK channels can open, pay,
-  reestablish, close, force-close, and keep legacy channels unaffected. #71
-  stays open until full Taproot Assets channel support is layered onto that
-  base. #19 stays open until the live Lightning Labs interop demo is complete.
+Current closure order: #77, #78, #79, #80, #81, then #57, #58, #59, #60, and
+the epics #61, #71, and #19. Path B must not be marked done until both payment
+directions settle against Lightning Labs with observed post-settlement
+balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
@@ -116,6 +78,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
 - [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
+- [OpenAgentsInc LDK Node Fork](docs/openagents-ldk-node-fork.md)
 - [Protocol References](docs/protocol-references.md)
 - [BLIP-TAP Implementation Note](docs/blip-tap-implementation-note.md)
 - [LDK Asset-Channel Extension Boundary](docs/ldk-asset-channel-extension-boundary.md)

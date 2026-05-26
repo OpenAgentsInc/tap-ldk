@@ -35,13 +35,16 @@ The Lightning Labs path is not a live payment yet:
   binding to the native outgoing RFQ/invoice/HTLC artifact and keeps the result
   blocked until a Lightning Labs receiver balance is actually observed.
 - It can start integrated Lightning Labs `litd`, confirm the asset-channel RPC
-  surface is reachable, then start a native LDK node and connect it to the
-  `litd` Lightning P2P address.
+  surface is reachable, then start an upstream `ldk-node 0.7.0` node and
+  connect it to the `litd` Lightning P2P address.
 - The current #57 gate reaches `proof_binding_status=bound`,
   `native_asset_payment_session_ready=true`,
   `integrated_litd_counterparty_ready=true`,
   `native_litd_peer_connected=true`, and a pre-settlement Lightning Labs
   current-balance observation.
+- It does not yet use fork-backed `ldk-node`, so the live peer path cannot
+  reach the OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset
+  channel hooks.
 - It does not yet drive that connected `litd` counterparty through asset
   funding and payment settlement.
 - It does not yet query real live balances from both nodes after settlement.
@@ -356,9 +359,9 @@ Current boundary:
 
 - the ordered asset-payment message exchange is not yet a Lightning Labs
   daemon-backed session;
-- the new `live-litd-peer-preflight` command uses a native LDK node to connect
-  to integrated `litd`, but does not yet run the asset-payment messages over
-  that peer;
+- the new `live-litd-peer-preflight` command uses upstream `ldk-node` to
+  connect to integrated `litd`, but does not yet run the asset-payment
+  messages over that peer and cannot reach forked asset-channel hooks;
 - it does not yet send Lightning wire custom messages to LND;
 - it is the runnable `tap-ldk` peer process and ordered native payment-session
   exchange that must be moved onto the connected counterparty peer.
@@ -1031,9 +1034,10 @@ It:
 
 When Docker is reachable, the live outgoing-payment gate also runs the
 standalone proof-binding/current-balance path, starts integrated `litd`, and
-runs the native LDK-to-`litd` peer preflight. It still blocks at
-`live_asset_channel_payment_settlement` because the live asset-channel
-funding/payment flow has not moved onto that connected peer.
+runs the upstream `ldk-node` to `litd` peer preflight. It still blocks at
+`live_asset_channel_payment_settlement` because the live runtime is not yet
+fork-backed `ldk-node` and the asset-channel funding/payment flow has not
+moved onto that connected peer.
 
 Artifacts land in:
 
@@ -1211,16 +1215,19 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. Real asset-channel funding between `tap-ldk` and the Lightning Labs
+1. `OpenAgentsInc/ldk-node` forked and pinned to `OpenAgentsInc/rust-lightning`.
+2. Forked `ldk-node` config and APIs for simple-taproot/Taproot Asset
+   channels.
+3. Real asset-channel funding between `tap-ldk` and the Lightning Labs
    counterparty.
-2. Real Lightning wire custom-message exchange through LDK/rust-lightning over
+4. Real Lightning wire custom-message exchange through LDK/rust-lightning over
    the connected independent `litd` peer.
-3. Real RFQ exchange with Lightning Labs peer/session semantics.
-4. Real payment from `tap-ldk` to Lightning Labs.
-5. Real payment from Lightning Labs to `tap-ldk`.
-6. Observed post-settlement balance checks from both live sides.
-7. Full semantic proof ancestry validation.
-8. Live force-close and sweep recovery.
+5. Real RFQ exchange with Lightning Labs peer/session semantics.
+6. Real payment from `tap-ldk` to Lightning Labs.
+7. Real payment from Lightning Labs to `tap-ldk`.
+8. Observed post-settlement balance checks from both live sides.
+9. Full semantic proof ancestry validation.
+10. Live force-close and sweep recovery.
 
 Until those are done, Track B must keep saying:
 
@@ -1232,7 +1239,12 @@ Until those are done, Track B must keep saying:
 
 The shortest path is now the open issue sequence:
 
-1. Finish #57: live `tap-ldk` pays Lightning Labs.
+1. Finish #77 through #81: create `OpenAgentsInc/ldk-node`, pin it to the
+   OpenAgentsInc `rust-lightning` fork, expose simple-taproot and Taproot
+   Asset channel config, wire asset messages/payment APIs, and replace the
+   upstream-runtime preflight with fork-backed live settlement.
+
+2. Finish #57: live `tap-ldk` pays Lightning Labs.
    - Use `scripts/lightning-labs-counterparty.sh` for standalone proof/balance
      plumbing and `scripts/lightning-labs-litd-counterparty.sh` for the
      integrated asset-channel counterparty.
@@ -1241,25 +1253,25 @@ The shortest path is now the open issue sequence:
      files, records the live asset ID and anchor outpoint, and binds the TAPF
      proof into native wallet state when the daemon is reachable.
    - Replace the loopback native asset-payment session with messages over the
-     connected `litd` peer.
+     fork-backed connected `litd` peer.
    - Drive native Rust/LDK asset-channel funding/payment against that peer and
      record the Lightning Labs receiver balance after settlement.
 
-2. Finish #58: live Lightning Labs pays `tap-ldk`.
+3. Finish #58: live Lightning Labs pays `tap-ldk`.
    - Expose the native receiver invoice/final-hop path to the Lightning Labs
      sender.
    - Validate received asset HTLC metadata through the LDK/fork boundary.
    - Persist the received asset balance and proof reference, restart
      `tap-ldk`, and compare observed balances on both sides.
 
-3. Finish #59: observed-balance reporting.
+4. Finish #59: observed-balance reporting.
    - Keep fixture tests as regression coverage.
    - Make reports fail completion when observed post-settlement balances are
      missing.
    - Only mark Track B complete when asset ID, payment state, proof reference,
      and balances match in both directions.
 
-4. Finish #60: semantic proof ancestry.
+5. Finish #60: semantic proof ancestry.
    - Replace the current `TAPF` envelope/raw-byte preservation boundary with
      semantic validation of asset leaves, anchors, virtual transaction
      history, owner transitions, split/previous-witness ancestry, and amount
@@ -1267,7 +1279,7 @@ The shortest path is now the open issue sequence:
    - Use the same validation boundary in wallet import, funding, HTLC receipt,
      cooperative close, and recovery.
 
-5. Close #61, #71, and #19 only after their acceptance criteria are actually
+6. Close #61, #71, and #19 only after their acceptance criteria are actually
    met. The issue-by-issue closeout table lives in
    `docs/remaining-issue-closure-plan.md`.
 
