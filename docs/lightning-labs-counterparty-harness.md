@@ -36,6 +36,19 @@ container startup time.
 Generated state and credentials live under `.tap-ldk/regtest/lightning-labs`
 by default and are ignored by Git.
 
+The standalone LND container is started with `simple-taproot-chans`,
+`custom-message=17`, and RPC middleware enabled, but not with
+`simple-taproot-overlay-chans`. Standalone LND exits when that overlay flag is
+set without an aux funding controller. The live asset-channel payment issue
+therefore still needs the Taproot Assets/Lit aux-controller path or an
+equivalent daemon integration before it can claim a Lightning Labs
+asset-channel settlement.
+
+The `tapd` container receives the LND state directory as a writable mount
+because the Lightning Labs container entrypoint normalizes ownership before it
+starts. This remains counterparty harness state under `.tap-ldk/`, not native
+`tap-ldk` wallet state.
+
 `start` now performs the ordered bootstrap needed before Path B can talk to a
 live Lightning Labs counterparty:
 

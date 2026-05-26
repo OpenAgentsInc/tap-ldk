@@ -60,6 +60,9 @@ What does not work yet:
 - The current Lightning Labs payment path still stops before replacing the
   loopback native payment session with the independent Lightning Labs peer and
   before observed balance comparison from both sides.
+- The standalone LND container starts without `simple-taproot-overlay-chans`;
+  the Lightning Labs asset-channel payment path still needs the aux-controller
+  overlay path from the Taproot Assets/Lit stack or equivalent integration.
 - The new live peer smoke is localhost `tap-ldk` to `tap-ldk`. It is not yet a
   Lightning Labs daemon-backed P2P session.
 - The live Lightning Labs checks run through Docker or Podman. The scripts now

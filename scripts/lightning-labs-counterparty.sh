@@ -151,6 +151,36 @@ wait_until() {
   done
 }
 
+wait_until_container_condition() {
+  local label="$1"
+  local container="$2"
+  shift 2
+  local start now elapsed
+  start="$(date +%s)"
+  while true; do
+    if ! container_running "$container"; then
+      echo "lightning-labs-counterparty: $container exited while waiting for $label" >&2
+      "$CONTAINER_RUNTIME_BIN" logs --tail 80 "$container" >&2 2>/dev/null || true
+      return 1
+    fi
+
+    if "$@" >/dev/null 2>&1; then
+      echo "lightning-labs-counterparty: ready: $label" >&2
+      return 0
+    fi
+
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$WAIT_TIMEOUT_SECONDS" ]; then
+      echo "lightning-labs-counterparty: timed out waiting for $label after ${WAIT_TIMEOUT_SECONDS}s" >&2
+      "$CONTAINER_RUNTIME_BIN" logs --tail 80 "$container" >&2 2>/dev/null || true
+      return 1
+    fi
+
+    sleep "$WAIT_INTERVAL_SECONDS"
+  done
+}
+
 wait_for_host_file() {
   test -f "$1"
 }
@@ -204,7 +234,11 @@ bitcoin_wallet_cli() {
 }
 
 lnd_cli() {
-  exec_container "$LND_CONTAINER" lncli --network=regtest "$@"
+  exec_container "$LND_CONTAINER" lncli \
+    --network=regtest \
+    --tlscertpath=/home/lnd/.lnd/tls.cert \
+    --macaroonpath=/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon \
+    "$@"
 }
 
 tap_cli() {
@@ -297,7 +331,7 @@ start_bitcoind() {
 
   mkdir -p "$STATE_DIR/bitcoind"
   run_with_timeout "bitcoind image pull/container start" \
-    "$CONTAINER_RUNTIME_BIN" run -d --rm \
+    "$CONTAINER_RUNTIME_BIN" run -d \
     --name "$BITCOIND_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:18443:18443 \
@@ -333,7 +367,7 @@ start_lnd() {
 
   mkdir -p "$STATE_DIR/lnd"
   run_with_timeout "LND image pull/container start" \
-    "$CONTAINER_RUNTIME_BIN" run -d --rm \
+    "$CONTAINER_RUNTIME_BIN" run -d \
     --name "$LND_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:10009:10009 \
@@ -352,6 +386,7 @@ start_lnd() {
     --listen=0.0.0.0:9735 \
     --rpclisten=0.0.0.0:10009 \
     --restlisten=0.0.0.0:8080 \
+    --rpcmiddleware.enable \
     --bitcoin.active \
     --bitcoin.regtest \
     --bitcoin.node=bitcoind \
@@ -365,7 +400,6 @@ start_lnd() {
     --protocol.option-scid-alias \
     --protocol.zero-conf \
     --protocol.simple-taproot-chans \
-    --protocol.simple-taproot-overlay-chans \
     --protocol.custom-message=17 >/dev/null
 }
 
@@ -377,13 +411,13 @@ start_tapd() {
 
   mkdir -p "$STATE_DIR/tapd"
   run_with_timeout "tapd image pull/container start" \
-    "$CONTAINER_RUNTIME_BIN" run -d --rm \
+    "$CONTAINER_RUNTIME_BIN" run -d \
     --name "$TAPD_CONTAINER" \
     --network "$NETWORK_NAME" \
     -p 127.0.0.1:10029:10029 \
     -p 127.0.0.1:18089:8089 \
     -v "$STATE_DIR/tapd:/home/tap/.tapd" \
-    -v "$STATE_DIR/lnd:/home/tap/.lnd:ro" \
+    -v "$STATE_DIR/lnd:/home/tap/.lnd" \
     "$TAPD_IMAGE" \
     tapd \
     --network=regtest \
@@ -487,22 +521,24 @@ start() {
 
   start_bitcoind
   wait_until "bitcoind container running" container_running "$BITCOIND_CONTAINER"
-  wait_until "bitcoind RPC" bitcoin_cli getblockchaininfo
+  wait_until_container_condition "bitcoind RPC" "$BITCOIND_CONTAINER" bitcoin_cli getblockchaininfo
   ensure_bitcoin_wallet
   ensure_mature_bitcoin_funds
 
   start_lnd
-  wait_until "LND TLS certificate" wait_for_host_file "$STATE_DIR/lnd/tls.cert"
-  wait_until "LND wallet initialized and unlocked" lnd_wallet_ready_step
-  wait_until "LND admin macaroon" wait_for_host_file "$STATE_DIR/lnd/data/chain/bitcoin/regtest/admin.macaroon"
-  wait_until "LND chain sync" lnd_synced
+  wait_until "LND container running" container_running "$LND_CONTAINER"
+  wait_until_container_condition "LND TLS certificate" "$LND_CONTAINER" wait_for_host_file "$STATE_DIR/lnd/tls.cert"
+  wait_until_container_condition "LND wallet initialized and unlocked" "$LND_CONTAINER" lnd_wallet_ready_step
+  wait_until_container_condition "LND admin macaroon" "$LND_CONTAINER" wait_for_host_file "$STATE_DIR/lnd/data/chain/bitcoin/regtest/admin.macaroon"
+  wait_until_container_condition "LND chain sync" "$LND_CONTAINER" lnd_synced
   fund_lnd_wallet
-  wait_until "LND chain sync after funding" lnd_synced
+  wait_until_container_condition "LND chain sync after funding" "$LND_CONTAINER" lnd_synced
 
   start_tapd
-  wait_until "tapd TLS certificate" wait_for_host_file "$STATE_DIR/tapd/tls.cert"
-  wait_until "tapd admin macaroon" wait_for_host_file "$STATE_DIR/tapd/data/regtest/admin.macaroon"
-  wait_until "tapd RPC" tapd_ready
+  wait_until "tapd container running" container_running "$TAPD_CONTAINER"
+  wait_until_container_condition "tapd TLS certificate" "$TAPD_CONTAINER" wait_for_host_file "$STATE_DIR/tapd/tls.cert"
+  wait_until_container_condition "tapd admin macaroon" "$TAPD_CONTAINER" wait_for_host_file "$STATE_DIR/tapd/data/regtest/admin.macaroon"
+  wait_until_container_condition "tapd RPC" "$TAPD_CONTAINER" tapd_ready
 
   ready_report
 }

@@ -150,14 +150,14 @@ meta_json="$(jq -nc --arg ticker "$ASSET_TAG" '{ticker: $ticker, experimental: t
 
 tap_cli assets mint \
   --type normal \
-  --tag "$ASSET_TAG" \
+  --name "$ASSET_TAG" \
   --supply "$ASSET_SUPPLY" \
   --decimal_display "$ASSET_DECIMAL_DISPLAY" \
   --meta_type json \
   --meta_bytes "$meta_json" >"$ARTIFACT_DIR/tapd-mint.json" 2>"$LOG_DIR/tapd-mint.err"
 
 tap_cli assets mint finalize \
-  --fee_rate "$FEE_RATE" >"$ARTIFACT_DIR/tapd-finalize.json" 2>"$LOG_DIR/tapd-finalize.err"
+  --sat_per_vbyte "$FEE_RATE" >"$ARTIFACT_DIR/tapd-finalize.json" 2>"$LOG_DIR/tapd-finalize.err"
 
 mine_blocks 6
 
