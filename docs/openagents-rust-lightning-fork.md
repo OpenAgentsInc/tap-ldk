@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `0f442683da45af47daff313fefcfaef1ac7b82d7`
+- Current `tap-ldk` revision: `90054d8fc512eb9506955f27806b496e33d2b346`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "0f442683da45af47daff313fefcfaef1ac7b82d7"
+rev = "90054d8fc512eb9506955f27806b496e33d2b346"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -70,6 +70,14 @@ force-close and sweep proof-ownership recovery surface. It exposes
 `validate_asset_proof_ownership_recovery`, with validation for missing, stale,
 wrong-path, malformed, partial BTC-only, missing-proof-material, or
 digest-mismatched recovery state.
+
+Revision `90054d8fc512eb9506955f27806b496e33d2b346` adds BOLT simple taproot
+feature and channel-type plumbing. It defines the final `80/81` bits and the
+draft staging `180/181` bits, advertises the staging bits behind
+`ChannelHandshakeConfig::negotiate_simple_taproot_channels`, selects an
+explicit staging channel type, fails closed when a peer requires unsupported
+simple taproot, and requires the simple taproot staging base before the
+experimental Taproot Asset channel type can be negotiated.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

@@ -10,6 +10,9 @@ use crate::asset::Bytes32;
 
 pub const ASSET_CHANNEL_PROTOCOL_VERSION: u16 =
     taproot_asset::SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION;
+pub const SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT: u16 = 180;
+pub const SIMPLE_TAPROOT_STAGING_OPTIONAL_FEATURE_BIT: u16 =
+    SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT + 1;
 pub const ASSET_CHANNEL_REQUIRED_FEATURE_BIT: u16 = 150;
 pub const ASSET_CHANNEL_OPTIONAL_FEATURE_BIT: u16 = ASSET_CHANNEL_REQUIRED_FEATURE_BIT + 1;
 
@@ -52,8 +55,10 @@ impl AssetChannelFeatureSet {
     pub fn feature_bits(self) -> Vec<u16> {
         let mut bits = Vec::new();
         if self.required {
+            bits.push(SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT);
             bits.push(ASSET_CHANNEL_REQUIRED_FEATURE_BIT);
         } else if self.optional {
+            bits.push(SIMPLE_TAPROOT_STAGING_OPTIONAL_FEATURE_BIT);
             bits.push(ASSET_CHANNEL_OPTIONAL_FEATURE_BIT);
         }
         bits
@@ -64,8 +69,10 @@ impl AssetChannelFeatureSet {
         features.set_static_remote_key_optional();
         features.set_channel_type_optional();
         if self.required {
+            features.set_simple_taproot_staging_required();
             features.set_taproot_asset_channel_required();
         } else if self.optional {
+            features.set_simple_taproot_staging_optional();
             features.set_taproot_asset_channel_optional();
         }
         features
@@ -129,6 +136,12 @@ pub fn negotiate_channel(input: NegotiationInput) -> Result<NegotiationOutcome, 
             if asset_id == Bytes32::ZERO {
                 return Err(NegotiationError::MissingAssetId);
             }
+            if !input.local.supports_asset_channels() {
+                return Err(NegotiationError::LocalFeatureMissing);
+            }
+            if !input.remote.supports_asset_channels() {
+                return Err(NegotiationError::RemoteFeatureMissing);
+            }
             let local_features = input.local.to_ldk_init_features();
             let remote_features = input.remote.to_ldk_init_features();
             let descriptor =
@@ -191,6 +204,7 @@ pub enum NegotiationError {
     RemoteFeatureMissing,
     MissingAssetId,
     PrematureAssetMessage,
+    MissingSimpleTaprootBase,
     MissingAssetChannelType,
     MalformedAssetChannelType,
     UnsupportedAssetChannelType,
@@ -218,6 +232,12 @@ impl fmt::Display for NegotiationError {
                 write!(
                     f,
                     "asset-channel message sent before successful negotiation"
+                )
+            }
+            Self::MissingSimpleTaprootBase => {
+                write!(
+                    f,
+                    "asset channel request requires negotiated simple taproot base"
                 )
             }
             Self::MissingAssetChannelType => {
@@ -270,6 +290,11 @@ pub fn run_negotiation_smoke(
 
 fn map_ldk_negotiation_error(err: TaprootAssetChannelNegotiationError) -> NegotiationError {
     match err {
+        TaprootAssetChannelNegotiationError::MissingLocalSimpleTaprootSupport
+        | TaprootAssetChannelNegotiationError::MissingRemoteSimpleTaprootSupport
+        | TaprootAssetChannelNegotiationError::MissingSimpleTaprootChannelType => {
+            NegotiationError::MissingSimpleTaprootBase
+        }
         TaprootAssetChannelNegotiationError::MissingLocalSupport => {
             NegotiationError::LocalFeatureMissing
         }
@@ -334,11 +359,17 @@ mod tests {
         );
         assert_eq!(
             outcome.local_feature_bits,
-            vec![ASSET_CHANNEL_REQUIRED_FEATURE_BIT]
+            vec![
+                SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT,
+                ASSET_CHANNEL_REQUIRED_FEATURE_BIT
+            ]
         );
         assert_eq!(
             outcome.remote_feature_bits,
-            vec![ASSET_CHANNEL_OPTIONAL_FEATURE_BIT]
+            vec![
+                SIMPLE_TAPROOT_STAGING_OPTIONAL_FEATURE_BIT,
+                ASSET_CHANNEL_OPTIONAL_FEATURE_BIT
+            ]
         );
     }
 

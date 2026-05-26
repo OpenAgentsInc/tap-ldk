@@ -77,7 +77,15 @@ These are the contracts we definitely want around the rust-lightning work.
 
 - Experimental asset-channel behavior is behind explicit features, types, or
   negotiated channel flags.
+- BOLT simple taproot channel behavior is behind explicit feature bits and an
+  explicit channel type. During the draft phase this project uses the staging
+  bits for negotiation while keeping the final bits defined but not advertised
+  by default.
 - A normal BTC channel must not become an asset channel implicitly.
+- A Taproot Asset channel cannot be negotiated unless the BOLT simple taproot
+  base channel type was also negotiated.
+- A peer that requires simple taproot when the local node has not enabled that
+  support must fail closed.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,

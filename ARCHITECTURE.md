@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `0f442683da45af47daff313fefcfaef1ac7b82d7`
+- current revision: `90054d8fc512eb9506955f27806b496e33d2b346`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "0f442683da45af47daff313fefcfaef1ac7b82d7", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "90054d8fc512eb9506955f27806b496e33d2b346", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -350,6 +350,9 @@ rust-lightning feature types are available:
 
 The current fork integration exposes the first real asset-channel gate:
 
+- `ChannelHandshakeConfig::negotiate_simple_taproot_channels`
+- `ChannelTypeFeatures::simple_taproot`
+- `ChannelTypeFeatures::simple_taproot_staging`
 - `lightning::ln::taproot_asset::TaprootAssetChannelDescriptor`
 - `lightning::ln::taproot_asset::negotiate_single_asset_channel`
 - `lightning::ln::taproot_asset::validate_single_asset_channel_open`
@@ -374,12 +377,13 @@ The current fork integration exposes the first real asset-channel gate:
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
 - `ChannelTypeFeatures::taproot_asset_single_asset`
 
-Those gates cover feature negotiation, explicit channel type handling, and the
-bounded funding-controller approval surface. They also provide the first
-versioned channel monitor aux blob hook for asset commitment state and the
-first HTLC metadata/final-hop validation and cooperative close allocation
-hooks, plus the first proof-ownership recovery hook for force-close,
-second-level HTLC, and final sweep paths.
+Those gates cover BOLT simple taproot staging feature negotiation, explicit
+simple-taproot channel type handling, experimental Taproot Asset channel type
+handling layered on that base, and the bounded funding-controller approval
+surface. They also provide the first versioned channel monitor aux blob hook
+for asset commitment state and the first HTLC metadata/final-hop validation
+and cooperative close allocation hooks, plus the first proof-ownership
+recovery hook for force-close, second-level HTLC, and final sweep paths.
 
 ## What Must Be Added To rust-lightning
 
@@ -392,6 +396,10 @@ a real live demo:
 - Feature negotiation: asset-channel behavior must be behind explicit feature
   bits or negotiated channel flags. Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
+- BOLT simple taproot negotiation: BTC-only simple taproot support must have
+  its own feature bits and explicit channel type before the asset overlay can
+  claim a real channel. Initial staging-bit support landed in
+  `90054d8fc512eb9506955f27806b496e33d2b346`.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

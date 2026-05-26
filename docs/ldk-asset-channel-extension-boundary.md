@@ -112,6 +112,9 @@ state:
 
 - experimental feature bits and channel type acceptance/rejection, first landed
   in the OpenAgentsInc fork at `99ddb8b7033b3b5d056005c00ba650e716ed37da`;
+- BOLT simple taproot final/staging feature bits and explicit staging channel
+  type acceptance/rejection, first landed in the OpenAgentsInc fork at
+  `90054d8fc512eb9506955f27806b496e33d2b346`;
 - funding controller hook that can block funding before channel state advances,
   first landed in the OpenAgentsInc fork at
   `84032b87d05a157ee9ef247102767bc100d84ed6`;

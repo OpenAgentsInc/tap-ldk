@@ -53,13 +53,17 @@ What works today:
   until the Lightning Labs receiver balance is observed after settlement.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
-  aux blob surface for asset commitment state. It also has the first HTLC
-  metadata/final-hop validation hook, cooperative close allocation hook, and
-  force-close/sweep proof-ownership recovery hook. The native `tap-ldk`
-  funding, commitment, HTLC, close, and recovery stores call those fork hooks
-  before writing funded channel state, treating asset commitment state as
-  restart-safe, settling asset HTLC metadata, exporting final close proofs, or
-  reporting recovered asset proof ownership.
+  aux blob surface for asset commitment state. It now also has BOLT simple
+  taproot final/staging feature-bit definitions, explicit staging channel-type
+  negotiation, fail-closed unsupported-peer tests, and a rule that the
+  experimental Taproot Asset channel type must sit on the simple taproot
+  staging base. It also has the first HTLC metadata/final-hop validation hook,
+  cooperative close allocation hook, and force-close/sweep proof-ownership
+  recovery hook. The native `tap-ldk` funding, commitment, HTLC, close, and
+  recovery stores call those fork hooks before writing funded channel state,
+  treating asset commitment state as restart-safe, settling asset HTLC
+  metadata, exporting final close proofs, or reporting recovered asset proof
+  ownership.
 
 What does not work yet:
 
@@ -105,6 +109,10 @@ What is being worked on now:
   receiver-balance check after settlement.
 - Issues #57 through #60 cover the remaining live demo path: payments in both
   directions, observed live balance checks, and full proof ancestry validation.
+- Issue #62 is implemented and pinned in `tap-ldk`: the fork now negotiates
+  simple taproot staging channel types explicitly and rejects unsupported
+  required simple taproot channels. The next simple-taproot fork work is issue
+  #63, the wire TLV codecs and message validation.
 - Issue #19 remains the parent Path B epic and should stay open until those
   implementation issues are actually done.
 
@@ -183,5 +191,6 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Lightning Labs litd Counterparty](docs/lightning-labs-litd-counterparty.md)
 - [Wallet Storage](docs/wallet-storage.md)
 - [Public Demo Runbook](docs/public-demo-runbook.md)
+- [Web Demo App Spec](docs/web-demo-app-spec.md)
 - [Path A Native-To-Native Demo](docs/path-a-native-demo.md)
 - [Path B Lightning Labs Demo](docs/path-b-lightning-labs-demo.md)

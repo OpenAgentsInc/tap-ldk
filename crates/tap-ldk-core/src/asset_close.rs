@@ -473,6 +473,7 @@ fn validate_ldk_close_allocation(
     let mut features = InitFeatures::empty();
     features.set_static_remote_key_optional();
     features.set_channel_type_optional();
+    features.set_simple_taproot_staging_optional();
     features.set_taproot_asset_channel_optional();
     let descriptor = TaprootAssetChannelDescriptor::new(
         close.asset_id.0,

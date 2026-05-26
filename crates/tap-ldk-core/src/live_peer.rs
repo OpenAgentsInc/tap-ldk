@@ -14,9 +14,10 @@ use sha2::{Digest, Sha256};
 use crate::{
     asset::Bytes32,
     asset_channel_negotiation::{
-        ASSET_CHANNEL_PROTOCOL_VERSION, ASSET_CHANNEL_REQUIRED_FEATURE_BIT, AssetChannelFeatureSet,
-        ChannelRequest, NegotiatedChannelType, NegotiationError, NegotiationInput,
-        negotiate_channel, require_asset_message_allowed,
+        ASSET_CHANNEL_OPTIONAL_FEATURE_BIT, ASSET_CHANNEL_PROTOCOL_VERSION,
+        ASSET_CHANNEL_REQUIRED_FEATURE_BIT, AssetChannelFeatureSet, ChannelRequest,
+        NegotiatedChannelType, NegotiationError, NegotiationInput, negotiate_channel,
+        require_asset_message_allowed,
     },
     asset_peer_message::{
         AssetPeerMessage, AssetPeerMessageError, ProofAssembly, ProofChunk, ProofReassembler,
@@ -675,8 +676,10 @@ fn read_frame(stream: &mut TcpStream) -> Result<LivePeerWireMessage, LivePeerErr
 fn feature_set_from_bits(bits: &[u16]) -> AssetChannelFeatureSet {
     if bits.contains(&ASSET_CHANNEL_REQUIRED_FEATURE_BIT) {
         AssetChannelFeatureSet::require()
-    } else {
+    } else if bits.contains(&ASSET_CHANNEL_OPTIONAL_FEATURE_BIT) {
         AssetChannelFeatureSet::advertise_optional()
+    } else {
+        AssetChannelFeatureSet::disabled()
     }
 }
 
@@ -882,6 +885,7 @@ impl Error for LivePeerError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::asset_channel_negotiation::SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT;
 
     #[test]
     fn live_peer_smoke_negotiates_and_round_trips_custom_message() {
@@ -893,7 +897,10 @@ mod tests {
         assert!(report.rust_lightning_fork_negotiation_used);
         assert_eq!(
             report.local_feature_bits,
-            vec![ASSET_CHANNEL_REQUIRED_FEATURE_BIT]
+            vec![
+                SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT,
+                ASSET_CHANNEL_REQUIRED_FEATURE_BIT
+            ]
         );
         assert!(!report.remote_feature_bits.is_empty());
         assert_eq!(report.custom_message_kind, "rfq_request");
@@ -915,7 +922,10 @@ mod tests {
         assert!(report.rust_lightning_fork_negotiation_used);
         assert_eq!(
             report.local_feature_bits,
-            vec![ASSET_CHANNEL_REQUIRED_FEATURE_BIT]
+            vec![
+                SIMPLE_TAPROOT_STAGING_REQUIRED_FEATURE_BIT,
+                ASSET_CHANNEL_REQUIRED_FEATURE_BIT
+            ]
         );
         assert!(report.message_count >= 7);
         assert!(report.message_reports.iter().all(|message| message.acked));

@@ -28,6 +28,11 @@ Last updated: 2026-05-26
   funding, RFQ, quote, and HTLC peer messages. It also has a current `tapd`
   balance observer, an integrated `litd` counterparty harness, and a native
   LDK peer preflight that connects to `litd` over the Lightning P2P address.
+- The OpenAgentsInc `rust-lightning` fork now has BOLT simple taproot
+  final/staging feature-bit definitions and explicit staging channel-type
+  negotiation. `tap-ldk` is pinned to that fork revision. The asset-channel
+  feature gate now requires the simple taproot staging base instead of
+  pretending an asset channel can sit on a legacy channel type.
 - Issue #57 is the active next implementation target. It now has the native
   payment-session artifact and current balance observer needed before
   counterparty replacement, plus the integrated litd aux-controller topology
@@ -273,7 +278,7 @@ needed for full Taproot Asset support in LDK.
 | #59 | Replace Path B documented gaps with observed live balance checks | Live daemon balance observations replace documented placeholders. |
 | #60 | Full semantic Taproot Assets proof ancestry validation | Proof ancestry, anchors, owner transitions, funding, HTLC, close, and recovery proofs validate semantically. |
 | #61 | BOLT simple taproot channels in `rust-lightning` epic | BTC-only simple-taproot LDK channels open, pay, reestablish, close, force-close, and leave legacy channels unaffected. |
-| #62 | Simple-taproot feature bits and channel type | Peers negotiate simple-taproot channels explicitly and fail closed when unsupported. |
+| #62 | Simple-taproot feature bits and channel type | Implemented in `OpenAgentsInc/rust-lightning` at `90054d8fc512eb9506955f27806b496e33d2b346`; next simple-taproot work is #63. |
 | #63 | Simple-taproot wire TLVs and message validation | Simple-taproot TLVs round-trip and malformed messages fail closed across the channel lifecycle. |
 | #64 | MuSig2 signer and nonce state | Simple-taproot nonce, partial-signature, final-signature, restart, and no-reuse behavior is implemented. |
 | #65 | Simple-taproot P2TR funding flow | BTC-only simple-taproot funding outputs are constructed, signed, confirmed, and monitored. |
@@ -799,21 +804,20 @@ The stronger demo adds:
 
 ## Immediate Next Steps
 
-1. Start issue #62 for simple-taproot feature/channel-type negotiation.
-2. Start issue #63 for simple-taproot TLV codecs and message validation.
-3. Implement the simple-taproot MuSig2 signer and nonce persistence model in
+1. Start issue #63 for simple-taproot TLV codecs and message validation.
+2. Implement the simple-taproot MuSig2 signer and nonce persistence model in
    issue #64.
-4. Replay or derive BOLT simple-taproot vectors in issue #70 before claiming
+3. Replay or derive BOLT simple-taproot vectors in issue #70 before claiming
    asset-channel completion.
-5. Replace the bounded hash+sum and commitment placeholders through issues
+4. Replace the bounded hash+sum and commitment placeholders through issues
    #72 and #73.
-6. Add virtual transaction and TAP VM validation through issue #74.
-7. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
+5. Add virtual transaction and TAP VM validation through issue #74.
+6. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
    onto the simple-taproot channel state machine through issue #75.
-8. Keep Path B live interop issues #57 through #60 open until observed
+7. Keep Path B live interop issues #57 through #60 open until observed
    balances and proof compatibility are recorded from independent Lightning
    Labs nodes.
-9. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
+8. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
    checks tied to the simple-taproot asset-channel path.
 
 ## Risks
