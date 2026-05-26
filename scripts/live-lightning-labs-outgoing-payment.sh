@@ -17,6 +17,7 @@ OUTGOING_STORE="${3:-$ARTIFACT_DIR/lightning-labs-outgoing-payment-store.json}"
 BOUNDED_REPORT="${4:-$ARTIFACT_DIR/lightning-labs-outgoing-payment-report.json}"
 PROOF_BINDING_REPORT="$ARTIFACT_DIR/live-tapd-proof-binding.json"
 NATIVE_SESSION_REPORT="$ARTIFACT_DIR/live-native-asset-payment-session.json"
+CURRENT_BALANCE_REPORT="$ARTIFACT_DIR/lightning-labs-current-receiver-balance.json"
 TAPCHANNEL_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/tapchannelmsg/testdata"
 
 mkdir -p "$ARTIFACT_DIR" "$LOG_DIR"
@@ -27,7 +28,7 @@ write_report() {
   local reason="$3"
 
   local payment_id asset_id asset_amount quote_id expected_sender_after
-  local expected_receiver_after wrong_asset wrong_amount quote_replay proof_status native_session_status
+  local expected_receiver_after wrong_asset wrong_amount quote_replay proof_status native_session_status current_observed_balance
   payment_id="$(jq -r '.payment_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_id="$(jq -r '.asset_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_amount="$(jq -r '.asset_amount // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
@@ -39,6 +40,7 @@ write_report() {
   quote_replay="$(jq -r '.quote_replay_rejected // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   proof_status="$(jq -r '.status // empty' "$PROOF_BINDING_REPORT" 2>/dev/null || true)"
   native_session_status="$(jq -r '.status // empty' "$NATIVE_SESSION_REPORT" 2>/dev/null || true)"
+  current_observed_balance="$(jq -r '.observed_balance // empty' "$CURRENT_BALANCE_REPORT" 2>/dev/null || true)"
 
   jq -n \
     --arg source "live-lightning-labs-outgoing-payment" \
@@ -56,8 +58,10 @@ write_report() {
     --arg quote_replay "$quote_replay" \
     --arg proof_status "$proof_status" \
     --arg native_session_status "$native_session_status" \
+    --arg current_observed_balance "$current_observed_balance" \
     --arg proof_binding_report "$PROOF_BINDING_REPORT" \
     --arg native_session_report "$NATIVE_SESSION_REPORT" \
+    --arg current_balance_report "$CURRENT_BALANCE_REPORT" \
     --arg bounded_report "$BOUNDED_REPORT" \
     --arg outgoing_store "$OUTGOING_STORE" \
     '{
@@ -76,6 +80,7 @@ write_report() {
       expected_sender_balance_after: (if ($expected_sender_after | test("^[0-9]+$")) then ($expected_sender_after | tonumber) else null end),
       expected_lightning_labs_receiver_balance_after: (if ($expected_receiver_after | test("^[0-9]+$")) then ($expected_receiver_after | tonumber) else null end),
       observed_lightning_labs_receiver_balance_after: null,
+      observed_lightning_labs_receiver_current_balance: (if ($current_observed_balance | test("^[0-9]+$")) then ($current_observed_balance | tonumber) else null end),
       observed_live_balance: false,
       failure_checks: {
         quote_replay_rejected: ($quote_replay == "true"),
@@ -85,6 +90,7 @@ write_report() {
       artifacts: {
         proof_binding_report: $proof_binding_report,
         native_asset_payment_session_report: $native_session_report,
+        current_receiver_balance_report: $current_balance_report,
         bounded_outgoing_payment_report: $bounded_report,
         outgoing_payment_store: $outgoing_store
       },
@@ -94,7 +100,7 @@ write_report() {
       next_required_work: [
         "replace the loopback native payment-session peer with the independent Lightning Labs peer",
         "drive native LDK asset-channel funding against the Lightning Labs peer",
-        "query Lightning Labs receiver balance after settlement and replace the expected-only balance"
+        "turn the current tapd balance observation into a post-settlement receiver balance"
       ]
     }' >"$REPORT_PATH"
 }
@@ -144,9 +150,27 @@ if [ "$proof_status" = "blocked" ]; then
   exit 0
 fi
 
+live_asset_id="$(jq -r '.asset_id // empty' "$PROOF_BINDING_REPORT" 2>/dev/null || true)"
+live_asset_amount="$(jq -r '.amount // empty' "$PROOF_BINDING_REPORT" 2>/dev/null || true)"
+if [ -n "$live_asset_id" ] && [ -n "$live_asset_amount" ]; then
+  if ! cargo run -q -p tap-ldk-cli -- live-asset-payment-session-smoke \
+    "$NATIVE_SESSION_REPORT" "$live_asset_id" "$live_asset_amount" \
+    >"$LOG_DIR/live-native-asset-payment-session-live-proof.out" \
+    2>"$LOG_DIR/live-native-asset-payment-session-live-proof.err"; then
+    reason="$(cat "$LOG_DIR/live-native-asset-payment-session-live-proof.err")"
+    write_report "blocked" "native_asset_payment_session_live_proof" "$reason"
+    cat "$REPORT_PATH"
+    exit 0
+  fi
+
+  ./scripts/lightning-labs-counterparty.sh tapd-balance "$live_asset_id" \
+    >"$CURRENT_BALANCE_REPORT" \
+    2>"$LOG_DIR/lightning-labs-current-receiver-balance.err" || true
+fi
+
 write_report \
   "blocked" \
   "live_asset_channel_payment_settlement" \
-  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, but this repo does not yet replace that loopback session with the independent Lightning Labs peer and observed receiver-balance settlement."
+  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session and current tapd balance observation, but this repo does not yet replace that loopback session with the independent Lightning Labs peer and post-settlement receiver-balance check."
 
 cat "$REPORT_PATH"

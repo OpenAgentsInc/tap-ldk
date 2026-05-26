@@ -37,6 +37,8 @@ Commands:
   status      Print container status and best-effort readiness JSON
   ready       Print best-effort readiness JSON
   connection  Print JSON connection material and local credential paths
+  tapd-balance <asset-id>
+             Print the current tapd balance for one asset ID
   smoke       Start, print readiness JSON, and stop
 
 This harness starts Lightning Labs as an independent interop counterparty. It
@@ -581,6 +583,41 @@ ready_report() {
 JSON
 }
 
+tapd_balance() {
+  local asset_id="${1:-}"
+  if [ -z "$asset_id" ]; then
+    echo "lightning-labs-counterparty: tapd-balance requires an asset id." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+
+  local balance_json observed_balance
+  balance_json="$(tap_cli assets balance \
+    --asset_id "$asset_id" \
+    --all_script_key_types)"
+  observed_balance="$(
+    printf '%s' "$balance_json" | jq -r \
+      --arg asset_id "$asset_id" \
+      '.asset_balances[$asset_id].balance //
+       .assetBalances[$asset_id].balance //
+       "0"'
+  )"
+
+  jq -n \
+    --arg source "lightning-labs-counterparty-tapd-balance" \
+    --arg asset_id "$asset_id" \
+    --arg observed_balance "$observed_balance" \
+    --argjson raw "$balance_json" \
+    '{
+      schema_version: 1,
+      source: $source,
+      asset_id: $asset_id,
+      observed_balance: ($observed_balance | tonumber),
+      raw_tapd_balance: $raw
+    }'
+}
+
 smoke() {
   require_container_runtime
   trap 'stop >/dev/null 2>&1 || true' EXIT
@@ -593,6 +630,7 @@ case "${1:-}" in
   status) status ;;
   ready) require_container_runtime && ready_report ;;
   connection) connection ;;
+  tapd-balance) tapd_balance "${2:-}" ;;
   smoke) smoke ;;
   ""|-h|--help) usage ;;
   *)

@@ -40,9 +40,9 @@ What works today:
 - Path B now writes a live outgoing-payment gate artifact. It ties the live
   `tapd` proof-binding report to the native outgoing RFQ/invoice/HTLC artifact,
   records the ordered native asset-payment wire session, payment id, quote id,
-  asset id, amount, and expected balances, and refuses to mark issue #57
-  complete until the Lightning Labs receiver balance is observed after
-  settlement.
+  asset id, amount, expected balances, and the current `tapd` daemon balance
+  when the counterparty is reachable. It refuses to mark issue #57 complete
+  until the Lightning Labs receiver balance is observed after settlement.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
   aux blob surface for asset commitment state. It also has the first HTLC
@@ -84,9 +84,10 @@ What is being worked on now:
   live `tapd` mint/export/bind command path.
 - Issue #57 is active: the repo now has the live outgoing-payment gate, the
   local failure checks, the proof-binding handoff, and the ordered native
-  asset-payment wire session. The remaining #57 work is to replace that
-  loopback session with the independent Lightning Labs receiver and record the
-  observed receiver-balance check after settlement.
+  asset-payment wire session, plus the current `tapd` balance observer for the
+  Lightning Labs side. The remaining #57 work is to replace that loopback
+  session with the independent Lightning Labs receiver and record the observed
+  receiver-balance check after settlement.
 - Issues #57 through #60 cover the remaining live demo path: payments in both
   directions, observed live balance checks, and full proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until those
@@ -104,6 +105,7 @@ cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ./scripts/lightning-labs-counterparty.sh connection
 ./scripts/lightning-labs-counterparty.sh smoke
+./scripts/lightning-labs-counterparty.sh tapd-balance '<asset-id>'
 ./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
 cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json

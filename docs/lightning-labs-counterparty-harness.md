@@ -18,6 +18,7 @@ cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ./scripts/lightning-labs-counterparty.sh status
 ./scripts/lightning-labs-counterparty.sh ready
 ./scripts/lightning-labs-counterparty.sh connection
+./scripts/lightning-labs-counterparty.sh tapd-balance '<asset-id>'
 ./scripts/lightning-labs-counterparty.sh stop
 ```
 
@@ -48,8 +49,10 @@ live Lightning Labs counterparty:
 
 `ready` and `start` print JSON with container names, images, node pubkeys,
 chain heights, sync flags, wallet balance, and cert/macaroon paths. The report
-does not print RPC or wallet password values. If the selected runtime is not
-reachable, the command exits with a direct prerequisite message.
+does not print RPC or wallet password values. `tapd-balance` prints the
+current `tapd` balance for one asset ID and preserves the raw `tapcli assets
+balance` response for review. If the selected runtime is not reachable, the
+command exits with a direct prerequisite message.
 
 This harness is an interop counterparty only. It must not be wired into
 `tap-ldk` as a wallet sidecar.

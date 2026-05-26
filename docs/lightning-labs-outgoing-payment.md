@@ -14,10 +14,11 @@ cargo run -p tap-ldk-cli -- lightning-labs-outgoing-payment-smoke fixtures/light
 
 The stored status is `stopped_at_live_daemon_gap`. This is intentional: the
 current smoke does not drive a live LND/`tapd` receiver or observe the
-Lightning Labs receiver balance. The live gate now also runs the ordered native
-asset-payment wire session over a localhost `tap-ldk` socket before it blocks.
-It records the expected balance change and the exact remaining gap instead of
-reporting a successful interop settlement.
+Lightning Labs receiver balance after settlement. The live gate now also runs
+the ordered native asset-payment wire session over a localhost `tap-ldk`
+socket and, when the counterparty is reachable, asks `tapd` for the current
+asset balance. It records the expected balance change and the exact remaining
+gap instead of reporting a successful interop settlement.
 
 ## Checks
 
@@ -30,6 +31,8 @@ reporting a successful interop settlement.
 - Persists the outgoing payment gap state and reloads it unchanged.
 - Runs the ordered native payment-session peer exchange for input proofs,
   output proofs, funding, RFQ, quote, and HTLC messages.
+- Queries the current Lightning Labs `tapd` asset balance by asset ID when a
+  live counterparty is available.
 - The live gate report links the live `tapd` proof-binding artifact to the
   outgoing payment artifact and native payment-session artifact, and keeps
   `issue_57_acceptance_met=false` until a real Lightning Labs receiver balance

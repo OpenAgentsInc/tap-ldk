@@ -25,12 +25,13 @@ Last updated: 2026-05-26
 - Path B has Lightning Labs fixture readers, RFQ/invoice compatibility checks,
   payment-direction artifact checks, live `tapd` proof binding, and a live
   localhost native asset-payment session that sends the ordered proof,
-  funding, RFQ, quote, and HTLC peer messages.
+  funding, RFQ, quote, and HTLC peer messages. It also has a current `tapd`
+  balance observer for the Lightning Labs side.
 - Issue #57 is the active next implementation target. It now has the native
-  payment-session artifact needed before counterparty replacement, but it is
-  not done until that session runs against the independent Lightning Labs
-  LND/`tapd` receiver and records the observed receiver balance after
-  settlement.
+  payment-session artifact and current balance observer needed before
+  counterparty replacement, but it is not done until that session runs against
+  the independent Lightning Labs LND/`tapd` receiver and records the observed
+  receiver balance after settlement.
 - Issues #58 through #60 remain open for the reverse payment direction,
   observed live balance checks, and full semantic proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until the live
