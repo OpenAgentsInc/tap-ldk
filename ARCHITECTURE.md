@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `1176e837e5aacac7d1a3237c2bb00910989dbd93`
+- current revision: `26346a56af75eadf60763eb1e32a740656d4e384`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "1176e837e5aacac7d1a3237c2bb00910989dbd93", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "26346a56af75eadf60763eb1e32a740656d4e384", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -446,9 +446,15 @@ a real live demo:
   commitment-signed, revoke-and-ack, and channel-reestablish paths must carry
   next-local nonces, preserve sent partial signatures for retransmission, and
   fail closed on missing or mismatched simple-taproot nonce state. First
-  support landed in `1176e837e5aacac7d1a3237c2bb00910989dbd93`; close,
-  force-close, HTLC second-level paths, and vector replay remain #68 through
-  #70.
+  support landed in `1176e837e5aacac7d1a3237c2bb00910989dbd93`.
+- BOLT simple taproot cooperative close: shutdown must carry closee nonces,
+  `closing_complete`/`closing_sig` must validate and aggregate MuSig2 close
+  partials, closee nonce rotation must be persisted, and malformed close state
+  must fail closed. First support landed in
+  `26346a56af75eadf60763eb1e32a740656d4e384`; the functional close harness
+  remains ignored until #69 fixes simple-taproot commitment output accounting
+  during channel open. Force-close, HTLC second-level paths, and vector replay
+  remain #69 through #70.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

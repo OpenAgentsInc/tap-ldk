@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `1176e837e5aacac7d1a3237c2bb00910989dbd93`
+- Current `tap-ldk` revision: `26346a56af75eadf60763eb1e32a740656d4e384`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "1176e837e5aacac7d1a3237c2bb00910989dbd93"
+rev = "26346a56af75eadf60763eb1e32a740656d4e384"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -126,6 +126,15 @@ partial signatures; emits next-local nonces in `channel_ready`,
 partials for retransmission; and fails closed when required simple-taproot
 nonce/signature state is missing or mismatched. This does not complete
 cooperative close, force-close, HTLC second-level scripts, or vector replay.
+
+Revision `26346a56af75eadf60763eb1e32a740656d4e384` adds simple-taproot
+cooperative close wiring. It persists closee nonce state and sent
+`closing_complete` partials, carries shutdown close nonces, handles
+`closing_complete` and `closing_sig` under `simple_close`, aggregates close
+partials into a P2TR key-path cooperative-close transaction, and fails closed
+on missing or mismatched close nonce/signature state. A functional close
+harness is checked in but ignored until issue #69 fixes simple-taproot
+commitment output accounting during channel open.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

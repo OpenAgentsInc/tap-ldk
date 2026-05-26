@@ -99,6 +99,11 @@ These are the contracts we definitely want around the rust-lightning work.
   restart/reestablish. Advertised local-commitment nonces and consumed
   counterparty-commitment signing nonces must stay domain-separated, and
   missing or mismatched nonce state must fail closed.
+- BTC-level simple-taproot cooperative close state must persist closee nonce
+  indexes, counterparty closee nonces, consumed close nonce uses, and sent
+  `closing_complete` partials. Shutdown-advertised closee nonces and JIT
+  closer nonces must stay domain-separated, and missing, reused, or mismatched
+  close nonces/signatures must fail closed.
 - BTC-level simple-taproot funding outputs must use the same BIP86 P2TR script
   derived from the sorted aggregate funding key in event emission, funding
   transaction validation, and monitor/watch registration.
