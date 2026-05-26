@@ -4,6 +4,8 @@ This is an experimental effort to explore native Taproot Assets support in Rust 
 
 ## Status
 
+Last updated: 2026-05-26
+
 What works today:
 
 - The native `tap-ldk` demo runs end to end between two local `tap-ldk` wallets.
@@ -35,9 +37,12 @@ What does not work yet:
 What is being worked on now:
 
 - Issues #48 and #49 have landed the first Rust Lightning fork gates for
-  asset-channel negotiation and bounded funding approval. Issues #50 through
-  #53 continue that fork work with commitment persistence, HTLC metadata,
-  final-hop validation, close, and recovery hooks.
+  asset-channel negotiation and bounded funding approval.
+- Issue #50 is next: move asset commitment monitor persistence into the forked
+  rust-lightning boundary so asset state is durable before the matching
+  Lightning commitment is treated as safe.
+- Issues #51 through #53 continue the Rust Lightning fork work with HTLC
+  metadata, final-hop validation, close, and recovery hooks.
 - Issues #54 through #60 cover the live demo path: a running `tap-ldk` peer,
   Lightning Labs counterparty integration, live `tapd` proof binding, payments
   in both directions, observed live balance checks, and full proof ancestry

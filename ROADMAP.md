@@ -17,33 +17,6 @@ LDK ecosystem: asset issuance/proofs, asset-channel state, RFQ, HTLC metadata,
 settlement, and recovery are handled by Rust/LDK code rather than delegated to
 Lightning Labs daemons.
 
-## Status
-
-Last updated: 2026-05-26
-
-Completed in the current issue sequence:
-
-- #48: the OpenAgentsInc `rust-lightning` fork now has the first experimental
-  Taproot Asset feature and channel-type gate, and `tap-ldk` pins that fork
-  surface for negotiation checks.
-- #49: the OpenAgentsInc `rust-lightning` fork now has a bounded funding
-  approval hook, and `tap-ldk` calls that hook before writing durable
-  asset-channel funding state.
-
-Being worked next:
-
-- #50: move asset commitment monitor persistence into the forked
-  rust-lightning boundary so asset state is durable before the matching
-  Lightning commitment is treated as safe.
-
-Still open after that:
-
-- #51 through #53: HTLC metadata, final-hop validation, cooperative close, and
-  force-close/sweep proof ownership hooks.
-- #54 through #60: live `tap-ldk` peer operation, Lightning Labs counterparty
-  setup, live `tapd` proof binding, payments in both directions, observed
-  balance checks, and full proof ancestry validation.
-
 ## Implementation Home
 
 - `tap-ldk/`: code, repo-local docs, fixtures, and demo harness.
