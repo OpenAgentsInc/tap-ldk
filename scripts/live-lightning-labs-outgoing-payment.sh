@@ -16,6 +16,7 @@ LOG_DIR="$ARTIFACT_DIR/logs"
 OUTGOING_STORE="${3:-$ARTIFACT_DIR/lightning-labs-outgoing-payment-store.json}"
 BOUNDED_REPORT="${4:-$ARTIFACT_DIR/lightning-labs-outgoing-payment-report.json}"
 PROOF_BINDING_REPORT="$ARTIFACT_DIR/live-tapd-proof-binding.json"
+NATIVE_SESSION_REPORT="$ARTIFACT_DIR/live-native-asset-payment-session.json"
 TAPCHANNEL_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/tapchannelmsg/testdata"
 
 mkdir -p "$ARTIFACT_DIR" "$LOG_DIR"
@@ -26,7 +27,7 @@ write_report() {
   local reason="$3"
 
   local payment_id asset_id asset_amount quote_id expected_sender_after
-  local expected_receiver_after wrong_asset wrong_amount quote_replay proof_status
+  local expected_receiver_after wrong_asset wrong_amount quote_replay proof_status native_session_status
   payment_id="$(jq -r '.payment_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_id="$(jq -r '.asset_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_amount="$(jq -r '.asset_amount // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
@@ -37,6 +38,7 @@ write_report() {
   wrong_amount="$(jq -r '.wrong_amount_rejected // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   quote_replay="$(jq -r '.quote_replay_rejected // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   proof_status="$(jq -r '.status // empty' "$PROOF_BINDING_REPORT" 2>/dev/null || true)"
+  native_session_status="$(jq -r '.status // empty' "$NATIVE_SESSION_REPORT" 2>/dev/null || true)"
 
   jq -n \
     --arg source "live-lightning-labs-outgoing-payment" \
@@ -53,7 +55,9 @@ write_report() {
     --arg wrong_amount "$wrong_amount" \
     --arg quote_replay "$quote_replay" \
     --arg proof_status "$proof_status" \
+    --arg native_session_status "$native_session_status" \
     --arg proof_binding_report "$PROOF_BINDING_REPORT" \
+    --arg native_session_report "$NATIVE_SESSION_REPORT" \
     --arg bounded_report "$BOUNDED_REPORT" \
     --arg outgoing_store "$OUTGOING_STORE" \
     '{
@@ -80,14 +84,16 @@ write_report() {
       },
       artifacts: {
         proof_binding_report: $proof_binding_report,
+        native_asset_payment_session_report: $native_session_report,
         bounded_outgoing_payment_report: $bounded_report,
         outgoing_payment_store: $outgoing_store
       },
       proof_binding_status: ($proof_status | if length > 0 then . else null end),
+      native_asset_payment_session_ready: ($native_session_status == "completed"),
       issue_57_acceptance_met: false,
       next_required_work: [
+        "replace the loopback native payment-session peer with the independent Lightning Labs peer",
         "drive native LDK asset-channel funding against the Lightning Labs peer",
-        "execute the live RFQ/payment exchange over the LDK peer/channel path",
         "query Lightning Labs receiver balance after settlement and replace the expected-only balance"
       ]
     }' >"$REPORT_PATH"
@@ -101,6 +107,24 @@ if [ ! -f "$BOUNDED_REPORT" ]; then
     cat "$REPORT_PATH"
     exit 0
   fi
+fi
+
+native_asset_id="$(jq -r '.asset_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
+native_asset_amount="$(jq -r '.asset_amount // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
+if [ -z "$native_asset_id" ] || [ -z "$native_asset_amount" ]; then
+  write_report "blocked" "native_asset_payment_session" "bounded outgoing payment report did not contain asset id and amount"
+  cat "$REPORT_PATH"
+  exit 0
+fi
+
+if ! cargo run -q -p tap-ldk-cli -- live-asset-payment-session-smoke \
+  "$NATIVE_SESSION_REPORT" "$native_asset_id" "$native_asset_amount" \
+  >"$LOG_DIR/live-native-asset-payment-session.out" \
+  2>"$LOG_DIR/live-native-asset-payment-session.err"; then
+  reason="$(cat "$LOG_DIR/live-native-asset-payment-session.err")"
+  write_report "blocked" "native_asset_payment_session" "$reason"
+  cat "$REPORT_PATH"
+  exit 0
 fi
 
 if ! ./scripts/live-tapd-proof-bind.sh "$PROOF_BINDING_REPORT" "$WALLET_PATH" \
@@ -123,6 +147,6 @@ fi
 write_report \
   "blocked" \
   "live_asset_channel_payment_settlement" \
-  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts are ready, but this repo does not yet have the native LDK asset-channel wire payment implementation needed to settle against the independent Lightning Labs receiver."
+  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, but this repo does not yet replace that loopback session with the independent Lightning Labs peer and observed receiver-balance settlement."
 
 cat "$REPORT_PATH"

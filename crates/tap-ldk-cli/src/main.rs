@@ -21,7 +21,7 @@ use tap_ldk_core::{
         run_lightning_labs_incoming_payment_smoke, run_lightning_labs_outgoing_payment_smoke,
     },
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
-    live_peer::run_live_peer_smoke,
+    live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
@@ -109,6 +109,21 @@ fn main() {
             };
             save_json_or_exit(report_path, &report, "live peer smoke report");
             print_json_or_exit(&report, "live peer smoke report");
+        }
+        [command, report_path, asset_id, asset_amount]
+            if command == "live-asset-payment-session-smoke" =>
+        {
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let asset_amount = parse_u64_or_exit(asset_amount, "asset amount");
+            let report = match run_live_asset_payment_session_smoke(asset_id, asset_amount) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live asset payment session smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            save_json_or_exit(report_path, &report, "live asset payment session report");
+            print_json_or_exit(&report, "live asset payment session report");
         }
         [command, asset_id] if command == "asset-negotiation-smoke" => {
             let asset_id = parse_asset_id_or_exit(asset_id);
@@ -762,6 +777,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk ldk-baseline-plan <base-dir>");
     println!("  tap-ldk ldk-baseline-smoke <state.json>");
     println!("  tap-ldk live-peer-smoke <report.json> <asset-id>");
+    println!("  tap-ldk live-asset-payment-session-smoke <report.json> <asset-id> <asset-amount>");
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");
     println!("  tap-ldk rfq-store-init <store.json>");

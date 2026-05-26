@@ -15,6 +15,7 @@ LOG_DIR="$ARTIFACT_DIR/logs"
 TAPCHANNEL_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/tapchannelmsg/testdata"
 PROOF_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/proof/testdata"
 ASSET_ID="7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93"
+ASSET_AMOUNT="125"
 SUMMARY="$ARTIFACT_DIR/summary.txt"
 DEPENDENCY_GAP="$ARTIFACT_DIR/lightning-labs-counterparty-gap.txt"
 DOCKER_APP_BIN="/Applications/Docker.app/Contents/Resources/bin/docker"
@@ -144,6 +145,9 @@ run_json counterparty-config "$ARTIFACT_DIR/lightning-labs-counterparty-config.j
   cargo run -q -p tap-ldk-cli -- lightning-labs-counterparty-config
 run_json live-tap-ldk-peer "$ARTIFACT_DIR/live-tap-ldk-peer.json" \
   cargo run -q -p tap-ldk-cli -- live-peer-smoke "$ARTIFACT_DIR/live-tap-ldk-peer-saved.json" "$ASSET_ID"
+run_json live-native-asset-payment-session "$ARTIFACT_DIR/live-native-asset-payment-session.json" \
+  cargo run -q -p tap-ldk-cli -- live-asset-payment-session-smoke \
+    "$ARTIFACT_DIR/live-native-asset-payment-session-saved.json" "$ASSET_ID" "$ASSET_AMOUNT"
 run_log counterparty-status ./scripts/lightning-labs-counterparty.sh status || true
 try_counterparty
 run_optional_log live-tapd-proof-binding ./scripts/live-tapd-proof-bind.sh \
@@ -182,6 +186,7 @@ Independent counterparty:
 
 Fixture-backed checks:
 - live tap-ldk peer smoke: $ARTIFACT_DIR/live-tap-ldk-peer.json
+- live native asset-payment session: $ARTIFACT_DIR/live-native-asset-payment-session.json
 - live tapd proof binding: $ARTIFACT_DIR/live-tapd-proof-binding.json
 - blob fixtures: $ARTIFACT_DIR/lightning-labs-blob-fixtures.json
 - proof fixtures: $ARTIFACT_DIR/lightning-labs-proof-fixtures.json
@@ -195,8 +200,8 @@ Fixture-backed checks:
 Visible mocked/experimental pieces:
 - issuer identity and price oracle remain bounded demo fixtures
 - proof courier is local fixture/import-export plumbing
-- live tap-ldk peer smoke is local tap-ldk to tap-ldk until the Lightning Labs
-  daemon-backed peer session is wired
+- live tap-ldk peer and native asset-payment session smokes are local tap-ldk
+  to tap-ldk until the Lightning Labs daemon-backed peer session is wired
 - LND/tapd are independent compatibility peers, not tap-ldk runtime sidecars
 - live daemon settlement remains a documented gap until observed balances replace expected deltas
 SUMMARY_TEXT

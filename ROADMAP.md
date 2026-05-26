@@ -17,6 +17,25 @@ LDK ecosystem: asset issuance/proofs, asset-channel state, RFQ, HTLC metadata,
 settlement, and recovery are handled by Rust/LDK code rather than delegated to
 Lightning Labs daemons.
 
+## Status
+
+Last updated: 2026-05-26
+
+- Path A has the bounded native `tap-ldk` to `tap-ldk` demo path.
+- Path B has Lightning Labs fixture readers, RFQ/invoice compatibility checks,
+  payment-direction artifact checks, live `tapd` proof binding, and a live
+  localhost native asset-payment session that sends the ordered proof,
+  funding, RFQ, quote, and HTLC peer messages.
+- Issue #57 is the active next implementation target. It now has the native
+  payment-session artifact needed before counterparty replacement, but it is
+  not done until that session runs against the independent Lightning Labs
+  LND/`tapd` receiver and records the observed receiver balance after
+  settlement.
+- Issues #58 through #60 remain open for the reverse payment direction,
+  observed live balance checks, and full semantic proof ancestry validation.
+- Issue #19 remains the parent Path B epic and should stay open until the live
+  Lightning Labs interop path is actually complete.
+
 ## Implementation Home
 
 - `tap-ldk/`: code, repo-local docs, fixtures, and demo harness.

@@ -152,6 +152,7 @@ Examples:
 - `asset-payment-smoke`
 - `asset-recovery-smoke`
 - `live-peer-smoke`
+- `live-asset-payment-session-smoke`
 - `asset-close-smoke`
 - `lightning-labs-blob-fixture-smoke`
 - `lightning-labs-proof-fixture-smoke`
@@ -307,6 +308,7 @@ Command:
 
 ```bash
 cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
+cargo run -p tap-ldk-cli -- live-asset-payment-session-smoke target/live-asset-payment-session.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 125
 ```
 
 Current boundary:
@@ -314,8 +316,9 @@ Current boundary:
 - this is not yet a Lightning Labs daemon-backed session;
 - it does not yet use a full rust-lightning `PeerManager` socket loop;
 - it does not yet send Lightning wire custom messages to LND;
-- it is the runnable `tap-ldk` peer process that the next Path B issues should
-  connect to the counterparty harness.
+- it is the runnable `tap-ldk` peer process and ordered native payment-session
+  exchange that the next Path B issues should connect to the counterparty
+  harness.
 
 ## rust-lightning Fork Wiring
 
