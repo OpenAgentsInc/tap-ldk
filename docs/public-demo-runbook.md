@@ -225,7 +225,7 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 
 Report Path A and Path B separately. Do not describe Path B as complete until
 live daemon settlement and observed balance checks replace the current
-fixture-backed gap. The remaining open path is #79 through #81 for
-fork-backed `ldk-node` config/API/live settlement, #57 live `tap-ldk` pays
+fixture-backed gap. The remaining open path is #80 and #81 for fork-backed
+`ldk-node` API/live settlement, #57 live `tap-ldk` pays
 Lightning Labs, #58 live Lightning Labs pays `tap-ldk`, #59 observed-balance
 reporting, and #60 semantic proof ancestry validation.

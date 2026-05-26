@@ -60,15 +60,15 @@ connects a second peer, negotiates the asset-channel capability through the
 OpenAgentsInc rust-lightning fork, and sends an encoded native RFQ custom
 message over the socket. It is not yet a Lightning Labs daemon-backed P2P
 session. The `litd` peer preflight now proves that the OpenAgentsInc
-`ldk-node` fork can connect to integrated `litd` and report the OpenAgentsInc
-`rust-lightning` revision. Issues #79 and #80 still need to expose the
-asset-channel config plus message/payment APIs before funding/payment messages
-can settle over that daemon-backed peer.
+`ldk-node` fork can connect to integrated `litd`, report the OpenAgentsInc
+`rust-lightning` revision, and opt into simple-taproot/Taproot Asset channel
+negotiation. Issue #80 still needs to expose the asset-channel message/payment
+APIs before funding/payment messages can settle over that daemon-backed peer.
 
 Open issue path:
 
-1. #79 through #81: expose and use fork-backed `OpenAgentsInc/ldk-node`
-   asset-channel config, message/payment APIs, and live settlement.
+1. #80 and #81: expose and use fork-backed `OpenAgentsInc/ldk-node`
+   asset-channel message/payment APIs and live settlement.
 2. #57: live `tap-ldk` pays Lightning Labs and records post-settlement receiver
    balance.
 3. #58: live Lightning Labs pays `tap-ldk` and `tap-ldk` persists the received

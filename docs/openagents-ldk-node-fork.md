@@ -7,7 +7,7 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `4b7d8de974a8b08ee8bfee94450dc5c332fe596c`
+  `0faa999235050a17b198e6bbfa63c2f19aac4cc6`
 - Current `rust-lightning` fork commit:
   `cbc508b8ae972fd1134b0c5f1dc1792139276268`
 - Tracking issues: #77, #78, #79, #80, #81
@@ -15,9 +15,10 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 ## Why This Fork Exists
 
 The current #57 live preflight uses the OpenAgentsInc `ldk-node` fork. That
-proves a native LDK node can connect to integrated Lightning Labs `litd` and
-that the runtime is built against the OpenAgentsInc `rust-lightning` fork, but
-it does not prove Taproot Asset channel settlement yet.
+proves a native LDK node can connect to integrated Lightning Labs `litd`, that
+the runtime is built against the OpenAgentsInc `rust-lightning` fork, and that
+the live node opts into simple-taproot plus Taproot Asset channel negotiation.
+It does not prove Taproot Asset channel settlement yet.
 
 For #57 to settle honestly, the live node runtime must now expose the forked
 channel configuration, custom message path, asset-channel open path, and asset
@@ -31,8 +32,9 @@ coverage.
 1. #77 created and documented `OpenAgentsInc/ldk-node`.
 2. #78 pinned that fork to the OpenAgentsInc `rust-lightning` fork revision
    used by `tap-ldk` and added `ldk_node::provenance`.
-3. #79 exposes simple-taproot and Taproot Asset channel config while keeping
-   BTC-only defaults unchanged.
+3. #79 exposed simple-taproot and Taproot Asset channel config while keeping
+   BTC-only defaults unchanged and failing closed when Taproot Asset
+   negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs.
 5. #81 replaces the current provenance-only preflight with fork-backed live

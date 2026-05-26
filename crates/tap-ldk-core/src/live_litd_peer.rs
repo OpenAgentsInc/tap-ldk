@@ -10,6 +10,7 @@ use std::{
 use ldk_node::{
     Builder, Node,
     bitcoin::{Network, secp256k1::PublicKey},
+    config::ExperimentalChannelConfig,
     entropy::NodeEntropy,
     lightning::ln::msgs::SocketAddress,
     provenance::runtime_provenance,
@@ -100,6 +101,8 @@ pub struct LiveLitdPeerPreflightReport {
     pub storage_dir_path: String,
     pub live_node_runtime: String,
     pub live_node_uses_openagents_rust_lightning_fork: bool,
+    pub live_node_simple_taproot_channels_enabled: bool,
+    pub live_node_taproot_asset_channels_enabled: bool,
     pub openagents_rust_lightning_rev: String,
     pub fork_asset_channel_hooks_reachable_from_live_node: bool,
     pub native_node_id: String,
@@ -120,6 +123,7 @@ pub fn run_live_litd_peer_preflight(
     let request = request.validate()?;
     let provenance = runtime_provenance();
     let node = build_node(&request)?;
+    let experimental_channel_config = node.experimental_channel_config();
     node.start()
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
 
@@ -158,8 +162,15 @@ pub fn run_live_litd_peer_preflight(
         ),
         live_node_uses_openagents_rust_lightning_fork: provenance
             .uses_openagents_rust_lightning_fork,
+        live_node_simple_taproot_channels_enabled: experimental_channel_config
+            .negotiate_simple_taproot_channels,
+        live_node_taproot_asset_channels_enabled: experimental_channel_config
+            .negotiate_taproot_asset_channels,
         openagents_rust_lightning_rev: provenance.rust_lightning_fork_rev.to_owned(),
-        fork_asset_channel_hooks_reachable_from_live_node: false,
+        fork_asset_channel_hooks_reachable_from_live_node: provenance
+            .uses_openagents_rust_lightning_fork
+            && experimental_channel_config.negotiate_simple_taproot_channels
+            && experimental_channel_config.negotiate_taproot_asset_channels,
         native_node_id: native_node_id.to_string(),
         native_listening_socket: request.listening_socket.to_string(),
         litd_node_id: request.litd_node_id.to_string(),
@@ -169,7 +180,7 @@ pub fn run_live_litd_peer_preflight(
         peer_persisted,
         known_peer_count: peer_details.len(),
         asset_channel_settlement_ready: false,
-        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, and the runtime reports the OpenAgentsInc rust-lightning revision. #79 and #80 still need to expose opt-in simple-taproot/Taproot Asset channel config plus proof, funding, RFQ, quote, and asset HTLC APIs before asset-channel funding/payment can settle."
+        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, and the runtime enables opt-in simple-taproot plus Taproot Asset channel negotiation. #80 still needs to expose proof, funding, RFQ, quote, and asset HTLC APIs before asset-channel funding/payment can settle."
             .to_owned(),
     })
 }
@@ -177,6 +188,7 @@ pub fn run_live_litd_peer_preflight(
 fn build_node(request: &ValidatedLiveLitdPeerPreflightRequest) -> Result<Node, LiveLitdPeerError> {
     let mut builder = Builder::new();
     builder.set_network(Network::Regtest);
+    builder.set_experimental_channel_config(live_litd_experimental_channel_config());
     builder.set_storage_dir_path(request.storage_dir_path.display().to_string());
     builder.set_chain_source_bitcoind_rpc(
         request.bitcoind_rpc_host.clone(),
@@ -191,6 +203,10 @@ fn build_node(request: &ValidatedLiveLitdPeerPreflightRequest) -> Result<Node, L
     builder
         .build(node_entropy)
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))
+}
+
+fn live_litd_experimental_channel_config() -> ExperimentalChannelConfig {
+    ExperimentalChannelConfig::taproot_assets_regtest()
 }
 
 fn node_entropy_from_storage(storage_dir_path: &Path) -> Result<NodeEntropy, LiveLitdPeerError> {
@@ -274,5 +290,13 @@ mod tests {
             provenance.ldk_node_fork_url,
             "https://github.com/OpenAgentsInc/ldk-node"
         );
+    }
+
+    #[test]
+    fn live_litd_preflight_enables_experimental_channel_config() {
+        let config = live_litd_experimental_channel_config();
+
+        assert!(config.negotiate_simple_taproot_channels);
+        assert!(config.negotiate_taproot_asset_channels);
     }
 }

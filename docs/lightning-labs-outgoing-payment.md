@@ -27,8 +27,8 @@ Current #57 state: the gate reaches proof binding, native payment-session
 readiness, integrated `litd` readiness, fork-backed `ldk-node` to `litd` peer
 connection, and a pre-settlement Lightning Labs balance observation. That
 balance is not the close condition, and the peer preflight still cannot settle
-asset channels until #79 and #80 expose the asset-channel config plus
-message/payment APIs. #57 closes only after the live asset-channel
+asset channels until #80 exposes the asset-channel message/payment APIs. #57
+closes only after the live asset-channel
 funding/payment flow runs over the connected `litd` peer and the report
 records the Lightning Labs receiver balance after settlement.
 
@@ -57,9 +57,9 @@ records the Lightning Labs receiver balance after settlement.
 
 ## Next Step
 
-Finish #79 through #81 first: expose simple-taproot/Taproot Asset config, wire
-asset messages/payment APIs, and run the asset-channel funding/payment flow
-over the connected independent Lightning Labs `litd` peer. Then replace the
+Finish #80 and #81 first: wire asset messages/payment APIs and run the
+asset-channel funding/payment flow over the connected independent Lightning
+Labs `litd` peer. Then replace the
 expected receiver balance with an observed post-settlement daemon balance,
 implement #58, and let #59 turn both observed balances into the Path B
 completion gate.

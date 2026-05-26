@@ -23,9 +23,9 @@ Current live status is more specific: the #57 gate can start the relevant
 Lightning Labs stacks, bind a live proof, run the native ordered
 asset-payment-session smoke, connect fork-backed `ldk-node` to integrated
 `litd`, and query a current Lightning Labs balance. It still has no
-post-settlement balance because #79 and #80 have not yet exposed the
-asset-channel config/message/payment APIs needed for the live funding/payment
-flow over the connected `litd` peer. #59 should only flip the Path B
+post-settlement balance because #80 has not yet exposed the asset-channel
+message/payment APIs needed for the live funding/payment flow over the
+connected `litd` peer. #59 should only flip the Path B
 completion flag after #57 and #58 both record observed post-settlement
 balances.
 
