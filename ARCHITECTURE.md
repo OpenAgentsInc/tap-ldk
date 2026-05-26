@@ -365,12 +365,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `983c4385ff66105ab70d766d34f49c1bd547a81a`
+- current revision: `cbc508b8ae972fd1134b0c5f1dc1792139276268`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "983c4385ff66105ab70d766d34f49c1bd547a81a", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -389,6 +389,7 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::validate_single_asset_channel_open`
 - `lightning::ln::taproot_asset::TaprootAssetFundingRequest`
 - `lightning::ln::taproot_asset::validate_asset_channel_funding`
+- `lightning::ln::taproot_asset::TaprootAssetChannelState`
 - `lightning::ln::taproot_asset::TaprootAssetMonitorAuxBlob`
 - `lightning::ln::taproot_asset::TaprootAssetMonitorAuxBlobExpectation`
 - `lightning::ln::taproot_asset::TaprootAssetHtlcMetadata`
@@ -432,7 +433,11 @@ that base and the bounded funding-controller approval surface. They provide
 the first versioned channel monitor aux blob hook for asset commitment state,
 the first HTLC metadata/final-hop validation and cooperative close allocation
 hooks, plus the first proof-ownership recovery hook for force-close,
-second-level HTLC, and final sweep paths.
+second-level HTLC, and final sweep paths. The current revision also exposes a
+bounded `TaprootAssetChannelState` lifecycle state that requires explicit
+simple-taproot asset-channel negotiation, proof-backed funding, monitor aux
+blob persistence before commitment advancement, HTLC metadata validation,
+cooperative close allocation validation, and proof-ownership recovery checks.
 
 Rust Lightning uses `bitcoin::secp256k1`, the rust-bitcoin wrapper around
 libsecp256k1. The fork does not call raw libsecp APIs directly. The #63 TLV
@@ -498,8 +503,9 @@ a real live demo:
   second-level spends, sign BIP342 `SIGHASH_SINGLE|ANYONECANPAY` tapscript
   spends, and build the correct witness stack for each offered/accepted
   success/timeout path. Initial support landed in
-  `6af69ad385b864d7666edebbbbb668dab485bdde`; full asset-aware HTLC recovery
-  and monitor sweep semantics remain in #75.
+  `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
+  single-asset lifecycle state on top of these surfaces, while live
+  channel-manager and interop exercises continue in #57, #58, #59, and #76.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
@@ -509,6 +515,12 @@ a real live demo:
   currently disagrees with its script-vector section for some multi-HTLC
   output keys, so the fork asserts unambiguous script vectors exactly and uses
   transaction cases for output count, value/order, P2TR shape, and trimming.
+- Taproot Asset channel lifecycle state: funding, commitments, HTLC metadata,
+  cooperative close, monitor aux persistence, and proof-ownership recovery must
+  be tied to one simple-taproot asset-channel state object instead of loose
+  helper calls. Initial support landed in
+  `cbc508b8ae972fd1134b0c5f1dc1792139276268`; `tap-ldk` drives it through
+  `simple-taproot-asset-channel-smoke`.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
@@ -1162,14 +1174,18 @@ It proves that the repo currently has native Rust code for:
 - exporting final proof artifacts;
 - starting a local live `tap-ldk` peer and round-tripping an asset custom
   message after fork-backed negotiation.
+- driving the bounded simple-taproot asset-channel lifecycle state in the
+  OpenAgentsInc rust-lightning fork across funding, monitor persistence, HTLC
+  settlement, cooperative close, proof-ownership recovery, restart roundtrip,
+  and BTC-only isolation.
 
 It does not prove:
 
 - production stablecoin issuance;
 - reserve management;
 - compliance;
-- live Lightning routing;
-- full Taproot Assets VM validation;
+- live Lightning Labs routing;
+- full semantic Taproot Assets proof ancestry validation;
 - live on-chain force-close recovery.
 
 ## What Does Not Work Yet

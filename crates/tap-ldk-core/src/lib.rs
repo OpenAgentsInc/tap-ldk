@@ -24,6 +24,7 @@ pub mod proof;
 pub mod regtest;
 pub mod rfq_invoice;
 pub mod rfq_quote_store;
+pub mod simple_taproot_asset_channel;
 pub mod tap_vm;
 pub mod tapd_proof;
 pub mod taproot_commitment;

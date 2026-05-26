@@ -1,7 +1,7 @@
 pub const OPENAGENTS_RUST_LIGHTNING_FORK_URL: &str =
     "https://github.com/OpenAgentsInc/rust-lightning.git";
 pub const OPENAGENTS_RUST_LIGHTNING_BASE_REV: &str = "0c37f08a55c0f7738f2691dc3690166fd42f851d";
-pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "983c4385ff66105ab70d766d34f49c1bd547a81a";
+pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "cbc508b8ae972fd1134b0c5f1dc1792139276268";
 
 pub fn channel_type_features_type_name() -> &'static str {
     std::any::type_name::<lightning::types::features::ChannelTypeFeatures>()
@@ -17,6 +17,10 @@ pub fn simple_taproot_nonce_state_type_name() -> &'static str {
 
 pub fn simple_taproot_signer_trait_type_name() -> &'static str {
     std::any::type_name::<dyn lightning::sign::SimpleTaprootChannelSigner>()
+}
+
+pub fn taproot_asset_channel_state_type_name() -> &'static str {
+    std::any::type_name::<lightning::ln::taproot_asset::TaprootAssetChannelState>()
 }
 
 #[cfg(test)]
@@ -39,6 +43,7 @@ mod tests {
         assert!(init_features_type_name().contains("lightning"));
         assert!(simple_taproot_nonce_state_type_name().contains("lightning"));
         assert!(simple_taproot_signer_trait_type_name().contains("lightning"));
+        assert!(taproot_asset_channel_state_type_name().contains("lightning"));
     }
 
     #[test]

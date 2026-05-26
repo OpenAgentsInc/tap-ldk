@@ -28,6 +28,7 @@ use tap_ldk_core::{
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
     rfq_quote_store::{RfqQuoteRequest, RfqQuoteStore},
+    simple_taproot_asset_channel::run_simple_taproot_asset_channel_integration_smoke,
     tapd_proof::{decode_fixture_hex, decode_hex_text, decode_tapd_proof_file},
     wallet::{LocalTransferRequest, RegtestIssueRequest, TapdProofImportRequest, WalletState},
 };
@@ -409,6 +410,16 @@ fn main() {
                 }
             };
             print_json_or_exit(&report, "native asset close smoke");
+        }
+        [command] if command == "simple-taproot-asset-channel-smoke" => {
+            let report = match run_simple_taproot_asset_channel_integration_smoke() {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed simple-taproot asset channel smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "simple-taproot asset channel smoke");
         }
         [command, fixture_dir] if command == "lightning-labs-blob-fixture-smoke" => {
             let funding = read_fixture_hexdump_or_exit(fixture_dir, "funding-blob.hexdump");
@@ -826,6 +837,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-payment-smoke");
     println!("  tap-ldk asset-recovery-smoke");
     println!("  tap-ldk asset-close-smoke");
+    println!("  tap-ldk simple-taproot-asset-channel-smoke");
     println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-funding-interop-smoke <fixture-dir> <store.json>");

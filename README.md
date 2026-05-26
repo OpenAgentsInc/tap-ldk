@@ -9,19 +9,23 @@ Last updated: 2026-05-26
 Works today:
 
 - Native Path A runs between two local wallets: issue demo `OPENUSD`, exchange
-  proofs, use a mocked single-asset channel, pay, restart, close, and export
-  proofs.
+  proofs, use a single-asset channel, pay, restart, close, export proofs, and
+  run the simple-taproot asset-channel lifecycle through the rust-lightning
+  fork state machine.
 - Path B has Lightning Labs fixture/RFQ/payment checks, `tapd` proof binding,
   local peer smokes, an integrated `litd` harness, and an LDK preflight
   connection. It still refuses completion until the receiver balance is
   observed after settlement.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `983c4385ff66105ab70d766d34f49c1bd547a81a`, with BOLT simple-taproot
+  `cbc508b8ae972fd1134b0c5f1dc1792139276268`, with BOLT simple-taproot
   issues #62 through #70 implemented: negotiation, TLVs, MuSig2 primitives,
   P2TR funding, P2TR commitment outputs/control-block data, commitment
   update/reestablish nonce state, cooperative close, HTLC outputs, and
   second-level HTLC signing helpers, plus BOLT vector replay coverage for
-  those surfaces.
+  those surfaces. #75 is also implemented: the fork now exposes
+  `TaprootAssetChannelState`, and `tap-ldk` drives negotiation, proof
+  exchange, funding, monitor aux persistence, HTLC settlement, cooperative
+  close, and proof-ownership recovery through that lifecycle state.
 - #72 is implemented in `tap-ldk-core::mssmt`: native MS-SMT root calculation,
   inclusion/exclusion proofs, compressed proof encoding, overflow checks, and
   Lightning Labs fixture replay now back the bounded hash+sum helper.
@@ -38,7 +42,7 @@ Open work:
 - #57 through #60 are the live Path B work: real Lightning Labs asset payment,
   reverse direction, observed balances, and proof ancestry validation.
 - #61 remains the parent BTC-only simple-taproot readiness epic.
-- #71 remains the full Taproot Assets epic; #75 and #76 are next. LND,
+- #71 remains the full Taproot Assets epic; #76 is next. LND,
   `tapd`, and `litd` remain interop peers, not wallet sidecars; #19 stays open
   until Path B is actually complete.
 
@@ -73,6 +77,7 @@ cargo run -p tap-ldk-cli -- asset-htlc-smoke
 cargo run -p tap-ldk-cli -- asset-payment-smoke
 cargo run -p tap-ldk-cli -- asset-recovery-smoke
 cargo run -p tap-ldk-cli -- asset-close-smoke
+cargo run -p tap-ldk-cli -- simple-taproot-asset-channel-smoke
 cargo run -p tap-ldk-cli -- lightning-labs-blob-fixture-smoke fixtures/lightning-labs/tapchannelmsg/testdata
 cargo run -p tap-ldk-cli -- lightning-labs-proof-fixture-smoke fixtures/lightning-labs/proof/testdata
 cargo run -p tap-ldk-cli -- lightning-labs-funding-interop-smoke fixtures/lightning-labs/tapchannelmsg/testdata target/lightning-labs-funding-interop.json

@@ -325,6 +325,8 @@ Invariants:
   mismatched metadata;
 - the close handler and resolver cannot spend or export proof data for a state
   older than the latest durable channel monitor view;
+- the rust-lightning `TaprootAssetChannelState` lifecycle must not advance a
+  commitment unless the matching asset monitor aux blob is present and valid;
 - the blob parser fails closed on unknown required fields, malformed lengths,
   or version/state mismatches;
 - a hook failure leaves the channel in a modeled rejected, failed, or normal

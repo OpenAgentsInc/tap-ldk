@@ -14,13 +14,15 @@ use lightning::{
     chain::transaction::OutPoint,
     ln::{
         taproot_asset::{
-            self, TaprootAssetChannelNegotiationError, TaprootAssetFundingAllocation,
-            TaprootAssetFundingError, TaprootAssetFundingExpectations, TaprootAssetFundingOutput,
+            self, TaprootAssetChannelNegotiationError, TaprootAssetChannelState,
+            TaprootAssetChannelStateError, TaprootAssetFundingAllocation, TaprootAssetFundingError,
+            TaprootAssetFundingExpectations, TaprootAssetFundingOutput,
             TaprootAssetFundingProofMaterial,
             TaprootAssetFundingRequest as LdkTaprootAssetFundingRequest,
         },
         types::ChannelId,
     },
+    types::features::{ChannelTypeFeatures, InitFeatures},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -551,6 +553,85 @@ pub fn run_asset_channel_funding_smoke()
     ))
 }
 
+pub fn build_ldk_asset_channel_state(
+    channel: &StoredAssetChannel,
+) -> Result<TaprootAssetChannelState, AssetChannelFundingError> {
+    channel.validate_fields()?;
+    let funding_root = RootHashSum {
+        hash: channel.funding_tap_asset_root.hash,
+        sum: AssetAmount::new(channel.funding_tap_asset_root.sum),
+    };
+    let funding_commitment = funding_tap_commitment(
+        channel.asset_id,
+        &channel.genesis_outpoint,
+        channel.funding_script_key,
+        AssetAmount::new(channel.total_amount),
+    )?;
+    let expected_output_commitment = funding_commitment
+        .tapscript_root(None)
+        .map_err(AssetChannelFundingError::Commitment)?;
+    let funding_outpoint = parse_ldk_outpoint(&channel.funding_outpoint)?;
+    let local_peer_id = derive_peer_public_key(&channel.local_peer)?;
+    let remote_peer_id = derive_peer_public_key(&channel.remote_peer)?;
+    let genesis_id = derive_genesis_id(&channel.genesis_outpoint);
+    let proof_count = channel
+        .local_input_proof_ids
+        .len()
+        .checked_add(channel.remote_input_proof_ids.len())
+        .ok_or(AssetChannelFundingError::AmountOverflow)?;
+    let proof_count =
+        u16::try_from(proof_count).map_err(|_| AssetChannelFundingError::AmountOverflow)?;
+    let descriptor = taproot_asset::TaprootAssetChannelDescriptor::new(
+        channel.asset_id.0,
+        taproot_asset::SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
+    )
+    .map_err(AssetChannelFundingError::LdkChannelDescriptor)?;
+    let ldk_request = LdkTaprootAssetFundingRequest {
+        pending_channel_id: derive_pending_channel_id(&channel.channel_id),
+        descriptor,
+        funding_outpoint,
+        local_peer_id,
+        remote_peer_id,
+        proof_material: TaprootAssetFundingProofMaterial {
+            asset_id: channel.asset_id.0,
+            genesis_id: genesis_id.0,
+            group_key: None,
+            proof_root_hash: funding_root.hash.0,
+            proof_root_sum: funding_root.sum.value(),
+            complete_fragment_count: proof_count,
+            expected_fragment_count: proof_count,
+        },
+        funding_output: TaprootAssetFundingOutput {
+            outpoint: funding_outpoint,
+            asset_id: channel.asset_id.0,
+            taproot_asset_root_hash: funding_root.hash.0,
+            taproot_asset_root_sum: funding_root.sum.value(),
+            output_commitment: expected_output_commitment.0,
+        },
+        expectations: TaprootAssetFundingExpectations {
+            asset_id: channel.asset_id.0,
+            genesis_id: genesis_id.0,
+            group_key: None,
+            proof_root_hash: funding_root.hash.0,
+            output_commitment: expected_output_commitment.0,
+            total_amount: channel.total_amount,
+        },
+        allocation: TaprootAssetFundingAllocation {
+            local_amount: channel.local_balance,
+            remote_amount: channel.remote_balance,
+        },
+    };
+    let features = asset_channel_features();
+    TaprootAssetChannelState::from_funding_request(
+        &features,
+        &features,
+        &ChannelTypeFeatures::taproot_asset_single_asset(),
+        parse_channel_id(&channel.channel_id)?,
+        &ldk_request,
+    )
+    .map_err(AssetChannelFundingError::LdkChannelState)
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct ValidatedFundingInput {
     proof_id: String,
@@ -603,6 +684,7 @@ pub enum AssetChannelFundingError {
     },
     LdkChannelDescriptor(TaprootAssetChannelNegotiationError),
     LdkFundingHook(TaprootAssetFundingError),
+    LdkChannelState(TaprootAssetChannelStateError),
     MonitorNotPersisted(String),
     StorageInvariant(String),
 }
@@ -672,6 +754,12 @@ impl fmt::Display for AssetChannelFundingError {
                 write!(
                     f,
                     "LDK asset-channel funding hook rejected funding: {err:?}"
+                )
+            }
+            Self::LdkChannelState(err) => {
+                write!(
+                    f,
+                    "LDK simple-taproot asset channel state rejected funding: {err:?}"
                 )
             }
             Self::MonitorNotPersisted(channel_id) => {
@@ -766,6 +854,15 @@ fn validate_with_ldk_funding_hook(
     taproot_asset::validate_asset_channel_funding(&ldk_request)
         .map(|_| ())
         .map_err(AssetChannelFundingError::LdkFundingHook)
+}
+
+fn asset_channel_features() -> InitFeatures {
+    let mut features = InitFeatures::empty();
+    features.set_static_remote_key_optional();
+    features.set_channel_type_optional();
+    features.set_simple_taproot_staging_optional();
+    features.set_taproot_asset_channel_optional();
+    features
 }
 
 fn validate_inputs(
@@ -926,6 +1023,11 @@ fn derive_pending_channel_id(channel_id: &str) -> ChannelId {
         )
         .0,
     )
+}
+
+fn parse_channel_id(channel_id: &str) -> Result<ChannelId, AssetChannelFundingError> {
+    let bytes = Bytes32::from_str(channel_id).map_err(AssetChannelFundingError::Asset)?;
+    Ok(ChannelId::from_bytes(bytes.0))
 }
 
 fn digest_domain(domain: &[u8], parts: &[&[u8]]) -> Bytes32 {

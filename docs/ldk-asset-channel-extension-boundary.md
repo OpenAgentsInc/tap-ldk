@@ -17,6 +17,7 @@ demo must live under `OpenAgentsInc` and be wired explicitly from this repo.
 | Funding proof collector | `TxAssetInputProof`, `TxAssetOutputProof` | `tap-ldk-core` | No | Proof fragments are reassembled and verified before funding advances. |
 | Funding controller | `AuxFundingController` | `OpenAgentsInc/rust-lightning` fork | Required | Funding approval needs asset ID, proof root, funding output, and allocation checks. |
 | Commitment blob | `tapchannelmsg` commitment blob | `OpenAgentsInc/rust-lightning` fork | Required | Asset blob is versioned with the Lightning commitment number and monitor update. |
+| Lifecycle state | simple-taproot channel state | `OpenAgentsInc/rust-lightning` fork | Landed | Asset funding, monitor aux persistence, HTLC settlement, close, and recovery are checked against one channel lifecycle state. |
 | Asset signer | `AuxLeafSigner` | `tap-ldk-core` | No | Asset virtual transaction signing and nonce state stay separate from BTC signing. |
 | HTLC modifier | custom records / aux HTLC view | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Asset metadata can only be attached with an accepted RFQ quote. |
 | Final-hop validator | `AuxInvoiceManager` validation | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Wrong, stale, or malformed asset metadata fails before settlement. |
@@ -141,6 +142,10 @@ state:
 - channel monitor aux blob storage coupled to commitment durability, first
   landed in the OpenAgentsInc fork at
   `4394c0e350dd5faf34ca37fc6bde5cc14497e3f9`;
+- bounded `TaprootAssetChannelState` lifecycle integration for asset funding,
+  commitment advancement, monitor aux persistence, HTLC metadata, cooperative
+  close allocation, and proof-ownership recovery, first landed in
+  `cbc508b8ae972fd1134b0c5f1dc1792139276268`;
 - HTLC metadata preparation and final-hop validation, first landed in the
   OpenAgentsInc fork at `ef2538fe181025231c1f2a946df713b3109fa9ef`;
 - cooperative close allocation export, first landed in the OpenAgentsInc fork
@@ -148,9 +153,8 @@ state:
 - force-close, second-level HTLC, final sweep, and proof ownership recovery
   hook, first landed in the OpenAgentsInc fork at
   `0f442683da45af47daff313fefcfaef1ac7b82d7`;
-- commitment update hook for asset balances and asset signatures;
-- live channel-manager, resolver, and sweeper call-site wiring for the bounded
-  hooks above.
+- live channel-manager, resolver, and sweeper call-site exercises for the
+  bounded hooks above.
 
 Issue #25 is responsible for creating and wiring any required
 `OpenAgentsInc/rust-lightning` fork.
