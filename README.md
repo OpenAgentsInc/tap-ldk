@@ -16,16 +16,17 @@ Works today:
   connection. It still refuses completion until the receiver balance is
   observed after settlement.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `b0b952531329a31265f8de28752ee5334d9d9d4f`, with BOLT simple-taproot
-  issues #62 through #66 implemented: negotiation, TLVs, MuSig2 primitives,
-  P2TR funding, and P2TR commitment outputs/control-block data.
+  `1176e837e5aacac7d1a3237c2bb00910989dbd93`, with BOLT simple-taproot
+  issues #62 through #67 implemented: negotiation, TLVs, MuSig2 primitives,
+  P2TR funding, P2TR commitment outputs/control-block data, and commitment
+  update/reestablish nonce state.
 
 Open work:
 
 - #57 through #60 are the live Path B work: real Lightning Labs asset payment,
   reverse direction, observed balances, and proof ancestry validation.
-- #67 through #70 finish the BTC-only BOLT simple-taproot base: live signing
-  and reestablish state, close/force-close, HTLC scripts, and vector replay.
+- #68 through #70 finish the BTC-only BOLT simple-taproot base:
+  close/force-close, HTLC scripts, and vector replay.
 - #71 through #76 layer real Taproot Assets support on top. LND, `tapd`, and
   `litd` remain interop peers, not wallet sidecars; #19 stays open until Path
   B is actually complete.

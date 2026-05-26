@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `b0b952531329a31265f8de28752ee5334d9d9d4f`
+- Current `tap-ldk` revision: `1176e837e5aacac7d1a3237c2bb00910989dbd93`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "b0b952531329a31265f8de28752ee5334d9d9d4f"
+rev = "1176e837e5aacac7d1a3237c2bb00910989dbd93"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -114,8 +114,18 @@ to-local, to-remote, and anchor outputs; exposes tapscript roots, tap tweaks,
 leaf scripts, and control blocks for deterministic spend reconstruction; emits
 those outputs from `CommitmentTransaction` for simple-taproot channels; and
 keeps legacy commitment outputs unchanged when simple taproot is not enabled.
-This is still not live channel operation: MuSig2 commitment signing and
-reestablish state remain issue #67, and HTLC scripts remain issue #69.
+This is still not complete live channel operation: MuSig2 commitment update
+and reestablish state moved in issue #67, and HTLC scripts remain issue #69.
+
+Revision `1176e837e5aacac7d1a3237c2bb00910989dbd93` adds the first
+simple-taproot commitment update and reestablish state wiring. It persists
+counterparty next-local nonces, consumed nonce uses, and sent commitment
+partial signatures; emits next-local nonces in `channel_ready`,
+`revoke_and_ack`, and `channel_reestablish`; verifies peer
+`commitment_signed` partial signatures against the stored nonce; reuses sent
+partials for retransmission; and fails closed when required simple-taproot
+nonce/signature state is missing or mismatched. This does not complete
+cooperative close, force-close, HTLC second-level scripts, or vector replay.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

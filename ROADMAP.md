@@ -27,11 +27,12 @@ Last updated: 2026-05-26
   not done until asset-channel funding/payment runs over that peer and records
   the receiver balance after settlement.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `b0b952531329a31265f8de28752ee5334d9d9d4f`. BOLT simple-taproot issues #62
-  through #66 are implemented: negotiation, TLVs, MuSig2 primitives, P2TR
-  funding, and P2TR commitment outputs/control-block data.
+  `1176e837e5aacac7d1a3237c2bb00910989dbd93`. BOLT simple-taproot issues #62
+  through #67 are implemented: negotiation, TLVs, MuSig2 primitives, P2TR
+  funding, P2TR commitment outputs/control-block data, and commitment
+  update/reestablish nonce state.
 - Current open work is #57 through #60 for live Path B and proof validation,
-  #67 through #70 for the BTC-only simple-taproot base, and #71 through #76
+  #68 through #70 for the BTC-only simple-taproot base, and #71 through #76
   for real Taproot Assets support. #19 remains the parent Path B epic.
 
 ## Implementation Home
@@ -271,8 +272,8 @@ needed for full Taproot Asset support in LDK.
 | #63 | Simple-taproot wire TLVs and message validation | Implemented in `OpenAgentsInc/rust-lightning` at `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. |
 | #64 | MuSig2 signer and nonce state | Implemented in `OpenAgentsInc/rust-lightning` at `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; key aggregation, counter/JIT nonce generation, partial-signature verification, final Schnorr aggregation, persisted nonce-use rejection, and signer-facing `InMemorySigner` helpers are covered. Channel/reestablish call-site wiring continues in #67. |
 | #65 | Simple-taproot P2TR funding flow | Implemented in `OpenAgentsInc/rust-lightning` at `1602ac9e1e7454d39612e126c24a098e276d605a`; BIP86 P2TR funding script generation, BOLT funding vector coverage, `FundingGenerationReady` P2TR output scripts, wrong-script rejection, and P2TR monitor registration are covered. Full live channel activation still depends on #66 and #67. |
-| #66 | Simple-taproot commitment outputs and control blocks | Implemented in `OpenAgentsInc/rust-lightning` at `b0b952531329a31265f8de28752ee5334d9d9d4f`; P2TR to-local, to-remote, and anchor scripts match BOLT vectors; tap tweaks, tapscript roots, and control blocks are reconstructable; `CommitmentTransaction` emits those outputs for simple-taproot channels. Live signing/reestablish remains #67 and HTLC scripts remain #69. |
-| #67 | Simple-taproot commitment update and reestablish state | Commitment signing, revocation, restart, and reestablish preserve simple-taproot signing state. |
+| #66 | Simple-taproot commitment outputs and control blocks | Implemented in `OpenAgentsInc/rust-lightning` at `b0b952531329a31265f8de28752ee5334d9d9d4f`; P2TR to-local, to-remote, and anchor scripts match BOLT vectors; tap tweaks, tapscript roots, and control blocks are reconstructable; `CommitmentTransaction` emits those outputs for simple-taproot channels. Commitment signing/reestablish moved in #67, and HTLC scripts remain #69. |
+| #67 | Simple-taproot commitment update and reestablish state | Implemented in `OpenAgentsInc/rust-lightning` at `1176e837e5aacac7d1a3237c2bb00910989dbd93`; channel-ready, commitment-signed, revoke-and-ack, and channel-reestablish carry/persist next-local nonces; sent partial signatures are retained for retransmission; mismatched or missing simple-taproot nonces fail closed. |
 | #68 | Simple-taproot RBF cooperative close | Shutdown, close nonce rotation, RBF close signing, and invalid-close rejection are covered. |
 | #69 | Simple-taproot HTLC scripts and second-level transactions | Offered/accepted HTLC outputs and second-level success/timeout paths are implemented. |
 | #70 | BOLT simple-taproot vector replay | Wire, signing, transaction, close, and HTLC vectors pass in the fork. |

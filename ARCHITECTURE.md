@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `b0b952531329a31265f8de28752ee5334d9d9d4f`
+- current revision: `1176e837e5aacac7d1a3237c2bb00910989dbd93`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "b0b952531329a31265f8de28752ee5334d9d9d4f", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "1176e837e5aacac7d1a3237c2bb00910989dbd93", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -401,8 +401,8 @@ libsecp256k1. The fork does not call raw libsecp APIs directly. The #63 TLV
 work only defined and validated the wire payloads for simple-taproot MuSig2
 nonces and partial signatures; it did not sign, aggregate, or verify them.
 Issue #64 added the feature-gated Rust `musig2` crate integration and signer
-state helpers. The remaining #67 work is to route those helpers through the
-live LDK channel state machine, monitor persistence, and reestablish flow.
+state helpers. Issue #67 routes those helpers through the first live LDK
+channel-ready, commitment-signed, revoke-and-ack, and reestablish call sites.
 
 ## What Must Be Added To rust-lightning
 
@@ -427,20 +427,28 @@ a real live demo:
   aggregate with BIP-327 sorting, public nonces and partial signatures must
   verify, final Schnorr signatures must aggregate, and nonce-use state must
   survive serialization while rejecting reuse. Initial feature-gated support
-  landed in `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; issue #67 still
-  needs to wire this state through live channel updates and reestablish.
+  landed in `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; first channel update
+  and reestablish wiring landed in
+  `1176e837e5aacac7d1a3237c2bb00910989dbd93`.
 - BOLT simple taproot P2TR funding: simple-taproot channels must derive BIP86
   P2TR funding scripts from the sorted aggregate funding key, expose that
   script in `FundingGenerationReady`, reject funding transactions with the
   wrong script, and register the same script with channel monitors. Initial
-  support landed in `1602ac9e1e7454d39612e126c24a098e276d605a`; live channel
-  activation still depends on commitment output/control-block work in #66 and
-  channel signing/reestablish wiring in #67.
+  support landed in `1602ac9e1e7454d39612e126c24a098e276d605a`; commitment
+  output/control-block work landed in #66 and first channel
+  signing/reestablish wiring landed in #67.
 - BOLT simple taproot commitment outputs: simple-taproot commitments must use
   P2TR to-local, to-remote, and anchor outputs with tapscript roots, tap
   tweaks, and control blocks that can be reconstructed after restart. Initial
-  support landed in `b0b952531329a31265f8de28752ee5334d9d9d4f`; live MuSig2
-  commitment signing/reestablish remains #67 and HTLC scripts remain #69.
+  support landed in `b0b952531329a31265f8de28752ee5334d9d9d4f`; MuSig2
+  commitment signing/reestablish moved in #67 and HTLC scripts remain #69.
+- BOLT simple taproot commitment update/reestablish state: channel-ready,
+  commitment-signed, revoke-and-ack, and channel-reestablish paths must carry
+  next-local nonces, preserve sent partial signatures for retransmission, and
+  fail closed on missing or mismatched simple-taproot nonce state. First
+  support landed in `1176e837e5aacac7d1a3237c2bb00910989dbd93`; close,
+  force-close, HTLC second-level paths, and vector replay remain #68 through
+  #70.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
