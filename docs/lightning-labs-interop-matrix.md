@@ -54,7 +54,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Multi-RFQ and routing | `itest/custom_channels/multi_rfq_test.go`; `itest/custom_channels/multi_channel_pathfinding_test.go` | Out of first-demo scope except as a compatibility note. | Deferred |
 | Payment direction: `tap-ldk` pays Lightning Labs | `itest/custom_channels/core_test.go`; `itest/custom_channels/single_asset_multi_input_test.go`; `itest/custom_channels/strict_forwarding_test.go`; `docs/lightning-labs-outgoing-payment.md`; `scripts/live-lightning-labs-outgoing-payment.sh` | Sender-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs RFQ payloads, quote-bound invoice, asset HTLC metadata, expected balance delta, replay rejection, wrong-asset rejection, wrong-amount rejection, and a live outgoing-payment gate that refuses success until a real Lightning Labs receiver balance is observed. | Stopped at live settlement gap |
 | Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go`; `docs/lightning-labs-incoming-payment.md` | Receiver-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs buy-direction RFQ payloads, native quote-bound receive invoice, final-hop asset HTLC metadata, expected balance delta, stale/wrong-amount/malformed/replay rejection, and documented live-daemon settlement gap. | Stopped at live daemon gap |
-| Balance comparison | `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records.go`; `itest/custom_channels/balance_consistency_test.go`; `docs/lightning-labs-interop-checks.md` | Automated interop check report compares funding balances, proof availability, both payment-direction asset IDs, expected balance deltas, metadata rejection checks, and restart round trips. Live observed balance comparison remains a documented gap until a daemon-backed run supplies actual balances. | Partially implemented |
+| Balance comparison | `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records.go`; `itest/custom_channels/balance_consistency_test.go`; `docs/lightning-labs-interop-checks.md` | Automated interop check report compares funding balances, HTLC RFQ metadata, RFQ message types, proof availability, both payment-direction asset IDs, expected balance deltas, metadata rejection checks, restart round trips, simple-taproot asset-channel lifecycle state, close/proof recovery, and explicit observed-balance gates. Live observed balance comparison remains a documented gap until a daemon-backed run supplies actual post-settlement balances. | Partially implemented |
 | Cooperative close | `tapchannel/aux_closer.go`; `itest/custom_channels/restart_coop_close_test.go` | Close/proof export is required for a strong demo; may remain after first payment interop if documented. | Stronger-demo gate |
 | Force close | `tapchannel/aux_sweeper.go`; `itest/custom_channels/force_close_test.go`; `itest/custom_channels/htlc_force_close_test.go` | Bounded proof-ownership recovery records now exist for commitment, second-level HTLC, and final sweep paths, and BTC-only sweep state is refused as asset recovery. Live daemon-backed resolver/sweeper interop remains open. | Partially implemented |
 
@@ -95,9 +95,10 @@ reported as settled interop.
 
 ## Current Known Gaps
 
-- `tap-ldk` implements bounded native asset-channel funding and native
-  first-demo virtual transition validation, but does not yet wire the full live
-  asset-channel state into the rust-lightning simple-taproot state machine.
+- `tap-ldk` implements bounded native asset-channel funding, native first-demo
+  virtual transition validation, and a fork-backed simple-taproot
+  asset-channel lifecycle smoke. The live Lightning Labs peer still needs to
+  run asset-channel funding/payment over the connected `litd` session.
 - `tap-ldk` preserves and exports `tapd` proof files, but does not yet verify
   full proof ancestry, proof-chain virtual transactions, or on-chain anchor
   semantics.
@@ -113,5 +114,7 @@ reported as settled interop.
   `tap-ldk` direction, but does not yet drive a live LND/`tapd` sender or
   observe a durable `tap-ldk` receiver balance.
 - `tap-ldk` emits a consolidated Track B interop check report with structured
-  mismatch diagnostics, but live observed balance checks still require the
-  headless or Polar-backed Lightning Labs counterparty.
+  mismatch diagnostics, simple-taproot asset-channel vector coverage, and
+  explicit observed-balance gates, but live observed balance checks still
+  require the headless or Polar-backed Lightning Labs counterparty to settle
+  real asset payments.

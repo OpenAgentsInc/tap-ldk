@@ -943,9 +943,13 @@ while the state is still fixture-backed. That is why they store
 `lightning_labs_interop_checks.rs` combines:
 
 - funding interop;
+- Lightning Labs HTLC RFQ metadata fixture checks;
 - proof fixture checks;
+- RFQ request/accept/reject message-type checks;
 - outgoing payment report;
 - incoming payment report;
+- fork-backed simple-taproot asset-channel lifecycle checks;
+- cooperative close and proof-ownership recovery checks;
 - restart round trips;
 - mismatch diagnostics;
 - documented gaps.

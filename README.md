@@ -14,7 +14,9 @@ Works today:
   fork state machine.
 - Path B has Lightning Labs fixture/RFQ/payment checks, `tapd` proof binding,
   local peer smokes, an integrated `litd` harness, and an LDK preflight
-  connection. It still refuses completion until the receiver balance is
+  connection. Its consolidated vector check now ties funding, HTLC, RFQ, TAPF
+  proof, close/recovery, and the simple-taproot asset-channel lifecycle
+  together. It still refuses completion until live receiver balances are
   observed after settlement.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
   `cbc508b8ae972fd1134b0c5f1dc1792139276268`, with BOLT simple-taproot
@@ -42,9 +44,9 @@ Open work:
 - #57 through #60 are the live Path B work: real Lightning Labs asset payment,
   reverse direction, observed balances, and proof ancestry validation.
 - #61 remains the parent BTC-only simple-taproot readiness epic.
-- #71 remains the full Taproot Assets epic; #76 is next. LND,
-  `tapd`, and `litd` remain interop peers, not wallet sidecars; #19 stays open
-  until Path B is actually complete.
+- #71 remains the full Taproot Assets epic. LND, `tapd`, and `litd` remain
+  interop peers, not wallet sidecars; #19 stays open until Path B is actually
+  complete.
 
 ## Development
 

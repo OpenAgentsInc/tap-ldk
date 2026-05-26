@@ -526,12 +526,14 @@ fn main() {
         ] if command == "lightning-labs-interop-check-smoke" => {
             let funding =
                 read_fixture_hexdump_or_exit(tapchannel_fixture_dir, "funding-blob.hexdump");
+            let htlc = read_fixture_hexdump_or_exit(tapchannel_fixture_dir, "htlc-blob.hexdump");
             let commitment =
                 read_fixture_hexdump_or_exit(tapchannel_fixture_dir, "commitment-blob.hexdump");
             let proof_file_hex = read_fixture_text_or_exit(proof_fixture_dir, "proof-file.hex");
             let single_proof_hex = read_fixture_text_or_exit(proof_fixture_dir, "proof.hex");
             let report = match run_lightning_labs_interop_check_smoke(
                 &funding,
+                &htlc,
                 &commitment,
                 &proof_file_hex,
                 &single_proof_hex,

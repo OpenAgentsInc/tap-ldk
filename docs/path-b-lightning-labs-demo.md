@@ -6,7 +6,10 @@ fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
 proof-binding report, the integrated `litd` counterparty readiness report, the
 native LDK to `litd` peer preflight report, the live outgoing-payment gate, and
-the consolidated interop check report into an ignored artifact directory.
+the consolidated interop check report into an ignored artifact directory. The
+consolidated report now includes the HTLC RFQ metadata vector, Lightning Labs
+RFQ message-type vectors, and the fork-backed simple-taproot asset-channel
+lifecycle, close, and proof-recovery checks.
 
 ```bash
 ./scripts/path-b-lightning-labs-demo.sh

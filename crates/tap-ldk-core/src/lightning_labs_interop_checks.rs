@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     asset::Bytes32,
+    lightning_labs_blob::{
+        LightningLabsBlobError, LightningLabsHtlcBlob, decode_htlc_blob_hexdump,
+    },
     lightning_labs_funding::{
         FundingInteropGap, LightningLabsFundingInteropError, LightningLabsFundingInteropReport,
         run_lightning_labs_funding_interop_fixture_smoke,
@@ -13,7 +16,14 @@ use crate::{
         LightningLabsOutgoingPaymentReport, run_lightning_labs_incoming_payment_smoke,
         run_lightning_labs_outgoing_payment_smoke,
     },
-    lightning_labs_rfq::LIGHTNING_LABS_TAPROOT_ASSETS_COMMIT,
+    lightning_labs_rfq::{
+        LIGHTNING_LABS_RFQ_ACCEPT_TYPE, LIGHTNING_LABS_RFQ_REJECT_TYPE,
+        LIGHTNING_LABS_RFQ_REQUEST_TYPE, LIGHTNING_LABS_TAPROOT_ASSETS_COMMIT,
+    },
+    simple_taproot_asset_channel::{
+        SimpleTaprootAssetChannelIntegrationError, SimpleTaprootAssetChannelIntegrationReport,
+        run_simple_taproot_asset_channel_integration_smoke,
+    },
     tapd_proof::{TapdProofError, TapdProofFixtureReport, decode_fixture_hex},
 };
 
@@ -57,9 +67,16 @@ pub struct LightningLabsInteropCheckReport {
     pub asset_id: Bytes32,
     pub funding_total_amount: u64,
     pub funding_proof_digest: Bytes32,
+    pub htlc_blob_digest: Bytes32,
+    pub htlc_rfq_id: Option<Bytes32>,
+    pub htlc_available_rfq_ids: usize,
     pub proof_file_digest: Bytes32,
     pub outgoing_payment_id: String,
     pub incoming_payment_id: String,
+    pub simple_taproot_rust_lightning_rev: String,
+    pub simple_taproot_channel_id: String,
+    pub simple_taproot_lifecycle_passed: bool,
+    pub close_and_recovery_vectors_passed: bool,
     pub all_automated_checks_passed: bool,
     pub live_daemon_gaps_remaining: bool,
     pub checks: Vec<LightningLabsInteropCheck>,
@@ -79,9 +96,16 @@ impl LightningLabsInteropCheckReport {
             || self.funding_interop_id.trim().is_empty()
             || self.outgoing_payment_id.trim().is_empty()
             || self.incoming_payment_id.trim().is_empty()
+            || self.simple_taproot_rust_lightning_rev.trim().is_empty()
+            || self.simple_taproot_channel_id.trim().is_empty()
         {
             return Err(LightningLabsInteropCheckError::StorageInvariant(
                 "interop check identity fields cannot be empty".to_owned(),
+            ));
+        }
+        if self.htlc_blob_digest == Bytes32::ZERO || self.proof_file_digest == Bytes32::ZERO {
+            return Err(LightningLabsInteropCheckError::StorageInvariant(
+                "interop fixture digests cannot be zero".to_owned(),
             ));
         }
         let failed_count = self
@@ -126,6 +150,7 @@ impl LightningLabsInteropCheckReport {
 
 pub fn run_lightning_labs_interop_check_smoke(
     funding_hexdump: &str,
+    htlc_hexdump: &str,
     commitment_hexdump: &str,
     proof_file_hex: &str,
     single_proof_hex: &str,
@@ -139,7 +164,9 @@ pub fn run_lightning_labs_interop_check_smoke(
         run_lightning_labs_outgoing_payment_smoke(funding_hexdump, commitment_hexdump)?;
     let (incoming_store, incoming) =
         run_lightning_labs_incoming_payment_smoke(funding_hexdump, commitment_hexdump)?;
+    let htlc = decode_htlc_blob_hexdump(htlc_hexdump)?;
     let proof = decode_fixture_hex(proof_file_hex, single_proof_hex)?;
+    let simple_taproot = run_simple_taproot_asset_channel_integration_smoke()?;
 
     let mut checks = Vec::new();
     let mut mismatches = Vec::new();
@@ -190,6 +217,7 @@ pub fn run_lightning_labs_interop_check_smoke(
         },
     );
     record_proof_checks(&mut checks, &mut mismatches, &proof, proof_fixture_dir);
+    record_htlc_checks(&mut checks, &mut mismatches, &htlc, tapchannel_fixture_dir);
     record_payment_checks(
         &mut checks,
         &mut mismatches,
@@ -208,6 +236,19 @@ pub fn run_lightning_labs_interop_check_smoke(
         &report_artifact("incoming_payment"),
         "incoming",
     )?;
+    record_rfq_vector_checks(
+        &mut checks,
+        &mut mismatches,
+        &outgoing,
+        &incoming,
+        &report_artifact("rfq_vectors"),
+    );
+    record_simple_taproot_checks(
+        &mut checks,
+        &mut mismatches,
+        &simple_taproot,
+        &report_artifact("simple_taproot_asset_channel"),
+    );
 
     checks.push(LightningLabsInteropCheck {
         name: "outgoing live receiver balance remains documented gap".to_owned(),
@@ -246,9 +287,16 @@ pub fn run_lightning_labs_interop_check_smoke(
         asset_id: funding.asset_id,
         funding_total_amount: funding.funding_total_amount,
         funding_proof_digest: funding.funding_asset_proof_digest,
+        htlc_blob_digest: htlc.raw_digest,
+        htlc_rfq_id: htlc.rfq_id,
+        htlc_available_rfq_ids: htlc.available_rfq_ids.len(),
         proof_file_digest: proof.proof_file.raw_digest,
         outgoing_payment_id: outgoing.payment_id,
         incoming_payment_id: incoming.payment_id,
+        simple_taproot_rust_lightning_rev: simple_taproot.rust_lightning_rev.clone(),
+        simple_taproot_channel_id: simple_taproot.channel_id.clone(),
+        simple_taproot_lifecycle_passed: simple_taproot_lifecycle_passed(&simple_taproot),
+        close_and_recovery_vectors_passed: close_and_recovery_vectors_passed(&simple_taproot),
         all_automated_checks_passed,
         live_daemon_gaps_remaining,
         checks,
@@ -297,6 +345,44 @@ fn record_proof_checks(
             actual: proof.wrapped_single_proof_file.proof_count.to_string(),
             artifact_path: format!("{proof_fixture_dir}/proof.hex"),
             detail: "single TAPP proof can be wrapped as a TAPF proof file for Lightning Labs tooling",
+        },
+    );
+}
+
+fn record_htlc_checks(
+    checks: &mut Vec<LightningLabsInteropCheck>,
+    mismatches: &mut Vec<LightningLabsInteropMismatch>,
+    htlc: &LightningLabsHtlcBlob,
+    tapchannel_fixture_dir: &str,
+) {
+    record_comparison(
+        checks,
+        mismatches,
+        ComparisonInput {
+            name: "HTLC fixture carries RFQ metadata".to_owned(),
+            side: "lightning_labs",
+            field: "htlc.rfq_id",
+            expected: "present".to_owned(),
+            actual: if htlc.rfq_id.is_some() {
+                "present".to_owned()
+            } else {
+                "missing".to_owned()
+            },
+            artifact_path: format!("{tapchannel_fixture_dir}/htlc-blob.hexdump"),
+            detail: "Lightning Labs HTLC metadata vector exposes the RFQ binding needed by asset payments",
+        },
+    );
+    record_comparison(
+        checks,
+        mismatches,
+        ComparisonInput {
+            name: "HTLC fixture digest is nonzero".to_owned(),
+            side: "lightning_labs",
+            field: "htlc.raw_digest",
+            expected: "nonzero".to_owned(),
+            actual: nonzero_digest_label(htlc.raw_digest),
+            artifact_path: format!("{tapchannel_fixture_dir}/htlc-blob.hexdump"),
+            detail: "HTLC fixture bytes are decoded as a stable compatibility vector",
         },
     );
 }
@@ -378,6 +464,121 @@ fn record_payment_checks(
         );
     }
     Ok(())
+}
+
+fn record_rfq_vector_checks(
+    checks: &mut Vec<LightningLabsInteropCheck>,
+    mismatches: &mut Vec<LightningLabsInteropMismatch>,
+    outgoing: &LightningLabsOutgoingPaymentReport,
+    incoming: &LightningLabsIncomingPaymentReport,
+    artifact_path: &str,
+) {
+    for (direction, request, accept, reject) in [
+        (
+            "outgoing",
+            outgoing.request_message_type,
+            outgoing.accept_message_type,
+            outgoing.reject_message_type,
+        ),
+        (
+            "incoming",
+            incoming.request_message_type,
+            incoming.accept_message_type,
+            incoming.reject_message_type,
+        ),
+    ] {
+        record_comparison(
+            checks,
+            mismatches,
+            ComparisonInput {
+                name: format!("{direction} RFQ request type matches Lightning Labs"),
+                side: "both",
+                field: "rfq.request_type",
+                expected: LIGHTNING_LABS_RFQ_REQUEST_TYPE.to_string(),
+                actual: request.to_string(),
+                artifact_path: artifact_path.to_owned(),
+                detail: "RFQ request messages use the Lightning Labs custom message type",
+            },
+        );
+        record_comparison(
+            checks,
+            mismatches,
+            ComparisonInput {
+                name: format!("{direction} RFQ accept type matches Lightning Labs"),
+                side: "both",
+                field: "rfq.accept_type",
+                expected: LIGHTNING_LABS_RFQ_ACCEPT_TYPE.to_string(),
+                actual: accept.to_string(),
+                artifact_path: artifact_path.to_owned(),
+                detail: "RFQ accept messages use the Lightning Labs custom message type",
+            },
+        );
+        record_comparison(
+            checks,
+            mismatches,
+            ComparisonInput {
+                name: format!("{direction} RFQ reject type matches Lightning Labs"),
+                side: "both",
+                field: "rfq.reject_type",
+                expected: LIGHTNING_LABS_RFQ_REJECT_TYPE.to_string(),
+                actual: reject.to_string(),
+                artifact_path: artifact_path.to_owned(),
+                detail: "RFQ reject messages use the Lightning Labs custom message type",
+            },
+        );
+    }
+}
+
+fn record_simple_taproot_checks(
+    checks: &mut Vec<LightningLabsInteropCheck>,
+    mismatches: &mut Vec<LightningLabsInteropMismatch>,
+    simple_taproot: &SimpleTaprootAssetChannelIntegrationReport,
+    artifact_path: &str,
+) {
+    record_comparison(
+        checks,
+        mismatches,
+        ComparisonInput {
+            name: "simple-taproot asset-channel lifecycle passes".to_owned(),
+            side: "tap-ldk",
+            field: "simple_taproot_lifecycle_passed",
+            expected: "true".to_owned(),
+            actual: simple_taproot_lifecycle_passed(simple_taproot).to_string(),
+            artifact_path: artifact_path.to_owned(),
+            detail: "Lightning Labs vectors are checked alongside the fork-backed simple-taproot asset-channel lifecycle",
+        },
+    );
+    record_comparison(
+        checks,
+        mismatches,
+        ComparisonInput {
+            name: "simple-taproot close and recovery vectors pass".to_owned(),
+            side: "tap-ldk",
+            field: "close_and_recovery_vectors_passed",
+            expected: "true".to_owned(),
+            actual: close_and_recovery_vectors_passed(simple_taproot).to_string(),
+            artifact_path: artifact_path.to_owned(),
+            detail: "cooperative close proof export and force-close proof-ownership recovery are exercised through the rust-lightning fork state",
+        },
+    );
+}
+
+fn simple_taproot_lifecycle_passed(report: &SimpleTaprootAssetChannelIntegrationReport) -> bool {
+    report.negotiated_simple_taproot_asset_channel
+        && report.proof_exchange_separate_from_open_channel
+        && report.funding_hook_approved
+        && report.initial_monitor_aux_persisted
+        && report.missing_monitor_update_rejected
+        && report.ldk_state_advanced_with_monitor_aux
+        && report.payment_settled
+        && report.restart_reestablish_survived
+        && report.btc_only_baseline_unaffected
+}
+
+fn close_and_recovery_vectors_passed(report: &SimpleTaprootAssetChannelIntegrationReport) -> bool {
+    report.cooperative_close_exported
+        && report.cooperative_close_allocation_validated_by_ldk
+        && report.force_close_proof_ownership_validated_by_ldk
 }
 
 trait PaymentCheckView {
@@ -509,9 +710,11 @@ fn nonzero_digest_label(digest: Bytes32) -> String {
 #[derive(Debug)]
 pub enum LightningLabsInteropCheckError {
     Json(serde_json::Error),
+    Blob(LightningLabsBlobError),
     Funding(LightningLabsFundingInteropError),
     Payment(LightningLabsOutgoingPaymentError),
     Proof(TapdProofError),
+    SimpleTaproot(SimpleTaprootAssetChannelIntegrationError),
     AmountOverflow,
     StorageInvariant(String),
 }
@@ -520,9 +723,14 @@ impl fmt::Display for LightningLabsInteropCheckError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Json(err) => write!(f, "Lightning Labs interop check JSON error: {err}"),
+            Self::Blob(err) => write!(f, "Lightning Labs interop blob check error: {err}"),
             Self::Funding(err) => write!(f, "Lightning Labs interop funding check error: {err}"),
             Self::Payment(err) => write!(f, "Lightning Labs interop payment check error: {err}"),
             Self::Proof(err) => write!(f, "Lightning Labs interop proof check error: {err}"),
+            Self::SimpleTaproot(err) => write!(
+                f,
+                "Lightning Labs simple-taproot asset-channel check error: {err}"
+            ),
             Self::AmountOverflow => write!(f, "Lightning Labs interop check amount overflow"),
             Self::StorageInvariant(message) => {
                 write!(
@@ -539,6 +747,12 @@ impl Error for LightningLabsInteropCheckError {}
 impl From<serde_json::Error> for LightningLabsInteropCheckError {
     fn from(err: serde_json::Error) -> Self {
         Self::Json(err)
+    }
+}
+
+impl From<LightningLabsBlobError> for LightningLabsInteropCheckError {
+    fn from(err: LightningLabsBlobError) -> Self {
+        Self::Blob(err)
     }
 }
 
@@ -560,6 +774,12 @@ impl From<TapdProofError> for LightningLabsInteropCheckError {
     }
 }
 
+impl From<SimpleTaprootAssetChannelIntegrationError> for LightningLabsInteropCheckError {
+    fn from(err: SimpleTaprootAssetChannelIntegrationError) -> Self {
+        Self::SimpleTaproot(err)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -570,6 +790,8 @@ mod tests {
     const COMMITMENT_HEXDUMP: &str = include_str!(
         "../../../fixtures/lightning-labs/tapchannelmsg/testdata/commitment-blob.hexdump"
     );
+    const HTLC_HEXDUMP: &str =
+        include_str!("../../../fixtures/lightning-labs/tapchannelmsg/testdata/htlc-blob.hexdump");
     const PROOF_FILE_HEX: &str =
         include_str!("../../../fixtures/lightning-labs/proof/testdata/proof-file.hex");
     const SINGLE_PROOF_HEX: &str =
@@ -579,6 +801,7 @@ mod tests {
     fn interop_check_smoke_covers_funding_payments_proofs_and_restart() {
         let report = run_lightning_labs_interop_check_smoke(
             FUNDING_HEXDUMP,
+            HTLC_HEXDUMP,
             COMMITMENT_HEXDUMP,
             PROOF_FILE_HEX,
             SINGLE_PROOF_HEX,
@@ -590,6 +813,9 @@ mod tests {
 
         assert!(report.all_automated_checks_passed);
         assert!(report.live_daemon_gaps_remaining);
+        assert!(report.simple_taproot_lifecycle_passed);
+        assert!(report.close_and_recovery_vectors_passed);
+        assert!(report.htlc_rfq_id.is_some());
         assert!(report.mismatches.is_empty());
         assert_eq!(report.documented_gaps.len(), 3);
         assert!(report.checks.iter().any(|check| {
@@ -603,6 +829,14 @@ mod tests {
         assert!(report.checks.iter().any(|check| {
             check.name == "incoming live receiver balance remains documented gap"
                 && check.status == LightningLabsInteropCheckStatus::DocumentedGap
+        }));
+        assert!(report.checks.iter().any(|check| {
+            check.name == "HTLC fixture carries RFQ metadata"
+                && check.status == LightningLabsInteropCheckStatus::Passed
+        }));
+        assert!(report.checks.iter().any(|check| {
+            check.name == "simple-taproot close and recovery vectors pass"
+                && check.status == LightningLabsInteropCheckStatus::Passed
         }));
     }
 

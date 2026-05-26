@@ -502,6 +502,10 @@ Do not claim these guarantees until implementation and verification exist:
   exists for the bounded first-demo message surface. Live LND/`tapd` RFQ
   session execution, accept-signature verification, and interop payment
   settlement are not implemented.
+- The consolidated Lightning Labs vector report must decode the funding,
+  commitment, HTLC, RFQ, and proof fixtures, then run the fork-backed
+  simple-taproot asset-channel lifecycle, close, and recovery checks before it
+  can mark automated interop vector checks as passed.
 - Sender-side `tap-ldk` to Lightning Labs payment artifacts can be built and
   persisted as a documented-gap state. Do not claim a successful Track B
   outgoing payment until a live Lightning Labs receiver balance is observed and
