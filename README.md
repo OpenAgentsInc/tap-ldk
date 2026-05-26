@@ -22,18 +22,25 @@ What does not work yet:
 - `tap-ldk` does not yet complete a real live payment with an independent
   Lightning Labs LND/`tapd` node.
 - The current Lightning Labs path still stops at fixture-backed checks. It does
-  not yet start a healthy counterparty, perform live asset-channel funding,
-  exchange live RFQ/payment messages, or compare real balances from both sides.
+  not yet perform live asset-channel funding, exchange live RFQ/payment
+  messages, or compare real balances from both sides.
 - Force-close recovery is not implemented. The demo says this explicitly and
   must not be presented as working.
 - LND/`tapd` are only test counterparties for interoperability. They are not
   sidecars inside the `tap-ldk` wallet.
 
-To make the Lightning Labs demo fully work, we need a working container runtime
-or other live regtest environment, a reliable Bitcoin Core/LND/`tapd` bring-up
-flow, live asset funding through the Lightning Labs counterparty, live
-`tap-ldk` protocol message handling, and final balance checks that replace the
-current expected-only fixture results.
+What is being worked on now:
+
+- Issues #48 through #53 cover the Rust Lightning fork work: explicit
+  asset-channel feature gates, channel type handling, funding checks,
+  commitment persistence, HTLC metadata, final-hop validation, close, and
+  recovery hooks.
+- Issues #54 through #60 cover the live demo path: a running `tap-ldk` peer,
+  Lightning Labs counterparty integration, live `tapd` proof binding, payments
+  in both directions, observed live balance checks, and full proof ancestry
+  validation.
+- Issue #19 remains the parent Path B epic and should stay open until those
+  implementation issues are actually done.
 
 ## Development
 
