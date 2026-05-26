@@ -274,12 +274,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `99ddb8b7033b3b5d056005c00ba650e716ed37da`
+- current revision: `84032b87d05a157ee9ef247102767bc100d84ed6`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "99ddb8b7033b3b5d056005c00ba650e716ed37da", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "84032b87d05a157ee9ef247102767bc100d84ed6", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -293,12 +293,14 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::TaprootAssetChannelDescriptor`
 - `lightning::ln::taproot_asset::negotiate_single_asset_channel`
 - `lightning::ln::taproot_asset::validate_single_asset_channel_open`
+- `lightning::ln::taproot_asset::TaprootAssetFundingRequest`
+- `lightning::ln::taproot_asset::validate_asset_channel_funding`
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
 - `ChannelTypeFeatures::taproot_asset_single_asset`
 
-That gate covers feature negotiation and explicit channel type handling. The
-funding controller, monitor persistence, HTLC metadata, close, and recovery
-hooks still have to be added to the fork.
+Those gates cover feature negotiation, explicit channel type handling, and the
+bounded funding-controller approval surface. Monitor persistence, HTLC
+metadata, close, and recovery hooks still have to be added to the fork.
 
 ## What Must Be Added To rust-lightning
 
@@ -315,7 +317,8 @@ a real live demo:
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
 - Funding controller: funding must be blocked until asset ID, proof root,
-  funding output, and allocation checks pass.
+  funding output, and allocation checks pass. Initial fork support landed in
+  `84032b87d05a157ee9ef247102767bc100d84ed6`.
 - Commitment blob: asset-channel state must be versioned with the Lightning
   commitment number.
 - HTLC metadata modifier: asset metadata must only be attached after an
@@ -448,6 +451,8 @@ It verifies:
 - local and remote amount sums;
 - funding root hash+sum;
 - optional expected funding root;
+- OpenAgentsInc rust-lightning funding-hook approval before durable state is
+  written;
 - proof reuse prevention;
 - monitor blob persistence.
 
@@ -467,9 +472,9 @@ The store records:
 - funding status;
 - monitor blob.
 
-This is still a bounded model. Live rust-lightning funding hooks must enforce
-the same checks inside the channel funding path before the live demo can be
-called complete.
+This is still a bounded model. The fork hook now provides the approval
+boundary, and later live channel plumbing must call it with proof material from
+the custom funding messages before the live demo can be called complete.
 
 ## Asset Commitment State
 

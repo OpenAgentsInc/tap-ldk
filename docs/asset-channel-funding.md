@@ -6,7 +6,9 @@ Date: 2026-05-25
 demo path. It verifies Taproot Asset proof inputs, enforces one asset ID per
 channel, merges multiple same-asset inputs, derives the funding Taproot Asset
 root hash+sum, and persists initial local/remote balances with a monitor blob
-before the channel is treated as funded.
+before the channel is treated as funded. It also calls the OpenAgentsInc
+`rust-lightning` fork funding hook before writing durable channel state, so a
+hook rejection leaves the channel store and spent-proof index unchanged.
 
 Smoke command:
 
@@ -23,6 +25,9 @@ cargo run -p tap-ldk-cli -- asset-channel-balances target/asset-channels.json '<
 - Local and remote initial balance derivation from verified proof amounts.
 - Funding root mismatch, wrong asset, incomplete proof, duplicate proof, and
   reused proof attempts fail before durable state advances.
+- The fork funding hook receives the pending channel ID, local/remote peer
+  identities, asset ID, proof root, funding outpoint, funding output
+  commitment, and local/remote allocation before state is persisted.
 - The stored monitor blob starts at commitment number `0` and must be marked
   persisted before the channel store validates.
 

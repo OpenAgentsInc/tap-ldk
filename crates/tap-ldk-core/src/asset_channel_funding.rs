@@ -3,8 +3,25 @@ use std::{
     error::Error,
     fmt, fs,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
+use lightning::{
+    bitcoin::{
+        hash_types::Txid,
+        secp256k1::{PublicKey, Secp256k1, SecretKey},
+    },
+    chain::transaction::OutPoint,
+    ln::{
+        taproot_asset::{
+            self, TaprootAssetChannelNegotiationError, TaprootAssetFundingAllocation,
+            TaprootAssetFundingError, TaprootAssetFundingExpectations, TaprootAssetFundingOutput,
+            TaprootAssetFundingProofMaterial,
+            TaprootAssetFundingRequest as LdkTaprootAssetFundingRequest,
+        },
+        types::ChannelId,
+    },
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -67,6 +84,14 @@ impl AssetChannelStore {
         &mut self,
         request: AssetChannelFundingRequest,
     ) -> Result<StoredAssetChannel, AssetChannelFundingError> {
+        self.fund_channel_with_fork_commitment_override(request, None)
+    }
+
+    fn fund_channel_with_fork_commitment_override(
+        &mut self,
+        request: AssetChannelFundingRequest,
+        output_commitment_override: Option<Bytes32>,
+    ) -> Result<StoredAssetChannel, AssetChannelFundingError> {
         validate_funding_request(&request)?;
 
         let local_inputs = validate_inputs(
@@ -121,6 +146,17 @@ impl AssetChannelStore {
         if self.channels.contains_key(&channel_id) {
             return Err(AssetChannelFundingError::DuplicateChannel(channel_id));
         }
+
+        validate_with_ldk_funding_hook(
+            &request,
+            &channel_id,
+            &genesis_outpoint,
+            funding_root,
+            local_balance.value(),
+            remote_balance.value(),
+            input_proofs.len(),
+            output_commitment_override,
+        )?;
 
         let monitor = AssetChannelMonitorBlob::new(
             &channel_id,
@@ -444,6 +480,7 @@ pub struct AssetChannelFundingSmokeReport {
     pub local_balance: u64,
     pub remote_balance: u64,
     pub total_amount: u64,
+    pub fork_funding_hook_approved: bool,
     pub monitor_persisted: bool,
 }
 
@@ -482,6 +519,7 @@ pub fn run_asset_channel_funding_smoke()
             local_balance: channel.local_balance,
             remote_balance: channel.remote_balance,
             total_amount: channel.total_amount,
+            fork_funding_hook_approved: true,
             monitor_persisted: channel.monitor.persisted,
         },
     ))
@@ -535,6 +573,8 @@ pub enum AssetChannelFundingError {
         proof_id: String,
         channel_id: String,
     },
+    LdkChannelDescriptor(TaprootAssetChannelNegotiationError),
+    LdkFundingHook(TaprootAssetFundingError),
     MonitorNotPersisted(String),
     StorageInvariant(String),
 }
@@ -593,6 +633,15 @@ impl fmt::Display for AssetChannelFundingError {
                 f,
                 "asset-channel funding proof {proof_id} was already used by channel {channel_id}"
             ),
+            Self::LdkChannelDescriptor(err) => {
+                write!(f, "LDK asset-channel descriptor rejected funding: {err:?}")
+            }
+            Self::LdkFundingHook(err) => {
+                write!(
+                    f,
+                    "LDK asset-channel funding hook rejected funding: {err:?}"
+                )
+            }
             Self::MonitorNotPersisted(channel_id) => {
                 write!(f, "asset-channel monitor for {channel_id} is not persisted")
             }
@@ -618,6 +667,77 @@ fn validate_funding_request(
         return Err(AssetChannelFundingError::MissingFundingProofs);
     }
     Ok(())
+}
+
+fn validate_with_ldk_funding_hook(
+    request: &AssetChannelFundingRequest,
+    channel_id: &str,
+    genesis_outpoint: &str,
+    funding_root: RootHashSum,
+    local_balance: u64,
+    remote_balance: u64,
+    proof_count: usize,
+    output_commitment_override: Option<Bytes32>,
+) -> Result<(), AssetChannelFundingError> {
+    let descriptor = taproot_asset::TaprootAssetChannelDescriptor::new(
+        request.asset_id.0,
+        taproot_asset::SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
+    )
+    .map_err(AssetChannelFundingError::LdkChannelDescriptor)?;
+    let funding_outpoint = parse_ldk_outpoint(&request.funding_outpoint)?;
+    let local_peer_id = derive_peer_public_key(&request.local_peer)?;
+    let remote_peer_id = derive_peer_public_key(&request.remote_peer)?;
+    let genesis_id = derive_genesis_id(genesis_outpoint);
+    let expected_output_commitment = derive_output_commitment(
+        &request.funding_outpoint,
+        request.funding_script_key,
+        funding_root,
+    );
+    let actual_output_commitment = output_commitment_override.unwrap_or(expected_output_commitment);
+    let proof_count =
+        u16::try_from(proof_count).map_err(|_| AssetChannelFundingError::AmountOverflow)?;
+
+    let ldk_request = LdkTaprootAssetFundingRequest {
+        pending_channel_id: derive_pending_channel_id(channel_id),
+        descriptor,
+        funding_outpoint,
+        local_peer_id,
+        remote_peer_id,
+        proof_material: TaprootAssetFundingProofMaterial {
+            asset_id: request.asset_id.0,
+            genesis_id: genesis_id.0,
+            group_key: None,
+            proof_root_hash: funding_root.hash.0,
+            proof_root_sum: funding_root.sum.value(),
+            complete_fragment_count: proof_count,
+            expected_fragment_count: proof_count,
+        },
+        funding_output: TaprootAssetFundingOutput {
+            outpoint: funding_outpoint,
+            asset_id: request.asset_id.0,
+            taproot_asset_root_hash: funding_root.hash.0,
+            taproot_asset_root_sum: funding_root.sum.value(),
+            output_commitment: actual_output_commitment.0,
+        },
+        expectations: TaprootAssetFundingExpectations {
+            asset_id: request.asset_id.0,
+            genesis_id: genesis_id.0,
+            group_key: None,
+            proof_root_hash: funding_root.hash.0,
+            output_commitment: expected_output_commitment.0,
+            total_amount: local_balance
+                .checked_add(remote_balance)
+                .ok_or(AssetChannelFundingError::AmountOverflow)?,
+        },
+        allocation: TaprootAssetFundingAllocation {
+            local_amount: local_balance,
+            remote_amount: remote_balance,
+        },
+    };
+
+    taproot_asset::validate_asset_channel_funding(&ldk_request)
+        .map(|_| ())
+        .map_err(AssetChannelFundingError::LdkFundingHook)
 }
 
 fn validate_inputs(
@@ -703,6 +823,75 @@ fn issue_openusd_proof(
 
 fn funding_proof_id(proof: &ProofFile) -> String {
     format!("{}:{}", proof.asset_id.to_hex(), proof.anchor_outpoint)
+}
+
+fn parse_ldk_outpoint(funding_outpoint: &str) -> Result<OutPoint, AssetChannelFundingError> {
+    let (txid, index) = funding_outpoint
+        .rsplit_once(':')
+        .ok_or(AssetChannelFundingError::MalformedFundingOutpoint)?;
+    let txid =
+        Txid::from_str(txid).map_err(|_| AssetChannelFundingError::MalformedFundingOutpoint)?;
+    let index = index
+        .parse::<u16>()
+        .map_err(|_| AssetChannelFundingError::MalformedFundingOutpoint)?;
+    Ok(OutPoint { txid, index })
+}
+
+fn derive_peer_public_key(peer: &str) -> Result<PublicKey, AssetChannelFundingError> {
+    let secp_ctx = Secp256k1::new();
+    let mut candidate = digest_domain(b"tap-ldk:ldk-peer-identity:v1", &[peer.as_bytes()]).0;
+    for counter in 0u8..=u8::MAX {
+        candidate[31] = candidate[31].wrapping_add(counter);
+        if let Ok(secret_key) = SecretKey::from_slice(&candidate) {
+            return Ok(PublicKey::from_secret_key(&secp_ctx, &secret_key));
+        }
+    }
+    Err(AssetChannelFundingError::StorageInvariant(format!(
+        "could not derive LDK peer identity for {peer}"
+    )))
+}
+
+fn derive_genesis_id(genesis_outpoint: &str) -> Bytes32 {
+    digest_domain(
+        b"tap-ldk:asset-channel-genesis-id:v1",
+        &[genesis_outpoint.as_bytes()],
+    )
+}
+
+fn derive_output_commitment(
+    funding_outpoint: &str,
+    funding_script_key: CompressedKey,
+    funding_root: RootHashSum,
+) -> Bytes32 {
+    digest_domain(
+        b"tap-ldk:asset-channel-funding-output:v1",
+        &[
+            funding_outpoint.as_bytes(),
+            &funding_script_key.0,
+            &funding_root.hash.0,
+            &funding_root.sum.value().to_be_bytes(),
+        ],
+    )
+}
+
+fn derive_pending_channel_id(channel_id: &str) -> ChannelId {
+    ChannelId::from_bytes(
+        digest_domain(
+            b"tap-ldk:asset-channel-pending-channel-id:v1",
+            &[channel_id.as_bytes()],
+        )
+        .0,
+    )
+}
+
+fn digest_domain(domain: &[u8], parts: &[&[u8]]) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    for part in parts {
+        hasher.update((part.len() as u64).to_be_bytes());
+        hasher.update(part);
+    }
+    Bytes32(hasher.finalize().into())
 }
 
 fn derive_channel_id(
@@ -919,7 +1108,30 @@ mod tests {
         assert_eq!(report.local_balance, 700);
         assert_eq!(report.remote_balance, 300);
         assert_eq!(report.total_amount, 1_000);
+        assert!(report.fork_funding_hook_approved);
         assert!(report.monitor_persisted);
+    }
+
+    #[test]
+    fn ldk_funding_hook_failure_fails_before_state_advances() {
+        let local = issue_openusd_proof(700, local_script_key()).expect("local proof");
+        let remote = issue_openusd_proof(300, remote_script_key()).expect("remote proof");
+        let mut store = AssetChannelStore::default();
+        let err = store
+            .fund_channel_with_fork_commitment_override(
+                request(vec![local], vec![remote]),
+                Some(Bytes32([99; 32])),
+            )
+            .expect_err("LDK hook rejects mismatched output commitment");
+
+        assert!(matches!(
+            err,
+            AssetChannelFundingError::LdkFundingHook(
+                TaprootAssetFundingError::OutputCommitmentMismatch
+            )
+        ));
+        assert!(store.channels.is_empty());
+        assert!(store.spent_funding_proofs.is_empty());
     }
 
     fn temp_store_path(name: &str) -> PathBuf {

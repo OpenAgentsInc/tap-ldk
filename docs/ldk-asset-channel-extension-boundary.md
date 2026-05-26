@@ -110,8 +110,11 @@ The fork is required wherever the asset-channel decision must happen inside
 normal Lightning channel state, monitor state, HTLC state, or close/recovery
 state:
 
-- experimental feature bits and channel type acceptance/rejection;
-- funding controller hook that can block funding before channel state advances;
+- experimental feature bits and channel type acceptance/rejection, first landed
+  in the OpenAgentsInc fork at `99ddb8b7033b3b5d056005c00ba650e716ed37da`;
+- funding controller hook that can block funding before channel state advances,
+  first landed in the OpenAgentsInc fork at
+  `84032b87d05a157ee9ef247102767bc100d84ed6`;
 - channel monitor aux blob storage coupled to commitment durability;
 - commitment update hook for asset balances and asset signatures;
 - HTLC custom-record injection and final-hop validation;

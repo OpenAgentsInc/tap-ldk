@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `99ddb8b7033b3b5d056005c00ba650e716ed37da`
+- Current `tap-ldk` revision: `84032b87d05a157ee9ef247102767bc100d84ed6`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,13 +27,19 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "99ddb8b7033b3b5d056005c00ba650e716ed37da"
+rev = "84032b87d05a157ee9ef247102767bc100d84ed6"
 ```
 
-Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` adds the first forked
+Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
 asset-channel gate: an experimental Taproot Asset channel feature bit, config
 opt-in, explicit single-asset channel type, and a public descriptor API that
-binds asset ID plus protocol version before later funding hooks run.
+binds asset ID plus protocol version.
+
+Revision `84032b87d05a157ee9ef247102767bc100d84ed6` adds the bounded funding
+controller hook. It validates pending channel ID, peer identities, asset ID,
+genesis/group identity, proof-fragment completeness, proof root, funding
+outpoint, output commitment, and local/remote allocation before asset-channel
+funding state is allowed to advance.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the
