@@ -25,6 +25,7 @@ use crate::{
         AssetChannelFundingError, StoredAssetChannel, StoredRootHashSum,
         run_asset_channel_funding_smoke,
     },
+    tap_vm::{AssetVirtualTransition, TapVmError, TapVmTransitionKind},
 };
 
 pub const ASSET_COMMITMENT_STORE_SCHEMA_VERSION: u32 = 1;
@@ -307,6 +308,31 @@ impl AssetCommitmentChannelState {
                 local_balance,
                 remote_balance,
                 total_amount: self.total_amount,
+            });
+        }
+
+        let virtual_transition = AssetVirtualTransition::channel_balance_update(
+            TapVmTransitionKind::HtlcSettlement,
+            self.asset_id,
+            self.total_amount,
+            local_balance,
+            remote_balance,
+            request.asset_nonce,
+        );
+        let expected_virtual_tx_id = virtual_transition
+            .tx_id()
+            .map_err(AssetCommitmentError::TapVm)?;
+        let expected_witness_digest = virtual_transition
+            .witness_digest()
+            .map_err(AssetCommitmentError::TapVm)?;
+        if request.virtual_tx_id != expected_virtual_tx_id
+            || request.witness_digest != expected_witness_digest
+        {
+            return Err(AssetCommitmentError::InvalidVirtualTransition {
+                expected_virtual_tx_id,
+                actual_virtual_tx_id: request.virtual_tx_id,
+                expected_witness_digest,
+                actual_witness_digest: request.witness_digest,
             });
         }
 
@@ -714,19 +740,20 @@ pub fn build_commitment_update(
     let remote_balance = remote_after_send
         .checked_add(local_to_remote)
         .ok_or(AssetCommitmentError::BalanceOverflow)?;
-    let virtual_tx_id = virtual_tx_id(
-        &state.channel_id,
+    let virtual_transition = AssetVirtualTransition::channel_balance_update(
+        TapVmTransitionKind::HtlcSettlement,
         state.asset_id,
-        next_commitment_number,
+        state.total_amount,
         local_balance,
         remote_balance,
-    );
-    let witness_digest = witness_digest(
-        &state.channel_id,
-        state.asset_id,
-        next_commitment_number,
         asset_nonce,
     );
+    let virtual_tx_id = virtual_transition
+        .tx_id()
+        .map_err(AssetCommitmentError::TapVm)?;
+    let witness_digest = virtual_transition
+        .witness_digest()
+        .map_err(AssetCommitmentError::TapVm)?;
     let asset_signature = expected_asset_signature(
         &state.channel_id,
         state.asset_id,
@@ -827,6 +854,7 @@ pub enum AssetCommitmentError {
     Io(std::io::Error),
     Json(serde_json::Error),
     Funding(AssetChannelFundingError),
+    TapVm(TapVmError),
     UnsupportedVersion(u32),
     DuplicateChannel(String),
     UnknownChannel(String),
@@ -836,6 +864,12 @@ pub enum AssetCommitmentError {
         actual: u64,
     },
     NonceReuse(Bytes32),
+    InvalidVirtualTransition {
+        expected_virtual_tx_id: Bytes32,
+        actual_virtual_tx_id: Bytes32,
+        expected_witness_digest: Bytes32,
+        actual_witness_digest: Bytes32,
+    },
     InvalidSignature,
     BalanceUnderflow {
         side: BalanceSide,
@@ -862,6 +896,7 @@ impl fmt::Display for AssetCommitmentError {
             Self::Io(err) => write!(f, "asset commitment I/O error: {err}"),
             Self::Json(err) => write!(f, "asset commitment JSON error: {err}"),
             Self::Funding(err) => write!(f, "asset commitment funding error: {err}"),
+            Self::TapVm(err) => write!(f, "asset commitment TAP VM error: {err}"),
             Self::UnsupportedVersion(version) => {
                 write!(f, "unsupported asset commitment schema version {version}")
             }
@@ -877,6 +912,19 @@ impl fmt::Display for AssetCommitmentError {
                 "stale asset commitment number: expected {expected}, got {actual}"
             ),
             Self::NonceReuse(nonce) => write!(f, "asset nonce reused: {}", nonce.to_hex()),
+            Self::InvalidVirtualTransition {
+                expected_virtual_tx_id,
+                actual_virtual_tx_id,
+                expected_witness_digest,
+                actual_witness_digest,
+            } => write!(
+                f,
+                "invalid asset virtual transition: expected txid {} witness {}, got txid {} witness {}",
+                expected_virtual_tx_id.to_hex(),
+                expected_witness_digest.to_hex(),
+                actual_virtual_tx_id.to_hex(),
+                actual_witness_digest.to_hex()
+            ),
             Self::InvalidSignature => write!(f, "invalid asset commitment signature"),
             Self::BalanceUnderflow {
                 side,
@@ -963,40 +1011,6 @@ fn commitment_state_digest(
     hasher.update(commitment_number.to_be_bytes());
     hasher.update(local_balance.to_be_bytes());
     hasher.update(remote_balance.to_be_bytes());
-    Bytes32(hasher.finalize().into())
-}
-
-fn virtual_tx_id(
-    channel_id: &str,
-    asset_id: Bytes32,
-    commitment_number: u64,
-    local_balance: u64,
-    remote_balance: u64,
-) -> Bytes32 {
-    let mut hasher = Sha256::new();
-    hasher.update(b"tap-ldk:asset-virtual-tx:v1");
-    hasher.update((channel_id.len() as u64).to_be_bytes());
-    hasher.update(channel_id.as_bytes());
-    hasher.update(asset_id.0);
-    hasher.update(commitment_number.to_be_bytes());
-    hasher.update(local_balance.to_be_bytes());
-    hasher.update(remote_balance.to_be_bytes());
-    Bytes32(hasher.finalize().into())
-}
-
-fn witness_digest(
-    channel_id: &str,
-    asset_id: Bytes32,
-    commitment_number: u64,
-    asset_nonce: Bytes32,
-) -> Bytes32 {
-    let mut hasher = Sha256::new();
-    hasher.update(b"tap-ldk:asset-witness:v1");
-    hasher.update((channel_id.len() as u64).to_be_bytes());
-    hasher.update(channel_id.as_bytes());
-    hasher.update(asset_id.0);
-    hasher.update(commitment_number.to_be_bytes());
-    hasher.update(asset_nonce.0);
     Bytes32(hasher.finalize().into())
 }
 
@@ -1141,6 +1155,14 @@ mod tests {
         assert!(matches!(
             store.apply_update(reused_nonce),
             Err(AssetCommitmentError::NonceReuse(nonce)) if nonce == Bytes32([10; 32])
+        ));
+
+        let mut bad_virtual_tx =
+            build_commitment_update(&next_state, 1, 0, Bytes32([16; 32])).expect("update builds");
+        bad_virtual_tx.virtual_tx_id = Bytes32([55; 32]);
+        assert!(matches!(
+            store.apply_update(bad_virtual_tx),
+            Err(AssetCommitmentError::InvalidVirtualTransition { .. })
         ));
 
         let mut bad_signature =

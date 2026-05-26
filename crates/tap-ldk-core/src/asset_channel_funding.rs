@@ -28,6 +28,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     asset::{AssetAmount, AssetError, Bytes32, CompressedKey, RootHashSum},
     proof::{ProofError, ProofFile},
+    tap_vm::{AssetVirtualTransition, TapVmError},
     taproot_commitment::{
         AssetVersion, TapAsset, TapCommitment, TapCommitmentVersion, TaprootCommitmentError,
     },
@@ -112,6 +113,24 @@ impl AssetChannelStore {
         let total_amount = local_balance
             .checked_add(remote_balance)
             .map_err(AssetChannelFundingError::Asset)?;
+        let input_proofs = local_inputs
+            .iter()
+            .chain(remote_inputs.iter())
+            .map(|input| input.proof_id.clone())
+            .collect::<Vec<_>>();
+        let funding_transition = AssetVirtualTransition::channel_funding(
+            request.asset_id,
+            local_inputs
+                .iter()
+                .chain(remote_inputs.iter())
+                .map(|input| input.proof.amount.value()),
+            total_amount.value(),
+            request.funding_script_key,
+            funding_witness_context(&input_proofs),
+        );
+        funding_transition
+            .validate()
+            .map_err(AssetChannelFundingError::TapVm)?;
         let funding_commitment = funding_tap_commitment(
             request.asset_id,
             &genesis_outpoint,
@@ -135,11 +154,6 @@ impl AssetChannelStore {
             }
         }
 
-        let input_proofs = local_inputs
-            .iter()
-            .chain(remote_inputs.iter())
-            .map(|input| input.proof_id.clone())
-            .collect::<Vec<_>>();
         let channel_id = derive_channel_id(
             &request.local_peer,
             &request.remote_peer,
@@ -557,6 +571,7 @@ pub enum AssetChannelFundingError {
     Proof(ProofError),
     Asset(AssetError),
     Commitment(TaprootCommitmentError),
+    TapVm(TapVmError),
     UnsupportedVersion(u32),
     EmptyPeer,
     MissingFundingProofs,
@@ -603,6 +618,7 @@ impl fmt::Display for AssetChannelFundingError {
             Self::Commitment(err) => {
                 write!(f, "asset-channel funding commitment error: {err}")
             }
+            Self::TapVm(err) => write!(f, "asset-channel funding TAP VM error: {err}"),
             Self::UnsupportedVersion(version) => {
                 write!(
                     f,
@@ -856,6 +872,17 @@ fn funding_tap_commitment(
 
 fn funding_proof_id(proof: &ProofFile) -> String {
     format!("{}:{}", proof.asset_id.to_hex(), proof.anchor_outpoint)
+}
+
+fn funding_witness_context(input_proofs: &[String]) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:asset-channel-funding-virtual-witness:v1");
+    hasher.update((input_proofs.len() as u64).to_be_bytes());
+    for proof_id in input_proofs {
+        hasher.update((proof_id.len() as u64).to_be_bytes());
+        hasher.update(proof_id.as_bytes());
+    }
+    Bytes32(hasher.finalize().into())
 }
 
 fn parse_ldk_outpoint(funding_outpoint: &str) -> Result<OutPoint, AssetChannelFundingError> {

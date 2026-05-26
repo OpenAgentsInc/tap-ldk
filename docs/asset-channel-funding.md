@@ -5,9 +5,10 @@ Date: 2026-05-25
 `tap-ldk` now has a bounded native asset-channel funding store for the first
 demo path. It verifies Taproot Asset proof inputs, enforces one asset ID per
 channel, merges multiple same-asset inputs, derives the funding Taproot Asset
-root hash+sum through `taproot_commitment::TapCommitment`, and persists initial
-local/remote balances with a monitor blob before the channel is treated as
-funded. It also calls the OpenAgentsInc
+root hash+sum through `taproot_commitment::TapCommitment`, validates a native
+`tap_vm` channel-funding virtual transition, and persists initial local/remote
+balances with a monitor blob before the channel is treated as funded. It also
+calls the OpenAgentsInc
 `rust-lightning` fork funding hook before writing durable channel state, so a
 hook rejection leaves the channel store and spent-proof index unchanged.
 
@@ -31,6 +32,8 @@ cargo run -p tap-ldk-cli -- asset-channel-balances target/asset-channels.json '<
   commitment, and local/remote allocation before state is persisted.
 - The funding output commitment is the Taproot Asset tap leaf root for the
   generated `TapCommitment`, not a bounded placeholder digest.
+- The funding virtual transition must conserve the verified proof input amount
+  before the funding root/output commitment can be accepted.
 - The stored monitor blob starts at commitment number `0` and must be marked
   persisted before the channel store validates.
 

@@ -41,10 +41,15 @@ Last updated: 2026-05-26
   keys, inner `AssetCommitment`s, outer `TapCommitment`s, tap leaf script
   parsing, output-root binding, and asset-channel funding roots now consume
   TapCommitment data instead of bounded root placeholders.
+- #74 is implemented in `tap-ldk-core::tap_vm`: native virtual transitions now
+  validate issuance, transfer/split, channel funding, and commitment-update
+  conservation and witness rules, including generated TAP BIP valid/error
+  vectors. Funding and commitment updates derive virtual IDs and witness
+  digests only after this validation.
 - Current open work is #57 through #60 for live Path B and proof validation,
   #61 as the BTC-only simple-taproot readiness epic, #71 as the full Taproot
-  Assets epic, and #74 through #76 for the next concrete protocol layers. #19
-  remains the parent Path B epic.
+  Assets epic, and #75/#76 for the next concrete protocol layers. #19 remains
+  the parent Path B epic.
 
 ## Implementation Home
 
@@ -291,7 +296,7 @@ needed for full Taproot Asset support in LDK.
 | #71 | Full Taproot Assets protocol support for LDK epic | Real Taproot Assets primitives and channel state are layered onto simple-taproot LDK channels. |
 | #72 | MS-SMT hash-sum tree | Implemented in `tap-ldk-core::mssmt`; Lightning Labs root/proof fixtures, inclusion/exclusion proofs, compressed proof round trips, conservation, and overflow rejection pass. |
 | #73 | `AssetCommitment` and `TapCommitment` layers | Implemented in `tap-ldk-core::taproot_commitment`; funding roots consume TapCommitment data, tap leaf fixture parsing passes, and wrong output roots fail closed. |
-| #74 | Virtual transaction and TAP VM validation | Asset transitions are validated semantically rather than by checksum/root placeholders. |
+| #74 | Virtual transaction and TAP VM validation | Implemented in `tap-ldk-core::tap_vm`; TAP BIP generated valid/error vectors pass, channel funding and commitment updates consume native virtual transition validation, and invalid witnesses/amounts fail closed. |
 | #75 | Full Taproot Asset channel state in simple-taproot LDK channels | Funding, commitments, HTLCs, close, monitor, and recovery state are integrated into the LDK state machine. |
 | #76 | Lightning Labs `tapd`/`litd` vectors for simple-taproot asset channels | Fixture and live interop checks prove codec, balance, and proof compatibility. |
 
@@ -806,13 +811,12 @@ The stronger demo adds:
 
 ## Immediate Next Steps
 
-1. Add virtual transaction and TAP VM validation through issue #74.
-2. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
+1. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
    onto the simple-taproot channel state machine through issue #75.
-3. Keep Path B live interop issues #57 through #60 open until observed
+2. Keep Path B live interop issues #57 through #60 open until observed
    balances and proof compatibility are recorded from independent Lightning
    Labs nodes.
-5. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
+3. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
    checks tied to the simple-taproot asset-channel path.
 
 ## Risks

@@ -95,6 +95,9 @@ Important modules:
 - `taproot_commitment`: protocol-shaped asset commitment keys,
   `AssetCommitment`, `TapCommitment`, Taproot Asset tap leaf scripts, and
   BIP341 tap leaf/branch binding for output commitments.
+- `tap_vm`: native virtual transaction and TAP VM validation for the first
+  demo surfaces: issuance, transfer/split fixtures, channel funding, and
+  commitment-update conservation and witness rules.
 - `tlv`: strict BigSize/TLV encode and decode. It rejects non-canonical
   integers, duplicate records, out-of-order records, truncation, and unknown
   even required types.
@@ -204,11 +207,15 @@ imported `taproot-assets` vectors.
 - BIP341 tap leaf and branch hashing for output commitment binding.
 
 Asset-channel funding now derives its funding root and output commitment from a
-`TapCommitment` instead of the older bounded root placeholder. Full virtual
-transaction and TAP VM validation are still #74.
+`TapCommitment` instead of the older bounded root placeholder.
 
-This is not a full Taproot Assets VM. The full protocol still needs complete
-proof ancestry, virtual transaction, anchor, and script validation.
+`tap_vm.rs` adds the native virtual transition layer on top of those
+commitments. It validates generated TAP BIP issuance, transfer, split, hash
+lock, and signature witness cases; rejects generated invalid cases; and gives
+channel funding and commitment updates deterministic virtual IDs and witness
+digests only after amount and witness validation. This is still not complete
+proof ancestry or full on-chain anchor validation; those remain #60 and the
+live interop issues.
 
 ## TLV Layer
 
@@ -270,7 +277,7 @@ returns the exact raw bytes when present.
 
 Current limitation: the code preserves and checks the `TAPF` envelope and TLV
 transport, but it does not yet verify complete semantic proof ancestry,
-virtual transactions, or on-chain anchors.
+on-chain anchors, or complete proof-chain virtual transaction history.
 
 ## Wallet Storage
 

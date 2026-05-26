@@ -16,10 +16,11 @@ update/reestablish nonce state, cooperative close, and offered/accepted HTLC
 scripts plus second-level HTLC signing helpers, with vector replay coverage
 for the implemented surfaces.
 
-Full Taproot Assets protocol semantics are still separate work: real MS-SMT,
-`AssetCommitment`, `TapCommitment`, TAP VM, virtual transaction validation,
-semantic proof ancestry, and asset-aware channel monitor recovery remain in
-#71 through #76. The BOLT draft transaction JSON currently differs from its
+Full Taproot Assets protocol semantics are still separate work. Real MS-SMT,
+`AssetCommitment`, `TapCommitment`, and first-demo TAP VM/virtual transition
+validation now exist in `tap-ldk-core`, while full proof ancestry, LDK state
+machine integration, and live Lightning Labs vectors remain in #60 and #75
+through #76. The BOLT draft transaction JSON currently differs from its
 script-vector section for some multi-HTLC output keys, so the fork asserts the
 unambiguous script vectors exactly and uses the transaction cases for output
 count, value/order, P2TR shape, and trimming coverage.
@@ -194,8 +195,8 @@ The project should not claim full native Taproot Asset support for LDK until:
   TLVs, key aggregation, nonces, signatures, funding outputs, commitment
   outputs, close, and HTLC scripts;
 - normal non-taproot LDK channels continue to pass existing tests;
-- virtual transaction and TAP VM fixtures pass on top of the MS-SMT and
-  TapCommitment primitives;
+- virtual transaction and TAP VM fixture validation passes on top of the
+  MS-SMT and TapCommitment primitives;
 - proof ancestry validation is semantic, not just checksum or root-field
   validation;
 - asset funding, commitment, HTLC, close, and recovery state are persisted

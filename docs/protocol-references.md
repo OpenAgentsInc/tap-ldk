@@ -47,10 +47,12 @@ Import or reference fixture material in this order:
 4. `AssetCommitment` and `TapCommitment` vectors. The Lightning Labs tap
    commitment script fixture is imported at
    `fixtures/lightning-labs/commitment/testdata/tap-commitment-script.hex`.
-5. Proof file and anchor proof vectors, including semantic proof ancestry.
-6. Address and virtual PSBT vectors.
-7. LND/`tapd` asset-channel funding and payment traces.
-8. RFQ request/accept/reject and SCID alias examples.
+5. TAP VM and virtual transaction vectors. Generated TAP BIP valid/error cases
+   are imported at `fixtures/tap-bips/vm_validation_generated*.json`.
+6. Proof file and anchor proof vectors, including semantic proof ancestry.
+7. Address and virtual PSBT vectors.
+8. LND/`tapd` asset-channel funding and payment traces.
+9. RFQ request/accept/reject and SCID alias examples.
 
 Fixture tests should fail because implementation is missing, not because the
 source of truth is ambiguous.
