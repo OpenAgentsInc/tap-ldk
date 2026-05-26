@@ -15,7 +15,7 @@ version = "0.1.0"
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "1602ac9e1e7454d39612e126c24a098e276d605a"
+rev = "b0b952531329a31265f8de28752ee5334d9d9d4f"
 strategy = "Direct git dependency for fork touchpoints now; patch crates once asset-channel fork code lands."
 
 [workspace.lints.rust]

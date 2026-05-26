@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `1602ac9e1e7454d39612e126c24a098e276d605a`
+- current revision: `b0b952531329a31265f8de28752ee5334d9d9d4f`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "1602ac9e1e7454d39612e126c24a098e276d605a", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "b0b952531329a31265f8de28752ee5334d9d9d4f", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -385,8 +385,10 @@ The current fork integration exposes the first real asset-channel gate:
 Those gates cover BOLT simple taproot staging feature negotiation, explicit
 simple-taproot channel type handling, native simple-taproot lifecycle wire TLV
 codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, BIP86
-P2TR funding script handling, and fail-closed malformed/duplicate/unsupported
-TLV, wrong funding script, and nonce-reuse tests.
+P2TR funding script handling, P2TR to-local/to-remote/anchor commitment output
+scripts, tap tweak and control-block reconstruction data, and fail-closed
+malformed/duplicate/unsupported TLV, wrong funding script, and nonce-reuse
+tests.
 They also cover experimental Taproot Asset channel type handling layered on
 that base and the bounded funding-controller approval surface. They provide
 the first versioned channel monitor aux blob hook for asset commitment state,
@@ -434,6 +436,11 @@ a real live demo:
   support landed in `1602ac9e1e7454d39612e126c24a098e276d605a`; live channel
   activation still depends on commitment output/control-block work in #66 and
   channel signing/reestablish wiring in #67.
+- BOLT simple taproot commitment outputs: simple-taproot commitments must use
+  P2TR to-local, to-remote, and anchor outputs with tapscript roots, tap
+  tweaks, and control blocks that can be reconstructed after restart. Initial
+  support landed in `b0b952531329a31265f8de28752ee5334d9d9d4f`; live MuSig2
+  commitment signing/reestablish remains #67 and HTLC scripts remain #69.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
@@ -1146,7 +1153,6 @@ The shortest path is:
 
 5. Patch the OpenAgentsInc rust-lightning fork.
    - Add feature/channel type gates.
-   - Add BOLT simple-taproot commitment outputs and control blocks.
    - Wire MuSig2 channel signing and reestablish state through live channel
      updates.
    - Add asset commitment monitor persistence hooks.

@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `1602ac9e1e7454d39612e126c24a098e276d605a`
+- Current `tap-ldk` revision: `b0b952531329a31265f8de28752ee5334d9d9d4f`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "1602ac9e1e7454d39612e126c24a098e276d605a"
+rev = "b0b952531329a31265f8de28752ee5334d9d9d4f"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -107,6 +107,15 @@ with the wrong script, and registers the P2TR funding script with channel
 monitors. This is funding-output plumbing, not full live simple-taproot channel
 completion; commitment output/control-block work and live MuSig2
 channel-signing/reestablish wiring remain separate issues.
+
+Revision `b0b952531329a31265f8de28752ee5334d9d9d4f` adds the first
+simple-taproot commitment output model. It builds BOLT-vector-matching P2TR
+to-local, to-remote, and anchor outputs; exposes tapscript roots, tap tweaks,
+leaf scripts, and control blocks for deterministic spend reconstruction; emits
+those outputs from `CommitmentTransaction` for simple-taproot channels; and
+keeps legacy commitment outputs unchanged when simple taproot is not enabled.
+This is still not live channel operation: MuSig2 commitment signing and
+reestablish state remain issue #67, and HTLC scripts remain issue #69.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

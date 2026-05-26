@@ -127,6 +127,10 @@ state:
 - BOLT simple taproot BIP86 P2TR funding scripts, funding-output validation,
   and monitor registration, first landed in the OpenAgentsInc fork at
   `1602ac9e1e7454d39612e126c24a098e276d605a`;
+- BOLT simple taproot P2TR to-local, to-remote, and anchor commitment output
+  scripts, tapscript roots, tap tweaks, and control-block reconstruction data,
+  first landed in the OpenAgentsInc fork at
+  `b0b952531329a31265f8de28752ee5334d9d9d4f`;
 - funding controller hook that can block funding before channel state advances,
   first landed in the OpenAgentsInc fork at
   `84032b87d05a157ee9ef247102767bc100d84ed6`;

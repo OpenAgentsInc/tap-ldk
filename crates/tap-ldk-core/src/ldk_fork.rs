@@ -1,7 +1,7 @@
 pub const OPENAGENTS_RUST_LIGHTNING_FORK_URL: &str =
     "https://github.com/OpenAgentsInc/rust-lightning.git";
 pub const OPENAGENTS_RUST_LIGHTNING_BASE_REV: &str = "0c37f08a55c0f7738f2691dc3690166fd42f851d";
-pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "1602ac9e1e7454d39612e126c24a098e276d605a";
+pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "b0b952531329a31265f8de28752ee5334d9d9d4f";
 
 pub fn channel_type_features_type_name() -> &'static str {
     std::any::type_name::<lightning::types::features::ChannelTypeFeatures>()
@@ -61,5 +61,24 @@ mod tests {
             .unwrap();
 
         assert!(script_pubkey.is_p2tr());
+
+        let to_remote = lightning::ln::simple_taproot::simple_taproot_to_remote_spend_info(
+            &secp_ctx,
+            &remote_pubkey,
+        )
+        .unwrap();
+        assert!(to_remote.script_pubkey.is_p2tr());
+        assert_eq!(to_remote.spend.control_block.len(), 33);
+
+        let to_local = lightning::ln::simple_taproot::simple_taproot_to_local_spend_info(
+            &secp_ctx,
+            &local_pubkey,
+            &remote_pubkey,
+            144,
+        )
+        .unwrap();
+        assert!(to_local.script_pubkey.is_p2tr());
+        assert_eq!(to_local.delay.control_block.len(), 65);
+        assert_eq!(to_local.revocation.control_block.len(), 65);
     }
 }
