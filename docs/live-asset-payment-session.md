@@ -28,6 +28,6 @@ digests, ack status, reassembled proof lengths, and the session payment id.
 
 This is not issue #57 completion by itself. It proves the native ordered
 asset-payment wire session can run over a live socket without a `tapd` sidecar.
-Issue #57 remains open until the loopback peer is replaced by the independent
-Lightning Labs LND/`tapd` receiver and the demo records that receiver's
-observed Taproot Asset balance after settlement.
+Issue #57 remains open until this message flow runs over the connected
+independent Lightning Labs `litd` peer, drives asset-channel funding/payment,
+and records that receiver's observed Taproot Asset balance after settlement.

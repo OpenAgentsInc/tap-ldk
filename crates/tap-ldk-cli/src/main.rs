@@ -21,6 +21,7 @@ use tap_ldk_core::{
         run_lightning_labs_incoming_payment_smoke, run_lightning_labs_outgoing_payment_smoke,
     },
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
+    live_litd_peer::{LiveLitdPeerPreflightRequest, run_live_litd_peer_preflight},
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
     proof::{ProofFile, VerificationScope},
@@ -124,6 +125,26 @@ fn main() {
             };
             save_json_or_exit(report_path, &report, "live asset payment session report");
             print_json_or_exit(&report, "live asset payment session report");
+        }
+        [
+            command,
+            report_path,
+            storage_dir,
+            litd_node_id,
+            litd_address,
+        ] if command == "live-litd-peer-preflight" => {
+            let mut request =
+                LiveLitdPeerPreflightRequest::new(storage_dir, litd_node_id, litd_address);
+            apply_regtest_env_to_live_litd_request(&mut request);
+            let report = match run_live_litd_peer_preflight(request) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live litd peer preflight: {err}");
+                    process::exit(1);
+                }
+            };
+            save_json_or_exit(report_path, &report, "live litd peer preflight report");
+            print_json_or_exit(&report, "live litd peer preflight report");
         }
         [command, asset_id] if command == "asset-negotiation-smoke" => {
             let asset_id = parse_asset_id_or_exit(asset_id);
@@ -778,6 +799,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk ldk-baseline-smoke <state.json>");
     println!("  tap-ldk live-peer-smoke <report.json> <asset-id>");
     println!("  tap-ldk live-asset-payment-session-smoke <report.json> <asset-id> <asset-amount>");
+    println!(
+        "  tap-ldk live-litd-peer-preflight <report.json> <storage-dir> <litd-node-id> <litd-address>"
+    );
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");
     println!("  tap-ldk rfq-store-init <store.json>");
@@ -829,6 +853,27 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk wallet-proofs <wallet.json>");
     println!("  tap-ldk wallet-export-proof-file <wallet.json> <proof-id> <proof.tlv>");
     println!("  tap-ldk wallet-export-tapd-proof-file <wallet.json> <proof-id> <tapd-proof-file>");
+}
+
+fn apply_regtest_env_to_live_litd_request(request: &mut LiveLitdPeerPreflightRequest) {
+    if let Ok(value) = env::var("TAP_LDK_BITCOIN_RPC_HOST") {
+        request.bitcoind_rpc_host = value;
+    }
+    if let Ok(value) = env::var("TAP_LDK_BITCOIN_RPC_PORT") {
+        match value.parse::<u16>() {
+            Ok(port) => request.bitcoind_rpc_port = port,
+            Err(err) => {
+                eprintln!("invalid TAP_LDK_BITCOIN_RPC_PORT {value}: {err}");
+                process::exit(2);
+            }
+        }
+    }
+    if let Ok(value) = env::var("TAP_LDK_BITCOIN_RPC_USER") {
+        request.bitcoind_rpc_user = value;
+    }
+    if let Ok(value) = env::var("TAP_LDK_BITCOIN_RPC_PASSWORD") {
+        request.bitcoind_rpc_password = value;
+    }
 }
 
 fn import_encoded_proof(wallet_path: &str, encoded: &[u8]) {

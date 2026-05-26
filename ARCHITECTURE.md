@@ -34,11 +34,15 @@ The Lightning Labs path is not a live payment yet:
 - It now writes a live outgoing-payment gate that links live `tapd` proof
   binding to the native outgoing RFQ/invoice/HTLC artifact and keeps the result
   blocked until a Lightning Labs receiver balance is actually observed.
-- It does not yet drive a healthy live LND/`tapd` counterparty through asset
+- It can start integrated Lightning Labs `litd`, confirm the asset-channel RPC
+  surface is reachable, then start a native LDK node and connect it to the
+  `litd` Lightning P2P address.
+- It does not yet drive that connected `litd` counterparty through asset
   funding and payment settlement.
 - It does not yet query real live balances from both nodes after settlement.
-- It does not yet complete a Lightning wire session against the Lightning Labs
-  daemon stack. The live peer smoke is currently local `tap-ldk` to `tap-ldk`.
+- The ordered asset-payment message session is still local `tap-ldk` to
+  `tap-ldk`; it has not yet moved onto the connected Lightning Labs `litd`
+  peer.
 
 The `rust-lightning` fork is wired with the first asset-channel hooks, but not
 the full asset channel implementation:
@@ -309,16 +313,19 @@ Command:
 ```bash
 cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- live-asset-payment-session-smoke target/live-asset-payment-session.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 125
+cargo run -p tap-ldk-cli -- live-litd-peer-preflight target/live-litd-peer-preflight.json target/live-litd-peer-preflight-state '<litd-node-id>' '127.0.0.1:29735'
 ```
 
 Current boundary:
 
-- this is not yet a Lightning Labs daemon-backed session;
-- it does not yet use a full rust-lightning `PeerManager` socket loop;
+- the ordered asset-payment message exchange is not yet a Lightning Labs
+  daemon-backed session;
+- the new `live-litd-peer-preflight` command uses a native LDK node to connect
+  to integrated `litd`, but does not yet run the asset-payment messages over
+  that peer;
 - it does not yet send Lightning wire custom messages to LND;
 - it is the runnable `tap-ldk` peer process and ordered native payment-session
-  exchange that the next Path B issues should connect to the counterparty
-  harness.
+  exchange that must be moved onto the connected counterparty peer.
 
 ## rust-lightning Fork Wiring
 

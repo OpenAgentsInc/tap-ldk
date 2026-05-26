@@ -19,7 +19,8 @@ issue #57.
 
 The readiness report records the litd identity pubkey, LND sync state,
 taproot-assets sync state, wallet balance, subserver status, and whether the
-asset-channel RPC surface is reachable. It does not mark a `tap-ldk` to
-Lightning Labs payment complete; that still requires replacing the native
-loopback payment session with the litd peer and recording the post-settlement
-receiver balance.
+asset-channel RPC surface is reachable. The live outgoing-payment gate now uses
+that identity and P2P address to run a native LDK peer preflight against `litd`.
+It does not mark a `tap-ldk` to Lightning Labs payment complete; that still
+requires running asset-channel funding/payment over the connected litd peer and
+recording the post-settlement receiver balance.

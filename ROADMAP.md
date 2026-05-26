@@ -26,14 +26,15 @@ Last updated: 2026-05-26
   payment-direction artifact checks, live `tapd` proof binding, and a live
   localhost native asset-payment session that sends the ordered proof,
   funding, RFQ, quote, and HTLC peer messages. It also has a current `tapd`
-  balance observer plus an integrated `litd` counterparty harness for the
-  Lightning Labs side.
+  balance observer, an integrated `litd` counterparty harness, and a native
+  LDK peer preflight that connects to `litd` over the Lightning P2P address.
 - Issue #57 is the active next implementation target. It now has the native
   payment-session artifact and current balance observer needed before
   counterparty replacement, plus the integrated litd aux-controller topology
-  that real asset channels need. It is not done until the native session runs
-  against the independent Lightning Labs litd receiver and records the observed
-  receiver balance after settlement.
+  that real asset channels need, plus a real native LDK peer connection to
+  that `litd` node. It is not done until asset-channel funding/payment runs
+  over that connected peer and records the observed receiver balance after
+  settlement.
 - Issues #58 through #60 remain open for the reverse payment direction,
   observed live balance checks, and full semantic proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until the live

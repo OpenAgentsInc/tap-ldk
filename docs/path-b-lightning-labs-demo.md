@@ -5,8 +5,8 @@ current harness captures version info, counterparty config/status, blob
 fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
 proof-binding report, the integrated `litd` counterparty readiness report, the
-live outgoing-payment gate, and the consolidated interop check report into an
-ignored artifact directory.
+native LDK to `litd` peer preflight report, the live outgoing-payment gate, and
+the consolidated interop check report into an ignored artifact directory.
 
 ```bash
 ./scripts/path-b-lightning-labs-demo.sh
@@ -33,10 +33,11 @@ binds it into native wallet state. Without a reachable runtime it writes a
 blocked JSON report at `live-tapd-proof-binding.json`.
 
 The wrapper also runs `scripts/live-lightning-labs-outgoing-payment.sh`. That
-gate links live proof binding to the sender-side RFQ/invoice/HTLC artifact and
-keeps issue #57 marked incomplete until the native LDK payment path settles
-against the independent Lightning Labs litd receiver and a receiver balance is
-observed.
+gate links live proof binding to the sender-side RFQ/invoice/HTLC artifact,
+starts the integrated `litd` counterparty, connects a native LDK node to that
+`litd` peer, and keeps issue #57 marked incomplete until the native LDK asset
+payment path settles against the independent Lightning Labs litd receiver and a
+receiver balance is observed.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement
@@ -47,5 +48,6 @@ The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
 OpenAgentsInc rust-lightning fork, and sends an encoded native RFQ custom
 message over the socket. It is not yet a Lightning Labs daemon-backed P2P
-session. The integrated `litd` readiness report is now the daemon-backed target
-that this native session needs to replace.
+session. The native LDK peer preflight now proves that a native LDK node can
+connect to integrated `litd`; the remaining work is to run the asset-channel
+funding/payment messages over that connected daemon-backed peer.

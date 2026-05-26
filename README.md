@@ -35,6 +35,10 @@ What works today:
   real asset-channel target topology: Bitcoin Core plus litd with integrated
   LND/taproot-assets, taproot overlay channels, RFQ mock oracle config, and the
   asset-channel RPC surface reachable.
+- The live Path B gate now starts a native LDK node and connects it to that
+  integrated `litd` node over the Lightning P2P address. This proves the
+  Lightning Labs side is no longer only a JSON loopback target; the remaining
+  gap is asset-channel funding/payment over that connected peer.
 - The live `tapd` proof-binding path is wired. When the Lightning Labs daemon
   is reachable, `scripts/live-tapd-proof-bind.sh` mints `OPENUSD` through
   `tapcli`, mines confirmations, exports the TAPF proof, and binds that proof
@@ -59,16 +63,17 @@ What works today:
 
 What does not work yet:
 
-- `tap-ldk` does not yet complete a real live payment with an independent
-  Lightning Labs LND/`tapd` node.
-- The current Lightning Labs payment path still stops before replacing the
-  loopback native payment session with the independent Lightning Labs peer and
-  before observed balance comparison from both sides.
+- `tap-ldk` does not yet complete a real live asset payment with the
+  independent Lightning Labs `litd` node.
+- The current Lightning Labs payment path connects a native LDK node to `litd`,
+  but still stops before driving asset-channel funding/payment over that peer
+  and before observed balance comparison from both sides.
 - The standalone LND container starts without `simple-taproot-overlay-chans`;
   the Lightning Labs asset-channel payment path still needs the aux-controller
   overlay path from the Taproot Assets/Lit stack or equivalent integration.
-- The new live peer smoke is localhost `tap-ldk` to `tap-ldk`. It is not yet a
-  Lightning Labs daemon-backed P2P session.
+- The ordered asset-payment message smoke is still localhost `tap-ldk` to
+  `tap-ldk`. The separate native LDK peer preflight now connects to `litd`, but
+  the message flow is not yet running over that connected daemon-backed peer.
 - The live Lightning Labs checks run through Docker or Podman. The scripts now
   bound image pull and container startup time and write blocked reports when
   the independent regtest Bitcoin Core, LND, and `tapd` counterparty cannot
@@ -79,8 +84,8 @@ What does not work yet:
 - Live on-chain force-close and sweeper integration is not implemented yet. The
   bounded recovery smoke now proves that `tap-ldk` refuses to call an asset
   recovered when only BTC sweep state exists, but it is not a live chain spend.
-- LND/`tapd` are only test counterparties for interoperability. They are not
-  sidecars inside the `tap-ldk` wallet.
+- LND, `tapd`, and `litd` are only test counterparties for interoperability.
+  They are not sidecars inside the `tap-ldk` wallet.
 
 What is being worked on now:
 
@@ -93,11 +98,11 @@ What is being worked on now:
   live `tapd` mint/export/bind command path.
 - Issue #57 is active: the repo now has the live outgoing-payment gate, the
   local failure checks, the proof-binding handoff, and the ordered native
-  asset-payment wire session, plus the current `tapd` balance observer and an
-  integrated `litd` asset-channel counterparty for the Lightning Labs side. The
-  remaining #57 work is to replace that loopback session with the independent
-  Lightning Labs litd receiver and record the observed receiver-balance check
-  after settlement.
+  asset-payment wire session, plus the current `tapd` balance observer, an
+  integrated `litd` asset-channel counterparty, and a native LDK peer
+  connection to that `litd` node. The remaining #57 work is to run the asset
+  funding/payment flow over that connected peer and record the observed
+  receiver-balance check after settlement.
 - Issues #57 through #60 cover the remaining live demo path: payments in both
   directions, observed live balance checks, and full proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until those
@@ -123,6 +128,7 @@ cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
 cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json
 cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- live-asset-payment-session-smoke target/live-asset-payment-session.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 125
+cargo run -p tap-ldk-cli -- live-litd-peer-preflight target/live-litd-peer-preflight.json target/live-litd-peer-preflight-state '<litd-node-id>' '127.0.0.1:29735'
 cargo run -p tap-ldk-cli -- asset-negotiation-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- rfq-request target/rfq-quotes.json alice 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 250000 200 1111111111111111111111111111111111111111111111111111111111111111 path-a-demo-1 100
@@ -163,6 +169,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Baseline LDK Node](docs/baseline-ldk-node.md)
 - [Live tap-ldk Peer Smoke](docs/live-tap-ldk-peer.md)
 - [Live Asset Payment Session](docs/live-asset-payment-session.md)
+- [Live litd Peer Preflight](docs/live-litd-peer-preflight.md)
 - [Live tapd Proof Binding](docs/live-tapd-proof-binding.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)

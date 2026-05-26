@@ -18,8 +18,9 @@ Lightning Labs receiver balance after settlement. The live gate now also runs
 the ordered native asset-payment wire session over a localhost `tap-ldk`
 socket, asks standalone `tapd` for the current asset balance when reachable,
 and starts the integrated `litd` counterparty that exposes the asset-channel
-RPC surface. It records the expected balance change and the exact remaining gap
-instead of reporting a successful interop settlement.
+RPC surface. It then starts a native LDK node and connects it to that `litd`
+node over the Lightning P2P address. It records the expected balance change and
+the exact remaining gap instead of reporting a successful interop settlement.
 
 ## Checks
 
@@ -36,13 +37,16 @@ instead of reporting a successful interop settlement.
   live counterparty is available.
 - Starts the integrated Lightning Labs `litd` counterparty with LND,
   taproot-assets, the aux funding controller, and asset-channel RPCs enabled.
+- Starts a native LDK node and connects it to the integrated `litd` node ID and
+  P2P address.
 - The live gate report links the live `tapd` proof-binding artifact to the
   outgoing payment artifact, native payment-session artifact, and integrated
-  `litd` readiness artifact, and keeps `issue_57_acceptance_met=false` until a
-  real Lightning Labs receiver balance is observed after settlement.
+  `litd` readiness and native LDK peer preflight artifacts, and keeps
+  `issue_57_acceptance_met=false` until a real Lightning Labs receiver balance
+  is observed after settlement.
 
 ## Next Step
 
-Replace the localhost native payment-session peer with the independent
-Lightning Labs litd receiver, then replace the expected receiver balance with
-an observed daemon balance before claiming Track B payment success.
+Run the asset-channel funding and payment flow over the connected independent
+Lightning Labs litd peer, then replace the expected receiver balance with an
+observed daemon balance before claiming Track B payment success.

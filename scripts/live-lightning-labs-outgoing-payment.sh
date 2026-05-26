@@ -19,6 +19,7 @@ PROOF_BINDING_REPORT="$ARTIFACT_DIR/live-tapd-proof-binding.json"
 NATIVE_SESSION_REPORT="$ARTIFACT_DIR/live-native-asset-payment-session.json"
 CURRENT_BALANCE_REPORT="$ARTIFACT_DIR/lightning-labs-current-receiver-balance.json"
 LITD_COUNTERPARTY_REPORT="$ARTIFACT_DIR/lightning-labs-litd-counterparty-ready.json"
+LITD_PEER_PREFLIGHT_REPORT="$ARTIFACT_DIR/native-ldk-litd-peer-preflight.json"
 TAPCHANNEL_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/tapchannelmsg/testdata"
 
 mkdir -p "$ARTIFACT_DIR" "$LOG_DIR"
@@ -30,7 +31,7 @@ write_report() {
 
   local payment_id asset_id asset_amount quote_id expected_sender_after
   local expected_receiver_after wrong_asset wrong_amount quote_replay proof_status native_session_status current_observed_balance
-  local litd_topology litd_identity_pubkey litd_asset_channel_rpc_ready
+  local litd_topology litd_identity_pubkey litd_asset_channel_rpc_ready native_litd_peer_connected native_litd_node_id
   payment_id="$(jq -r '.payment_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_id="$(jq -r '.asset_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_amount="$(jq -r '.asset_amount // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
@@ -46,6 +47,8 @@ write_report() {
   litd_topology="$(jq -r '.counterparty_topology // empty' "$LITD_COUNTERPARTY_REPORT" 2>/dev/null || true)"
   litd_identity_pubkey="$(jq -r '.litd.identity_pubkey // empty' "$LITD_COUNTERPARTY_REPORT" 2>/dev/null || true)"
   litd_asset_channel_rpc_ready="$(jq -r '.litd.asset_channel_rpc_ready // empty' "$LITD_COUNTERPARTY_REPORT" 2>/dev/null || true)"
+  native_litd_peer_connected="$(jq -r '.peer_connected // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_litd_node_id="$(jq -r '.native_node_id // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
 
   jq -n \
     --arg source "live-lightning-labs-outgoing-payment" \
@@ -68,11 +71,14 @@ write_report() {
     --arg native_session_report "$NATIVE_SESSION_REPORT" \
     --arg current_balance_report "$CURRENT_BALANCE_REPORT" \
     --arg litd_counterparty_report "$LITD_COUNTERPARTY_REPORT" \
+    --arg litd_peer_preflight_report "$LITD_PEER_PREFLIGHT_REPORT" \
     --arg bounded_report "$BOUNDED_REPORT" \
     --arg outgoing_store "$OUTGOING_STORE" \
     --arg litd_topology "$litd_topology" \
     --arg litd_identity_pubkey "$litd_identity_pubkey" \
     --arg litd_asset_channel_rpc_ready "$litd_asset_channel_rpc_ready" \
+    --arg native_litd_peer_connected "$native_litd_peer_connected" \
+    --arg native_litd_node_id "$native_litd_node_id" \
     '{
       schema_version: 1,
       source: $source,
@@ -101,6 +107,7 @@ write_report() {
         native_asset_payment_session_report: $native_session_report,
         current_receiver_balance_report: $current_balance_report,
         integrated_litd_counterparty_report: $litd_counterparty_report,
+        native_ldk_litd_peer_preflight_report: $litd_peer_preflight_report,
         bounded_outgoing_payment_report: $bounded_report,
         outgoing_payment_store: $outgoing_store
       },
@@ -109,9 +116,11 @@ write_report() {
       integrated_litd_counterparty_ready: ($litd_asset_channel_rpc_ready == "true"),
       integrated_litd_counterparty_topology: ($litd_topology | if length > 0 then . else null end),
       integrated_litd_identity_pubkey: ($litd_identity_pubkey | if length > 0 then . else null end),
+      native_litd_peer_connected: ($native_litd_peer_connected == "true"),
+      native_ldk_node_id: ($native_litd_node_id | if length > 0 then . else null end),
       issue_57_acceptance_met: false,
       next_required_work: [
-        "replace the loopback native payment-session peer with the independent Lightning Labs litd peer",
+        "replace the loopback native payment-session message exchange with the connected independent Lightning Labs litd peer",
         "drive native LDK asset-channel funding against the Lightning Labs peer",
         "turn the current tapd balance observation into a post-settlement receiver balance"
       ]
@@ -190,9 +199,30 @@ if ! ./scripts/lightning-labs-litd-counterparty.sh start \
   exit 0
 fi
 
+litd_peer_pubkey="$(jq -r '.litd.identity_pubkey // empty' "$LITD_COUNTERPARTY_REPORT" 2>/dev/null || true)"
+litd_peer_address="$(jq -r '.litd.p2p_url // empty' "$LITD_COUNTERPARTY_REPORT" 2>/dev/null || true)"
+if [ -z "$litd_peer_pubkey" ] || [ -z "$litd_peer_address" ]; then
+  write_report "blocked" "native_ldk_litd_peer_preflight" "integrated litd readiness report did not include litd identity pubkey and P2P address"
+  cat "$REPORT_PATH"
+  exit 0
+fi
+
+if ! cargo run -q -p tap-ldk-cli -- live-litd-peer-preflight \
+  "$LITD_PEER_PREFLIGHT_REPORT" \
+  "$ARTIFACT_DIR/native-ldk-litd-peer" \
+  "$litd_peer_pubkey" \
+  "$litd_peer_address" \
+  >"$LOG_DIR/native-ldk-litd-peer-preflight.out" \
+  2>"$LOG_DIR/native-ldk-litd-peer-preflight.err"; then
+  reason="$(cat "$LOG_DIR/native-ldk-litd-peer-preflight.err")"
+  write_report "blocked" "native_ldk_litd_peer_preflight" "$reason"
+  cat "$REPORT_PATH"
+  exit 0
+fi
+
 write_report \
   "blocked" \
   "live_asset_channel_payment_settlement" \
-  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, current tapd balance observation, and an integrated litd counterparty with asset-channel RPCs ready, but this repo does not yet replace that loopback session with the independent Lightning Labs litd peer and post-settlement receiver-balance check."
+  "The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, current tapd balance observation, an integrated litd counterparty with asset-channel RPCs ready, and a native LDK peer connection to litd, but this repo does not yet drive asset-channel funding/payment over that connected peer and post-settlement receiver-balance check."
 
 cat "$REPORT_PATH"
