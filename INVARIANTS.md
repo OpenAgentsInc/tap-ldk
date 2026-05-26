@@ -480,15 +480,16 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- The remaining open issue sequence is #80, #81, #57, #58, #59, #60, then
-  epics #61, #71, and #19. #57 currently reaches live proof binding,
+- The remaining open issue sequence is #81, #57, #58, #59, #60, then epics
+  #61, #71, and #19. #57 currently reaches live proof binding,
   native payment-session readiness, integrated `litd` readiness, fork-backed
   LDK-to-`litd` peer connection, and a pre-settlement Lightning Labs
   current-balance observation. It now enables opt-in simple-taproot and
-  Taproot Asset channel negotiation through `ldk-node`, but it is not complete
-  until #80 exposes the live asset-channel message/payment API surface and
-  #81/#57 run asset-channel funding/payment over that connected peer with a
-  recorded post-settlement receiver balance.
+  Taproot Asset channel negotiation through `ldk-node`, confirms remote
+  support from integrated `litd`, and exposes the live asset-channel
+  message/payment API surface, but it is not complete until #81/#57 run
+  asset-channel funding/payment over that connected peer with a recorded
+  post-settlement receiver balance.
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
   proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
   construction, bounded synthetic asset identity/hash+sum conservation helpers,

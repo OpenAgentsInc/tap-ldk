@@ -46,9 +46,11 @@ independent Lightning Labs litd receiver with an observed receiver balance.
 Current #57 status is narrower than the old runtime prerequisite. The gate can
 reach live proof binding, native asset-payment session readiness, integrated
 `litd` readiness, fork-backed `ldk-node` to `litd` peer connection, and a
-pre-settlement Lightning Labs current-balance observation. It still stops at
-`live_asset_channel_payment_settlement` because the asset-channel
-funding/payment flow has not run over a fork-backed connected `litd` peer.
+pre-settlement Lightning Labs current-balance observation. It also records
+whether `litd` advertised the taproot features needed for asset channels. It
+still stops at `live_asset_channel_payment_settlement` because compatible
+Taproot Asset channel negotiation and the asset-channel funding/payment flow
+have not run over a fork-backed connected `litd` peer.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement
@@ -62,9 +64,9 @@ message over the socket. It is not yet a Lightning Labs daemon-backed P2P
 session. The `litd` peer preflight now proves that the OpenAgentsInc
 `ldk-node` fork can connect to integrated `litd`, report the OpenAgentsInc
 `rust-lightning` revision, opt into simple-taproot/Taproot Asset channel
-negotiation, and reach typed asset-channel message/payment APIs. Issue #81
-still needs to run those APIs through daemon-backed live funding/payment
-settlement.
+negotiation locally, observe remote simple-taproot and Taproot Asset channel
+support, and reach typed asset-channel message/payment APIs. Issue #81 still
+has to run those APIs through daemon-backed live funding/payment settlement.
 
 Open issue path:
 

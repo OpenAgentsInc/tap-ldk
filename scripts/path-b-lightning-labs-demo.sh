@@ -203,8 +203,10 @@ Fixture-backed checks:
 Visible mocked/experimental pieces:
 - issuer identity and price oracle remain bounded demo fixtures
 - proof courier is local fixture/import-export plumbing
-- live tap-ldk peer and native asset-payment session smokes are local tap-ldk
-  to tap-ldk until the Lightning Labs daemon-backed peer session is wired
+- live tap-ldk peer and native asset-payment session smokes are local; the
+  fork-backed ldk-node preflight reaches litd, observes remote taproot asset
+  support, and reaches the asset APIs, but #81 still has to run those APIs
+  through live Lightning Labs settlement
 - LND/tapd are independent compatibility peers, not tap-ldk runtime sidecars
 - live daemon settlement remains a documented gap until observed balances replace expected deltas
 SUMMARY_TEXT

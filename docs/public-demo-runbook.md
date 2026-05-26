@@ -24,8 +24,9 @@ Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
 `tap-ldk` runtime sidecars. The live gate now also starts integrated `litd`
 for the asset-channel path, connects the fork-backed OpenAgentsInc `ldk-node`
 runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
-balance. Live asset-channel config/API exposure, settlement, and
-post-settlement observed balance replacement are still open gaps.
+balance. Live asset-channel config/API exposure and remote feature observation
+are in place; settlement and post-settlement observed balance replacement are
+still open gaps.
 
 ## Prerequisites
 
@@ -172,9 +173,9 @@ Mocked or bounded pieces:
   Lightning Labs daemon-backed P2P session.
 - Live `tapd` proof binding can bind daemon-exported proof material when the
   Lightning Labs runtime is reachable.
-- Upstream `ldk-node` can connect to integrated `litd`, but fork-backed
-  `ldk-node` and the asset-channel funding/payment flow have not yet run over
-  that connected peer.
+- Fork-backed `ldk-node` can connect to integrated `litd` and reach the
+  Taproot Asset message/channel/payment APIs, but #81 still has to run those
+  APIs through live asset-channel funding/payment over that connected peer.
 - Live LND/`tapd`/`litd` settlement and post-settlement observed balance
   comparison remain open.
 

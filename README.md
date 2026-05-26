@@ -13,10 +13,10 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
 checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
 `ldk-node` peer preflight pinned to OpenAgentsInc `rust-lightning`. The live
-preflight now opts into simple-taproot plus Taproot Asset channel negotiation
-and reaches typed asset message, channel-open, and payment APIs. Issue #81 is
-the next live runtime step: use those APIs for settlement against Lightning
-Labs.
+preflight now connects to `litd`, records remote taproot feature support, and
+reaches typed asset message, channel-open, and payment APIs. Issue #81 is the
+next live runtime step: use those APIs for asset-channel funding/payment
+settlement against Lightning Labs and record post-settlement balances.
 
 Current closure order: #81, then #57, #58, #59, #60, and the epics
 #61, #71, and #19. Path B must not be marked done until both payment directions

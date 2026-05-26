@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `cbc508b8ae972fd1134b0c5f1dc1792139276268`
+- Current `tap-ldk` revision: `76ac064ca815609130012afb289014aa97b4fa76`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268"
+rev = "76ac064ca815609130012afb289014aa97b4fa76"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -155,12 +155,16 @@ from the script-vector section for some multi-HTLC output keys, so exact script
 assertions stay on the unambiguous script vectors while transaction coverage
 checks output count, values, ordering, P2TR shape, and trimming.
 
-Revision `cbc508b8ae972fd1134b0c5f1dc1792139276268` adds
+Revision `76ac064ca815609130012afb289014aa97b4fa76` adds
 `TaprootAssetChannelState`, the bounded rust-lightning-side lifecycle state
 for a single-asset channel layered on simple taproot. It ties explicit
 simple-taproot asset-channel negotiation, proof-backed funding, monitor aux
 blob persistence, asset commitment advancement, HTLC metadata validation,
 cooperative close allocation, and proof-ownership recovery to one state object.
+It also aligns the experimental Taproot Asset overlay negotiation with
+Lightning Labs `taproot-overlay-chans` feature bits and adds outgoing Init
+custom TLV support so `ldk-node` can advertise the Taproot Assets aux feature
+record used by `litd`.
 `tap-ldk` pins this revision and exercises it with
 `simple-taproot-asset-channel-smoke`.
 

@@ -123,6 +123,8 @@ pub struct LiveLitdPeerPreflightReport {
     pub native_node_started: bool,
     pub peer_connected: bool,
     pub peer_persisted: bool,
+    pub litd_peer_supports_simple_taproot_staging: bool,
+    pub litd_peer_supports_taproot_asset_channel: bool,
     pub known_peer_count: usize,
     pub asset_channel_settlement_ready: bool,
     pub remaining_asset_channel_gap: String,
@@ -153,6 +155,17 @@ pub fn run_live_litd_peer_preflight(
         .find(|peer| peer.node_id == request.litd_node_id);
     let peer_connected = matched_peer.map(|peer| peer.is_connected).unwrap_or(false);
     let peer_persisted = matched_peer.map(|peer| peer.is_persisted).unwrap_or(false);
+    let litd_peer_supports_simple_taproot_staging = matched_peer
+        .map(|peer| peer.supports_simple_taproot_staging)
+        .unwrap_or(false);
+    let litd_peer_supports_taproot_asset_channel = matched_peer
+        .map(|peer| peer.supports_taproot_asset_channel)
+        .unwrap_or(false);
+    let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
+    } else {
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. #81 still needs to drive those APIs through live Lightning Labs asset-channel funding/payment settlement."
+    };
 
     let stop_result = node.stop();
     if let Err(err) = stop_result {
@@ -194,10 +207,11 @@ pub fn run_live_litd_peer_preflight(
         native_node_started: true,
         peer_connected,
         peer_persisted,
+        litd_peer_supports_simple_taproot_staging,
+        litd_peer_supports_taproot_asset_channel,
         known_peer_count: peer_details.len(),
         asset_channel_settlement_ready: false,
-        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. #81 still needs to drive those APIs through live Lightning Labs asset-channel funding/payment settlement."
-            .to_owned(),
+        remaining_asset_channel_gap: remaining_asset_channel_gap.to_owned(),
     })
 }
 
@@ -450,7 +464,7 @@ mod tests {
         assert!(provenance.uses_openagents_rust_lightning_fork);
         assert_eq!(
             provenance.rust_lightning_fork_rev,
-            "cbc508b8ae972fd1134b0c5f1dc1792139276268"
+            "76ac064ca815609130012afb289014aa97b4fa76"
         );
         assert_eq!(
             provenance.ldk_node_fork_url,

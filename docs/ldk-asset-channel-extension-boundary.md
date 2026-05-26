@@ -145,7 +145,7 @@ state:
 - bounded `TaprootAssetChannelState` lifecycle integration for asset funding,
   commitment advancement, monitor aux persistence, HTLC metadata, cooperative
   close allocation, and proof-ownership recovery, first landed in
-  `cbc508b8ae972fd1134b0c5f1dc1792139276268`;
+  `76ac064ca815609130012afb289014aa97b4fa76`;
 - HTLC metadata preparation and final-hop validation, first landed in the
   OpenAgentsInc fork at `ef2538fe181025231c1f2a946df713b3109fa9ef`;
 - cooperative close allocation export, first landed in the OpenAgentsInc fork

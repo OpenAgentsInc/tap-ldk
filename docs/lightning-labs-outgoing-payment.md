@@ -25,11 +25,11 @@ interop settlement.
 
 Current #57 state: the gate reaches proof binding, native payment-session
 readiness, integrated `litd` readiness, fork-backed `ldk-node` to `litd` peer
-connection/API preflight, and a pre-settlement Lightning Labs balance
-observation. That balance is not the close condition, and the peer preflight
-still cannot settle asset channels until #81 drives the asset-channel
-message/payment APIs through live funding/payment. #57 closes only after the
-live asset-channel
+connection/API preflight, remote taproot feature observation, and a
+pre-settlement Lightning Labs balance observation. That balance is not the
+close condition, and the peer preflight still cannot settle asset channels
+until #81 drives the fork-backed asset-channel message/payment APIs through
+live funding/payment. #57 closes only after the live asset-channel
 funding/payment flow runs over the connected `litd` peer and the report
 records the Lightning Labs receiver balance after settlement.
 

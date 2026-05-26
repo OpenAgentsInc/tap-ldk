@@ -16,7 +16,7 @@ lifecycle state.
 
 The local fork verification script now checks the current pinned
 OpenAgentsInc `rust-lightning` revision,
-`cbc508b8ae972fd1134b0c5f1dc1792139276268`, so later issue verification does
+`76ac064ca815609130012afb289014aa97b4fa76`, so later issue verification does
 not fail against the older proof-ownership-only fork revision.
 
 Path B is live-ready but not live-settled. The current #57 gate reaches:
@@ -27,25 +27,26 @@ Path B is live-ready but not live-settled. The current #57 gate reaches:
 - integrated `litd` readiness with the asset-channel RPC surface enabled;
 - fork-backed `OpenAgentsInc/ldk-node` peer connection to the independent
   `litd` node, with opt-in simple-taproot plus Taproot Asset negotiation
-  enabled and provenance reporting
-  `OpenAgentsInc/rust-lightning@cbc508b8ae972fd1134b0c5f1dc1792139276268`.
+  enabled, remote taproot feature observation, and provenance reporting
+  `OpenAgentsInc/rust-lightning@76ac064ca815609130012afb289014aa97b4fa76`.
 
 The gate still stops at `live_asset_channel_payment_settlement`. The observed
 Lightning Labs balance currently recorded by #57 is a pre-settlement/current
 balance, not the post-settlement receiver balance required to close the issue.
-The peer preflight now proves connectivity, fork provenance, and opt-in
-asset-channel negotiation config, and the typed Taproot Asset message,
-channel-open, and payment API surface. It still cannot settle asset channels
-until #81 drives those APIs through live Lightning Labs funding/payment.
+The peer preflight now proves connectivity, fork provenance, opt-in
+asset-channel negotiation config, remote taproot feature observation, and the
+typed Taproot Asset message, channel-open, and payment API surface. It still
+cannot settle asset channels until #81 drives those APIs through live
+Lightning Labs funding/payment.
 
 ## Closure Sequence
 
 | Order | Issue | Current state | Required before close |
 | --- | --- | --- | --- |
 | Done | #77 Fork `ldk-node` | `OpenAgentsInc/ldk-node` exists and is documented as the owned live node implementation home. | Closed. |
-| Done | #78 Pin forked `ldk-node` to forked `rust-lightning` | `OpenAgentsInc/ldk-node` is pinned to `OpenAgentsInc/rust-lightning@cbc508b8ae972fd1134b0c5f1dc1792139276268`; `tap-ldk` consumes the OpenAgentsInc fork line and reports provenance. | Closed. |
+| Done | #78 Pin forked `ldk-node` to forked `rust-lightning` | `OpenAgentsInc/ldk-node` is pinned to `OpenAgentsInc/rust-lightning@76ac064ca815609130012afb289014aa97b4fa76`; `tap-ldk` consumes the OpenAgentsInc fork line and reports provenance. | Closed. |
 | Done | #79 Expose simple-taproot/Taproot Asset config | Implemented in `OpenAgentsInc/ldk-node@0faa999235050a17b198e6bbfa63c2f19aac4cc6`; BTC-only defaults remain unchanged, Taproot Asset negotiation fails closed without simple taproot, and `tap-ldk` live preflight reports both opt-in flags. | Closed. |
-| Done | #80 Wire asset messages and payment APIs | Implemented in `OpenAgentsInc/ldk-node@da05c714be061706806bc8757ee74b4709d5a8ef`; `tap-ldk` pins that revision and the live preflight reaches typed asset custom-message, asset-channel open, and asset-payment APIs. | Closed. |
+| Done | #80 Wire asset messages and payment APIs | Implemented in `OpenAgentsInc/ldk-node@da05c714be061706806bc8757ee74b4709d5a8ef`, with litd-compatible Init feature cleanup and peer taproot feature reporting through `4754d17f819e607462c5353ea3bf8158dd064686`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, and remote feature reporting. | Closed. |
 | 1 | #81 Fork-backed Lightning Labs settlement | Current #57 live gate stops after fork-backed config/connectivity/API preflight. | `tap-ldk` uses fork-backed `ldk-node` for live asset-channel funding/payment against integrated `litd`. |
 | 2 | #57 Live `tap-ldk` pays Lightning Labs | Harness, proof binding, live current-balance query, integrated `litd`, and fork-backed `ldk-node` peer/API preflight are in place with opt-in asset-channel negotiation enabled. | Run asset-channel funding/payment over the fork-backed connected independent `litd` peer, settle the payment, record post-settlement Lightning Labs receiver balance, record `tap-ldk` sender state, and keep wrong-quote/wrong-asset/wrong-amount failures covered. |
 | 3 | #58 Live Lightning Labs pays `tap-ldk` | Receiver-side fixtures, buy-direction RFQ artifacts, quote-bound receive invoice, final-hop metadata, expected balance deltas, and negative checks exist. | Drive a Lightning Labs sender through the live path, have `tap-ldk` receive and validate the asset HTLC metadata through the LDK/fork boundary, persist the received balance and proof reference, restart `tap-ldk`, and compare observed balances on both sides. |
