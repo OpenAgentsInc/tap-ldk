@@ -7,7 +7,7 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `0faa999235050a17b198e6bbfa63c2f19aac4cc6`
+  `da05c714be061706806bc8757ee74b4709d5a8ef`
 - Current `rust-lightning` fork commit:
   `cbc508b8ae972fd1134b0c5f1dc1792139276268`
 - Tracking issues: #77, #78, #79, #80, #81
@@ -16,13 +16,14 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 
 The current #57 live preflight uses the OpenAgentsInc `ldk-node` fork. That
 proves a native LDK node can connect to integrated Lightning Labs `litd`, that
-the runtime is built against the OpenAgentsInc `rust-lightning` fork, and that
-the live node opts into simple-taproot plus Taproot Asset channel negotiation.
-It does not prove Taproot Asset channel settlement yet.
+the runtime is built against the OpenAgentsInc `rust-lightning` fork, that the
+live node opts into simple-taproot plus Taproot Asset channel negotiation, and
+that the fork exposes typed Taproot Asset message/channel/payment APIs. It
+does not prove Taproot Asset channel settlement yet.
 
-For #57 to settle honestly, the live node runtime must now expose the forked
-channel configuration, custom message path, asset-channel open path, and asset
-payment path. A direct lower-level `rust-lightning` node is possible, but the
+For #57 to settle honestly, #81 must now run live asset-channel funding and
+payment through those APIs against the independent `litd` peer. A direct
+lower-level `rust-lightning` node is possible, but the
 narrow `ldk-node` fork is the chosen route because it preserves node lifecycle,
 chain sync, persistence, peer management, wallet plumbing, and normal BTC smoke
 coverage.
@@ -37,7 +38,7 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs.
-5. #81 replaces the current provenance-only preflight with fork-backed live
+5. #81 replaces the current readiness preflight with fork-backed live
    settlement against independent integrated Lightning Labs `litd`.
 
 ## Invariants

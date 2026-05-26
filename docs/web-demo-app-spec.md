@@ -566,9 +566,9 @@ conservation across the displayed topology.
   to automate.
 - Render LND/`tapd`/`litd` readiness separately.
 - Render live `tapd` proof binding and fork-backed `ldk-node` to `litd`
-  preflight.
-- Keep current live settlement blocked state visible until #80, #81, and
-  #57 are done, keep the reverse direction blocked until #58 is done, and do
+  preflight, including asset API readiness.
+- Keep current live settlement blocked state visible until #81 and #57 are
+  done, keep the reverse direction blocked until #58 is done, and do
   not show Path B as complete until #59 replaces expected balances with
   observed balances.
 

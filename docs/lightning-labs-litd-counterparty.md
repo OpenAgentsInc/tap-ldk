@@ -23,11 +23,10 @@ asset-channel RPC surface is reachable. The live outgoing-payment gate now uses
 that identity and P2P address to run a fork-backed `ldk-node` peer preflight
 against `litd`.
 In the current #57 gate this reaches `integrated_litd_counterparty_ready=true`
-and `native_litd_peer_connected=true`. It does not mark a `tap-ldk` to
-Lightning Labs payment complete; that still requires #80 and #81 to expose
-and use the fork-backed asset-channel message/payment APIs, then run
-asset-channel funding/payment over the connected `litd` peer and record the
-post-settlement receiver balance.
+and `native_litd_peer_connected=true`, with the fork-backed asset-channel
+message/payment APIs reachable. It does not mark a `tap-ldk` to Lightning Labs
+payment complete; #81 still needs to run asset-channel funding/payment over
+the connected `litd` peer and record the post-settlement receiver balance.
 
 The harness mines a fresh regtest block before the LND sync checks, and again
 after the wallet-funding step, so a persisted regtest chain with an old tip
