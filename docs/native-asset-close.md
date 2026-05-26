@@ -31,6 +31,8 @@ artifacts:
 
 ## Force Close Gate
 
-Force-close and sweep recovery are explicitly deferred. Failed sweep state is
-not reported as recovered, and the demo writes `force_close_supported=false`
-until native force-close evidence exists.
+The close smoke remains cooperative-close focused. Force-close proof ownership
+is now covered by `asset-recovery-smoke`, which validates commitment,
+second-level HTLC, and final sweep proof-ownership records through the
+OpenAgentsInc rust-lightning fork and refuses BTC-only sweep state as asset
+recovery. Live on-chain resolver and sweeper integration is still pending.

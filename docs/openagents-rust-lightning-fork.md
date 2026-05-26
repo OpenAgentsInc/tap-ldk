@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `d6862145b43225d5002445c3733e70293bb0646e`
+- Current `tap-ldk` revision: `0f442683da45af47daff313fefcfaef1ac7b82d7`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "d6862145b43225d5002445c3733e70293bb0646e"
+rev = "0f442683da45af47daff313fefcfaef1ac7b82d7"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -62,6 +62,14 @@ close allocation surface. It exposes `TaprootAssetCloseAllocation`,
 `validate_cooperative_close_asset_allocation`, with validation for missing,
 stale, malformed, wrong-asset, wrong-amount, wrong-root, or digest-mismatched
 close allocations.
+
+Revision `0f442683da45af47daff313fefcfaef1ac7b82d7` adds the first
+force-close and sweep proof-ownership recovery surface. It exposes
+`TaprootAssetProofOwnershipState`, `TaprootAssetProofOwnershipExpectation`,
+`prepare_asset_proof_ownership_recovery`, and
+`validate_asset_proof_ownership_recovery`, with validation for missing, stale,
+wrong-path, malformed, partial BTC-only, missing-proof-material, or
+digest-mismatched recovery state.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

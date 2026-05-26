@@ -1,10 +1,24 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, str::FromStr};
 
+use lightning::{
+    ln::{
+        taproot_asset::{
+            SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
+            TAPROOT_ASSET_RECOVERY_SPEND_COMMITMENT, TAPROOT_ASSET_RECOVERY_SPEND_FINAL_SWEEP,
+            TAPROOT_ASSET_RECOVERY_SPEND_SECOND_LEVEL_HTLC, TaprootAssetChannelDescriptor,
+            TaprootAssetProofOwnershipError, TaprootAssetProofOwnershipExpectation,
+            TaprootAssetProofOwnershipState, prepare_asset_proof_ownership_recovery,
+            validate_asset_proof_ownership_recovery,
+        },
+        types::ChannelId,
+    },
+    types::features::{ChannelTypeFeatures, InitFeatures},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::Bytes32,
+    asset::{AssetError, Bytes32},
     asset_channel_funding::{AssetChannelFundingError, run_asset_channel_funding_smoke},
     asset_commitment::{
         AssetCommitmentChannelState, AssetCommitmentError, AssetCommitmentStore,
@@ -218,11 +232,67 @@ pub struct NativeAssetRecoveryStageReport {
     pub refusal_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeAssetProofRecoverySpendKind {
+    Commitment,
+    SecondLevelHtlc,
+    FinalSweep,
+}
+
+impl NativeAssetProofRecoverySpendKind {
+    fn as_ldk_spend_kind(self) -> u8 {
+        match self {
+            Self::Commitment => TAPROOT_ASSET_RECOVERY_SPEND_COMMITMENT,
+            Self::SecondLevelHtlc => TAPROOT_ASSET_RECOVERY_SPEND_SECOND_LEVEL_HTLC,
+            Self::FinalSweep => TAPROOT_ASSET_RECOVERY_SPEND_FINAL_SWEEP,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Commitment => "commitment",
+            Self::SecondLevelHtlc => "second_level_htlc",
+            Self::FinalSweep => "final_sweep",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeAssetProofRecoveryStatus {
+    AssetProofRecovered,
+    BtcOnlyRefused,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NativeAssetProofRecoveryReport {
+    pub spend_kind: NativeAssetProofRecoverySpendKind,
+    pub status: NativeAssetProofRecoveryStatus,
+    pub channel_id: String,
+    pub asset_id: Bytes32,
+    pub commitment_number: u64,
+    pub btc_recovered: bool,
+    pub asset_proof_recovered: bool,
+    pub proof_root_hash: Bytes32,
+    pub proof_root_sum: u64,
+    pub proof_handoff_digest: Bytes32,
+    pub sweep_output_digest: Bytes32,
+    pub ldk_proof_ownership_digest: Bytes32,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NativeAssetRecoveryMatrixReport {
     pub stages: Vec<NativeAssetRecoveryStageReport>,
     pub stale_checkpoint_refused: bool,
     pub normal_btc_restart_unaffected: bool,
+    pub force_close_recovery: NativeAssetProofRecoveryReport,
+    pub second_level_htlc_recovery: NativeAssetProofRecoveryReport,
+    pub final_sweep_recovery: NativeAssetProofRecoveryReport,
+    pub missing_proof_ownership_refused: bool,
+    pub stale_proof_ownership_refused: bool,
+    pub btc_sweep_without_asset_proof_refused: bool,
+    pub btc_sweep_without_asset_proof_status: NativeAssetProofRecoveryStatus,
 }
 
 pub fn recover_native_asset_checkpoint(
@@ -307,11 +377,48 @@ pub fn run_native_asset_recovery_matrix_smoke()
     );
 
     let normal_btc_restart_unaffected = normal_btc_restart_round_trips()?;
+    let settled_state = settled_asset_state(&settled_store)?;
+    let force_close_recovery = recover_asset_proof_ownership(
+        &settled_state,
+        NativeAssetProofRecoverySpendKind::Commitment,
+    )?;
+    let second_level_htlc_recovery = recover_asset_proof_ownership(
+        &settled_state,
+        NativeAssetProofRecoverySpendKind::SecondLevelHtlc,
+    )?;
+    let final_sweep_recovery = recover_asset_proof_ownership(
+        &settled_state,
+        NativeAssetProofRecoverySpendKind::FinalSweep,
+    )?;
+    let missing_proof_ownership_refused = missing_proof_ownership_refused(
+        &settled_state,
+        NativeAssetProofRecoverySpendKind::Commitment,
+    )?;
+    let stale_proof_ownership_refused = stale_proof_ownership_refused(
+        &settled_state,
+        NativeAssetProofRecoverySpendKind::Commitment,
+    )?;
+    let btc_sweep_without_asset_proof_refused = btc_only_sweep_refused_as_asset_recovery(
+        &settled_state,
+        NativeAssetProofRecoverySpendKind::FinalSweep,
+    )?;
+    let btc_sweep_without_asset_proof_status = if btc_sweep_without_asset_proof_refused {
+        NativeAssetProofRecoveryStatus::BtcOnlyRefused
+    } else {
+        NativeAssetProofRecoveryStatus::AssetProofRecovered
+    };
 
     Ok(NativeAssetRecoveryMatrixReport {
         stages,
         stale_checkpoint_refused,
         normal_btc_restart_unaffected,
+        force_close_recovery,
+        second_level_htlc_recovery,
+        final_sweep_recovery,
+        missing_proof_ownership_refused,
+        stale_proof_ownership_refused,
+        btc_sweep_without_asset_proof_refused,
+        btc_sweep_without_asset_proof_status,
     })
 }
 
@@ -495,6 +602,177 @@ fn recover_after_close_preparation()
     recover_native_asset_checkpoint(&checkpoint, &commitment_store, None, None, None)
 }
 
+fn recover_asset_proof_ownership(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Result<NativeAssetProofRecoveryReport, NativeAssetRecoveryError> {
+    let ldk_state = build_ldk_proof_ownership_state(state, spend_kind, true, true)?;
+    let expected = proof_ownership_expectation(state, spend_kind);
+    validate_asset_proof_ownership_recovery(Some(&ldk_state), &expected)
+        .map_err(NativeAssetRecoveryError::LdkProofOwnership)?;
+    let prepared = prepare_asset_proof_ownership_recovery(
+        &asset_features(),
+        &asset_features(),
+        &ChannelTypeFeatures::taproot_asset_single_asset(),
+        TaprootAssetChannelDescriptor::new(
+            state.asset_id.0,
+            SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
+        )
+        .map_err(|_| {
+            NativeAssetRecoveryError::LdkProofOwnership(
+                TaprootAssetProofOwnershipError::AssetIdMismatch,
+            )
+        })?,
+        ldk_state,
+    )
+    .map_err(NativeAssetRecoveryError::LdkProofOwnership)?;
+
+    Ok(NativeAssetProofRecoveryReport {
+        spend_kind,
+        status: NativeAssetProofRecoveryStatus::AssetProofRecovered,
+        channel_id: state.channel_id.clone(),
+        asset_id: state.asset_id,
+        commitment_number: state.latest_commitment_number,
+        btc_recovered: prepared.btc_recovered,
+        asset_proof_recovered: prepared.asset_proof_recovered,
+        proof_root_hash: state.monitor_blob.proof_root_hash,
+        proof_root_sum: state.monitor_blob.proof_root_sum,
+        proof_handoff_digest: Bytes32(prepared.proof_handoff_digest),
+        sweep_output_digest: Bytes32(prepared.sweep_output_digest),
+        ldk_proof_ownership_digest: Bytes32(prepared.ownership_digest),
+    })
+}
+
+fn missing_proof_ownership_refused(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Result<bool, NativeAssetRecoveryError> {
+    let expected = proof_ownership_expectation(state, spend_kind);
+    Ok(matches!(
+        validate_asset_proof_ownership_recovery(None, &expected),
+        Err(TaprootAssetProofOwnershipError::MissingProofOwnership)
+    ))
+}
+
+fn stale_proof_ownership_refused(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Result<bool, NativeAssetRecoveryError> {
+    let mut stale = build_ldk_proof_ownership_state(state, spend_kind, true, true)?;
+    stale.commitment_number = stale.commitment_number.saturating_sub(1);
+    stale.ownership_digest = stale.digest();
+    let expected = proof_ownership_expectation(state, spend_kind);
+    Ok(matches!(
+        validate_asset_proof_ownership_recovery(Some(&stale), &expected),
+        Err(TaprootAssetProofOwnershipError::CommitmentNumberMismatch)
+    ))
+}
+
+fn btc_only_sweep_refused_as_asset_recovery(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Result<bool, NativeAssetRecoveryError> {
+    Ok(matches!(
+        build_ldk_proof_ownership_state(state, spend_kind, true, false),
+        Err(NativeAssetRecoveryError::LdkProofOwnership(
+            TaprootAssetProofOwnershipError::PartialRecovery
+        ))
+    ))
+}
+
+fn build_ldk_proof_ownership_state(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+    btc_recovered: bool,
+    asset_proof_recovered: bool,
+) -> Result<TaprootAssetProofOwnershipState, NativeAssetRecoveryError> {
+    TaprootAssetProofOwnershipState::new(
+        parse_channel_id(&state.channel_id)?,
+        state.asset_id.0,
+        state.latest_commitment_number,
+        spend_kind.as_ldk_spend_kind(),
+        btc_recovered,
+        asset_proof_recovered,
+        state.monitor_blob.proof_root_hash.0,
+        state.monitor_blob.proof_root_sum,
+        recovery_proof_handoff_digest(state, spend_kind).0,
+        recovery_sweep_output_digest(state, spend_kind).0,
+    )
+    .map_err(NativeAssetRecoveryError::LdkProofOwnership)
+}
+
+fn proof_ownership_expectation(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> TaprootAssetProofOwnershipExpectation {
+    TaprootAssetProofOwnershipExpectation {
+        channel_id: parse_channel_id(&state.channel_id)
+            .expect("smoke channel IDs are fixed 32-byte hex values"),
+        asset_id: state.asset_id.0,
+        latest_commitment_number: state.latest_commitment_number,
+        spend_kind: spend_kind.as_ldk_spend_kind(),
+        proof_root_hash: state.monitor_blob.proof_root_hash.0,
+        proof_root_sum: state.monitor_blob.proof_root_sum,
+        require_asset_proof: true,
+    }
+}
+
+fn settled_asset_state(
+    commitment_store: &AssetCommitmentStore,
+) -> Result<AssetCommitmentChannelState, NativeAssetRecoveryError> {
+    commitment_store
+        .channels
+        .values()
+        .next()
+        .cloned()
+        .ok_or_else(|| AssetCommitmentError::UnknownChannel("missing channel".to_owned()).into())
+}
+
+fn asset_features() -> InitFeatures {
+    let mut features = InitFeatures::empty();
+    features.set_static_remote_key_optional();
+    features.set_channel_type_optional();
+    features.set_taproot_asset_channel_optional();
+    features
+}
+
+fn parse_channel_id(channel_id: &str) -> Result<ChannelId, NativeAssetRecoveryError> {
+    let bytes = Bytes32::from_str(channel_id).map_err(NativeAssetRecoveryError::Asset)?;
+    Ok(ChannelId::from_bytes(bytes.0))
+}
+
+fn recovery_proof_handoff_digest(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-force-close-proof-handoff:v1");
+    hasher.update(spend_kind.as_str().as_bytes());
+    hasher.update((state.channel_id.len() as u64).to_be_bytes());
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.latest_commitment_number.to_be_bytes());
+    hasher.update(state.monitor_blob.proof_root_hash.0);
+    hasher.update(state.monitor_blob.proof_root_sum.to_be_bytes());
+    Bytes32(hasher.finalize().into())
+}
+
+fn recovery_sweep_output_digest(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-force-close-sweep-output:v1");
+    hasher.update(spend_kind.as_str().as_bytes());
+    hasher.update((state.channel_id.len() as u64).to_be_bytes());
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.latest_commitment_number.to_be_bytes());
+    hasher.update(state.local_balance.to_be_bytes());
+    hasher.update(state.remote_balance.to_be_bytes());
+    Bytes32(hasher.finalize().into())
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct PreparedRecoveryHtlc {
     invoice: QuoteBoundInvoice,
@@ -640,8 +918,10 @@ fn hash_optional_string(hasher: &mut Sha256, value: Option<&str>) {
 #[derive(Debug)]
 pub enum NativeAssetRecoveryError {
     Json(serde_json::Error),
+    Asset(AssetError),
     Funding(AssetChannelFundingError),
     Commitment(AssetCommitmentError),
+    LdkProofOwnership(TaprootAssetProofOwnershipError),
     Rfq(RfqInvoiceError),
     RfqStore(RfqQuoteError),
     Htlc(AssetHtlcError),
@@ -671,8 +951,15 @@ impl fmt::Display for NativeAssetRecoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Json(err) => write!(f, "native asset recovery JSON error: {err}"),
+            Self::Asset(err) => write!(f, "native asset recovery asset error: {err}"),
             Self::Funding(err) => write!(f, "native asset recovery funding error: {err}"),
             Self::Commitment(err) => write!(f, "native asset recovery commitment error: {err}"),
+            Self::LdkProofOwnership(err) => {
+                write!(
+                    f,
+                    "LDK asset proof ownership recovery rejected state: {err:?}"
+                )
+            }
             Self::Rfq(err) => write!(f, "native asset recovery RFQ error: {err}"),
             Self::RfqStore(err) => write!(f, "native asset recovery RFQ store error: {err}"),
             Self::Htlc(err) => write!(f, "native asset recovery HTLC error: {err}"),
@@ -722,6 +1009,12 @@ impl Error for NativeAssetRecoveryError {}
 impl From<serde_json::Error> for NativeAssetRecoveryError {
     fn from(err: serde_json::Error) -> Self {
         Self::Json(err)
+    }
+}
+
+impl From<AssetError> for NativeAssetRecoveryError {
+    fn from(err: AssetError) -> Self {
+        Self::Asset(err)
     }
 }
 
@@ -784,6 +1077,27 @@ mod tests {
         assert!(report.stages.iter().all(|stage| stage.recovered));
         assert!(report.stale_checkpoint_refused);
         assert!(report.normal_btc_restart_unaffected);
+        assert_eq!(
+            report.force_close_recovery.status,
+            NativeAssetProofRecoveryStatus::AssetProofRecovered
+        );
+        assert_eq!(
+            report.second_level_htlc_recovery.status,
+            NativeAssetProofRecoveryStatus::AssetProofRecovered
+        );
+        assert_eq!(
+            report.final_sweep_recovery.status,
+            NativeAssetProofRecoveryStatus::AssetProofRecovered
+        );
+        assert!(report.force_close_recovery.btc_recovered);
+        assert!(report.force_close_recovery.asset_proof_recovered);
+        assert!(report.missing_proof_ownership_refused);
+        assert!(report.stale_proof_ownership_refused);
+        assert!(report.btc_sweep_without_asset_proof_refused);
+        assert_eq!(
+            report.btc_sweep_without_asset_proof_status,
+            NativeAssetProofRecoveryStatus::BtcOnlyRefused
+        );
         assert!(
             report
                 .stages

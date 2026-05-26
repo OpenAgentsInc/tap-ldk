@@ -5,14 +5,17 @@ Date: 2026-05-25
 This runbook shows the current `tap-ldk` demo state. The demo proves bounded
 native Rust/LDK Taproot Assets wallet functionality without using an LND/`tapd`
 wallet sidecar. It does not prove production stablecoin issuance, redemption,
-reserve management, compliance, live routing, or force-close recovery.
+reserve management, compliance, live routing, or live on-chain force-close
+recovery.
 
 ## Status
 
 Path A is the runnable native-to-native demo. It issues a bounded local
 `OPENUSD` asset, moves proof material between two native wallets, exercises
 native asset-channel/payment/restart/close smokes, and exports cooperative
-close proof artifacts.
+close proof artifacts. The recovery smoke also validates bounded force-close,
+second-level HTLC, and final sweep proof-ownership records and refuses BTC-only
+sweeps as asset recovery.
 
 Path B is the native `tap-ldk` to independent Lightning Labs compatibility
 demo. It runs fixture-backed Lightning Labs blob/proof/funding/RFQ/payment

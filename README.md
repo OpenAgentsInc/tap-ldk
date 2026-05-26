@@ -21,10 +21,12 @@ What works today:
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
   aux blob surface for asset commitment state. It also has the first HTLC
-  metadata/final-hop validation hook and cooperative close allocation hook. The
-  native `tap-ldk` funding, commitment, HTLC, and close stores call those fork
-  hooks before writing funded channel state, treating asset commitment state as
-  restart-safe, settling asset HTLC metadata, or exporting final close proofs.
+  metadata/final-hop validation hook, cooperative close allocation hook, and
+  force-close/sweep proof-ownership recovery hook. The native `tap-ldk`
+  funding, commitment, HTLC, close, and recovery stores call those fork hooks
+  before writing funded channel state, treating asset commitment state as
+  restart-safe, settling asset HTLC metadata, exporting final close proofs, or
+  reporting recovered asset proof ownership.
 
 What does not work yet:
 
@@ -33,19 +35,21 @@ What does not work yet:
 - The current Lightning Labs path still stops at fixture-backed checks. It does
   not yet perform live asset-channel funding, exchange live RFQ/payment
   messages, or compare real balances from both sides.
-- Force-close recovery is not implemented. The demo says this explicitly and
-  must not be presented as working.
+- Live on-chain force-close and sweeper integration is not implemented yet. The
+  bounded recovery smoke now proves that `tap-ldk` refuses to call an asset
+  recovered when only BTC sweep state exists, but it is not a live chain spend.
 - LND/`tapd` are only test counterparties for interoperability. They are not
   sidecars inside the `tap-ldk` wallet.
 
 What is being worked on now:
 
-- Issues #48 through #52 have landed the first Rust Lightning fork gates for
+- Issues #48 through #53 have landed the first Rust Lightning fork gates for
   asset-channel negotiation, bounded funding approval, monitor aux blob
   persistence tied to asset commitment numbers, and HTLC metadata/final-hop
-  validation, plus cooperative close allocation export.
-- Issue #53 is next: add force-close, sweep, and proof-ownership recovery
-  hooks.
+  validation, plus cooperative close allocation export and force-close/sweep
+  proof-ownership recovery.
+- Issue #54 is next: bring up the first running `tap-ldk` peer for live demo
+  work.
 - Issues #54 through #60 cover the live demo path: a running `tap-ldk` peer,
   Lightning Labs counterparty integration, live `tapd` proof binding, payments
   in both directions, observed live balance checks, and full proof ancestry

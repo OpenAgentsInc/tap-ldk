@@ -41,9 +41,10 @@ the full asset channel implementation:
 - The fork now includes feature/channel-type gates, a bounded funding approval
   hook, a channel monitor aux blob surface for asset commitments, an HTLC
   metadata/final-hop validation surface, and a cooperative close allocation
-  surface.
-- The fork still needs force-close, sweep, and full live channel-manager
-  integration.
+  surface, and a proof-ownership recovery surface for force-close,
+  second-level HTLC, and final sweep paths.
+- The fork still needs full live channel-manager, resolver, and sweeper
+  call-site integration.
 
 ## Repository Layout
 
@@ -277,12 +278,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `d6862145b43225d5002445c3733e70293bb0646e`
+- current revision: `0f442683da45af47daff313fefcfaef1ac7b82d7`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "d6862145b43225d5002445c3733e70293bb0646e", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "0f442683da45af47daff313fefcfaef1ac7b82d7", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -304,10 +305,14 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::TaprootAssetHtlcMetadataExpectation`
 - `lightning::ln::taproot_asset::TaprootAssetCloseAllocation`
 - `lightning::ln::taproot_asset::TaprootAssetCloseAllocationExpectation`
+- `lightning::ln::taproot_asset::TaprootAssetProofOwnershipState`
+- `lightning::ln::taproot_asset::TaprootAssetProofOwnershipExpectation`
 - `lightning::ln::taproot_asset::prepare_asset_htlc_metadata`
 - `lightning::ln::taproot_asset::validate_asset_htlc_final_hop`
 - `lightning::ln::taproot_asset::prepare_cooperative_close_asset_allocation`
 - `lightning::ln::taproot_asset::validate_cooperative_close_asset_allocation`
+- `lightning::ln::taproot_asset::prepare_asset_proof_ownership_recovery`
+- `lightning::ln::taproot_asset::validate_asset_proof_ownership_recovery`
 - `ChannelMonitorUpdate::taproot_asset_aux_update`
 - `ChannelMonitorUpdate::require_taproot_asset_aux_blob`
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
@@ -317,7 +322,8 @@ Those gates cover feature negotiation, explicit channel type handling, and the
 bounded funding-controller approval surface. They also provide the first
 versioned channel monitor aux blob hook for asset commitment state and the
 first HTLC metadata/final-hop validation and cooperative close allocation
-hooks. Force-close and recovery hooks still have to be added to the fork.
+hooks, plus the first proof-ownership recovery hook for force-close,
+second-level HTLC, and final sweep paths.
 
 ## What Must Be Added To rust-lightning
 
@@ -354,7 +360,9 @@ a real live demo:
   allocation. Initial fork support landed in
   `d6862145b43225d5002445c3733e70293bb0646e`.
 - On-chain resolver/sweeper: force-close and sweep handling must preserve proof
-  ownership.
+  ownership. Initial fork support landed in
+  `0f442683da45af47daff313fefcfaef1ac7b82d7`; later issues still need live
+  channel-manager, resolver, and sweeper call sites.
 The following surfaces stay in `tap-ldk`:
 
 - proof parsing and proof storage;
@@ -615,15 +623,18 @@ The Path A script extracts:
 - `native-close-remote-proof.hex`;
 - `close-recovery-status.json`.
 
-Force-close is not implemented. It is explicitly reported as deferred:
+The bounded recovery smoke now validates proof-ownership records for
+commitment force-close, second-level HTLC, and final sweep paths through the
+OpenAgentsInc rust-lightning fork. A failed or BTC-only sweep cannot be
+reported as asset recovery:
 
 ```json
-"force_close_supported": false
+"btc_sweep_without_asset_proof_refused": true
 ```
 
-That is intentional. A failed sweep cannot be reported as recovered, and the
-demo must not claim force-close recovery until proof ownership and sweep state
-are real.
+This is still not a live on-chain force-close. The remaining work is to wire
+the bounded records through real channel-manager, resolver, and sweeper call
+sites.
 
 ## Lightning Labs Compatibility
 
@@ -940,8 +951,8 @@ rules are:
 - Asset HTLCs require valid quote-bound metadata.
 - Restart must not create, destroy, or hide asset balance.
 - Cooperative close must export the latest valid owner proofs.
-- Force-close must not be claimed until proof ownership survives the on-chain
-  path.
+- Force-close asset recovery must not be claimed unless proof ownership
+  survives the relevant commitment, second-level HTLC, or final sweep path.
 - Lightning Labs mismatches are compatibility failures, not partial success.
 
 ## What Works End To End
@@ -969,7 +980,7 @@ It does not prove:
 - compliance;
 - live Lightning routing;
 - full Taproot Assets VM validation;
-- force-close recovery.
+- live on-chain force-close recovery.
 
 ## What Does Not Work Yet
 
@@ -989,7 +1000,7 @@ Missing pieces:
 9. Real payment from Lightning Labs to `tap-ldk`.
 10. Observed balance checks from both live sides.
 11. Full semantic proof ancestry validation.
-12. Force-close and sweep recovery.
+12. Live force-close and sweep recovery.
 
 Until those are done, Track B must keep saying:
 
