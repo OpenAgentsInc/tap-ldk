@@ -893,12 +893,13 @@ Lightning Labs topology:
 
 It now detects Docker or Podman:
 
-- default: prefer Docker, then Podman;
+- default: prefer Docker, including the Docker Desktop app bundle CLI, then
+  Podman;
 - override: `TAP_LDK_CONTAINER_RUNTIME=docker`;
 - override: `TAP_LDK_CONTAINER_RUNTIME=podman`.
 
-Current limitation: the script starts containers, but it does not yet perform
-the full daemon bootstrap needed for a live payment demo:
+The script performs the counterparty bootstrap needed before live Path B work
+can attach to the Lightning Labs side:
 
 - wait for bitcoind RPC;
 - create or unlock the LND wallet;
@@ -907,14 +908,21 @@ the full daemon bootstrap needed for a live payment demo:
 - wait for LND certificates and macaroon files;
 - start `tapd` after LND is usable;
 - wait for `tapd` RPC/REST;
+
+The readiness report includes container names, image tags, LND and tapd node
+pubkeys, chain heights, LND wallet balance, and credential file paths. It does
+not print the Bitcoin RPC password or the LND wallet password.
+
+Remaining live Path B work sits above that bootstrap:
+
 - mint/import a live asset;
 - export a live proof;
 - open or attach an asset channel;
 - run the live payment.
 
-On the current machine Docker is not installed. Podman exists, but its machine
-was not reachable when last checked. The harness records that plainly as a
-dependency gap.
+On this shell the Docker Desktop CLI bundle is visible, but the Docker socket
+is not reachable. The harness records that as a host prerequisite when the
+smoke is run.
 
 ## Formal Models
 
@@ -1031,18 +1039,17 @@ The live Lightning Labs demo is incomplete.
 Missing pieces:
 
 1. A healthy live regtest runtime for Bitcoin Core, LND, and `tapd`.
-2. Full daemon bootstrap in `scripts/lightning-labs-counterparty.sh`.
-3. Live asset mint/import/export through `tapd`.
-4. Live proof binding from `tapd` into `tap-ldk`.
-5. Real asset-channel funding between `tap-ldk` and the Lightning Labs
+2. Live asset mint/import/export through `tapd`.
+3. Live proof binding from `tapd` into `tap-ldk`.
+4. Real asset-channel funding between `tap-ldk` and the Lightning Labs
    counterparty.
-6. Real Lightning wire custom-message exchange through LDK/rust-lightning.
-7. Real RFQ exchange with Lightning Labs peer/session semantics.
-8. Real payment from `tap-ldk` to Lightning Labs.
-9. Real payment from Lightning Labs to `tap-ldk`.
-10. Observed balance checks from both live sides.
-11. Full semantic proof ancestry validation.
-12. Live force-close and sweep recovery.
+5. Real Lightning wire custom-message exchange through LDK/rust-lightning.
+6. Real RFQ exchange with Lightning Labs peer/session semantics.
+7. Real payment from `tap-ldk` to Lightning Labs.
+8. Real payment from Lightning Labs to `tap-ldk`.
+9. Observed balance checks from both live sides.
+10. Full semantic proof ancestry validation.
+11. Live force-close and sweep recovery.
 
 Until those are done, Track B must keep saying:
 
@@ -1058,13 +1065,11 @@ The shortest path is:
    - Install/start Docker Desktop, or fix/start Podman machine.
    - Confirm `docker info` or `podman info` works.
 
-2. Harden `scripts/lightning-labs-counterparty.sh`.
-   - Add readiness loops.
-   - Create/unlock LND wallet.
-   - Mine blocks.
-   - Fund LND.
-   - Wait for `tapd` credentials and RPC.
-   - Record usable connection material.
+2. Use `scripts/lightning-labs-counterparty.sh`.
+   - The script now has readiness loops, LND wallet init/unlock, mining,
+     funding, tapd startup ordering, and secret-safe connection material.
+   - The remaining prerequisite is a reachable Docker or Podman runtime on the
+     host running the live demo.
 
 3. Add live `tapd` asset setup.
    - Mint or import `OPENUSD`.

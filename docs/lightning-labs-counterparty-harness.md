@@ -16,6 +16,7 @@ Commands:
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ./scripts/lightning-labs-counterparty.sh start
 ./scripts/lightning-labs-counterparty.sh status
+./scripts/lightning-labs-counterparty.sh ready
 ./scripts/lightning-labs-counterparty.sh connection
 ./scripts/lightning-labs-counterparty.sh stop
 ```
@@ -26,11 +27,29 @@ Smoke:
 ./scripts/lightning-labs-counterparty.sh smoke
 ```
 
-The script prefers Docker and falls back to Podman. Set
-`TAP_LDK_CONTAINER_RUNTIME=docker` or `TAP_LDK_CONTAINER_RUNTIME=podman` to
-force one. It skips with a clear message when no runtime is installed or the
-selected runtime daemon/machine is unavailable. Generated state and credentials
-live under `.tap-ldk/regtest/lightning-labs` by default and are ignored by Git.
+The script prefers Docker, including the Docker Desktop app bundle CLI, and
+falls back to Podman. Set `TAP_LDK_CONTAINER_RUNTIME=docker`,
+`TAP_LDK_CONTAINER_RUNTIME=podman`, or a runtime binary path to force one.
+Generated state and credentials live under `.tap-ldk/regtest/lightning-labs`
+by default and are ignored by Git.
+
+`start` now performs the ordered bootstrap needed before Path B can talk to a
+live Lightning Labs counterparty:
+
+- start Bitcoin Core and wait for RPC;
+- create or load the regtest mining wallet;
+- mine enough blocks for spendable regtest funds;
+- start LND and wait for TLS material;
+- initialize or unlock the LND wallet through the wallet-unlocker REST API;
+- wait for LND admin macaroon and chain sync;
+- fund the LND wallet and mine confirmations;
+- start `tapd` only after LND credentials exist;
+- wait for `tapd` TLS, macaroon, and `getinfo`.
+
+`ready` and `start` print JSON with container names, images, node pubkeys,
+chain heights, sync flags, wallet balance, and cert/macaroon paths. The report
+does not print RPC or wallet password values. If the selected runtime is not
+reachable, the command exits with a direct prerequisite message.
 
 This harness is an interop counterparty only. It must not be wired into
 `tap-ldk` as a wallet sidecar.

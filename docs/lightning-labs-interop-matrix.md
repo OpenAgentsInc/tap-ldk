@@ -33,7 +33,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | --- | --- | --- | --- |
 | Regtest versions | `docs/polar-regtest-topology.md`; `../projects/repos/polar/docker/nodes.json` | Use Bitcoin Core `30.0`, LND `0.19.0-beta`, `tapd` `0.7.0-alpha` for first LND/`tapd` interop. | Selected |
 | Manual topology | `docs/polar-regtest-topology.md` | Polar may operate Bitcoin/LND/`tapd` for manual Track B, while `tap-ldk` runs outside Polar. | Selected |
-| Automated harness | `docs/path-b-lightning-labs-demo.md`; `scripts/path-b-lightning-labs-demo.sh`; `scripts/full-demo-smoke.sh` | Path B writes counterparty config/status, dependency gaps, fixture reports, payment artifacts, and consolidated interop checks to a predictable ignored artifact directory. | Partially implemented |
+| Automated harness | `docs/path-b-lightning-labs-demo.md`; `scripts/lightning-labs-counterparty.sh`; `scripts/path-b-lightning-labs-demo.sh`; `scripts/full-demo-smoke.sh` | Path B writes counterparty config/status, dependency gaps, fixture reports, payment artifacts, and consolidated interop checks to a predictable ignored artifact directory. The counterparty script now performs ordered Bitcoin Core/LND/tapd bootstrap and prints secret-safe readiness JSON when a runtime is reachable. | Partially implemented |
 | Live `tap-ldk` peer | `crates/tap-ldk-core/src/live_peer.rs`; `docs/live-tap-ldk-peer.md` | First localhost peer smoke starts a `tap-ldk` listener, connects a second peer, negotiates asset-channel support through the OpenAgentsInc rust-lightning fork, and round-trips an encoded native RFQ custom message. Lightning Labs daemon-backed P2P remains open. | Partially implemented |
 | Funding extension point | `../projects/lightninglabs/repos/taproot-assets/docs/asset-channel-funding.md`; `tapchannel/aux_funding_controller.go` | Map LND `AuxFundingController` behavior to explicit LDK/fork extension surfaces. | Required |
 | Channel feature/channel type | `docs/blip-tap-implementation-note.md`; `tapchannelmsg/records.go`; `tapchannelmsg/wire_msgs_test.go` | Add experimental asset-channel negotiation; normal BTC channels remain BTC-only. | Required |
@@ -86,10 +86,9 @@ reported as settled interop.
   signatures against the peer/session once payment execution begins.
 - Extend proof import/export from byte-compatible `TAPF` preservation to full
   semantic proof ancestry validation.
-- Extend the headless harness to start Bitcoin Core plus LND/`tapd` using the
-  selected versions.
-- Use `scripts/lightning-labs-counterparty.sh` for the first external
-  counterparty smoke path once Docker is available.
+- Use the hardened `scripts/lightning-labs-counterparty.sh` readiness report as
+  the first external counterparty smoke path once a Docker or Podman runtime is
+  reachable.
 - Replace expected-only payment deltas with observed balance comparison checks
   after each live interop payment.
 - Document any mismatch as a failing compatibility gap, not a partial success.

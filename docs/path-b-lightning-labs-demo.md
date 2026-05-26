@@ -13,12 +13,14 @@ consolidated interop check report into an ignored artifact directory.
 Artifacts are written under `target/path-b-lightning-labs-demo/<timestamp>` by
 default. Override with `TAP_LDK_PATH_B_ARTIFACT_DIR=/path/to/artifacts`.
 
-If Docker or Podman is available, the script attempts the independent
-Bitcoin Core/LND/`tapd` counterparty smoke with the selected Lightning Labs
-target. If no runtime is available, or if the selected daemon/machine is down,
-the script records an explicit dependency gap and still runs every
-fixture-backed Track B check. LND and `tapd` remain compatibility peers, not
-sidecars inside the `tap-ldk` wallet.
+If Docker or Podman is available, the script attempts the independent Bitcoin
+Core/LND/`tapd` counterparty smoke with the selected Lightning Labs target.
+That smoke now includes daemon readiness, LND wallet init/unlock, regtest
+mining, LND funding, LND sync, tapd startup ordering, and tapd readiness. If no
+runtime is available, or if the selected daemon/machine is down, the script
+records the runtime prerequisite and still runs every fixture-backed Track B
+check. LND and `tapd` remain compatibility peers, not sidecars inside the
+`tap-ldk` wallet.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement

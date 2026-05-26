@@ -130,15 +130,14 @@ Fixture-backed checks:
 ```
 
 If no container runtime is available, or if the selected runtime is not
-running, expected output also includes a dependency gap:
+running, expected output also includes a dependency gap. The harness now checks
+the Docker Desktop app bundle CLI before falling back to Podman:
 
 ```text
 Neither Docker nor Podman is installed. Path B fixture-backed checks ran, but
 the independent Lightning Labs LND/tapd counterparty was not started.
 
-<runtime> is installed, but its daemon/machine is not available. Path B
-fixture-backed checks ran, but the independent Lightning Labs LND/tapd
-counterparty was not started.
+<runtime> is installed at <path>, but its daemon or machine is not reachable.
 ```
 
 Key artifacts:
@@ -147,6 +146,7 @@ Key artifacts:
 - `versions.txt`
 - `lightning-labs-counterparty-config.json`
 - `lightning-labs-counterparty-gap.txt`
+- `live-tap-ldk-peer.json`
 - `lightning-labs-blob-fixtures.json`
 - `lightning-labs-proof-fixtures.json`
 - `lightning-labs-funding-interop-report.json`

@@ -17,6 +17,7 @@ PROOF_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/proof/testdata"
 ASSET_ID="7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93"
 SUMMARY="$ARTIFACT_DIR/summary.txt"
 DEPENDENCY_GAP="$ARTIFACT_DIR/lightning-labs-counterparty-gap.txt"
+DOCKER_APP_BIN="/Applications/Docker.app/Contents/Resources/bin/docker"
 
 mkdir -p "$LOG_DIR"
 
@@ -50,6 +51,14 @@ run_optional_log() {
 detect_container_runtime() {
   if [ -n "${TAP_LDK_CONTAINER_RUNTIME:-}" ]; then
     if command -v "$TAP_LDK_CONTAINER_RUNTIME" >/dev/null 2>&1; then
+      command -v "$TAP_LDK_CONTAINER_RUNTIME"
+      return 0
+    fi
+    if [ "$TAP_LDK_CONTAINER_RUNTIME" = "docker" ] && [ -x "$DOCKER_APP_BIN" ]; then
+      printf '%s\n' "$DOCKER_APP_BIN"
+      return 0
+    fi
+    if [ -x "$TAP_LDK_CONTAINER_RUNTIME" ]; then
       printf '%s\n' "$TAP_LDK_CONTAINER_RUNTIME"
       return 0
     fi
@@ -57,12 +66,17 @@ detect_container_runtime() {
   fi
 
   if command -v docker >/dev/null 2>&1; then
-    printf '%s\n' docker
+    command -v docker
+    return 0
+  fi
+
+  if [ -x "$DOCKER_APP_BIN" ]; then
+    printf '%s\n' "$DOCKER_APP_BIN"
     return 0
   fi
 
   if command -v podman >/dev/null 2>&1; then
-    printf '%s\n' podman
+    command -v podman
     return 0
   fi
 
