@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`
+- current revision: `1602ac9e1e7454d39612e126c24a098e276d605a`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "1602ac9e1e7454d39612e126c24a098e276d605a", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -384,14 +384,23 @@ The current fork integration exposes the first real asset-channel gate:
 
 Those gates cover BOLT simple taproot staging feature negotiation, explicit
 simple-taproot channel type handling, native simple-taproot lifecycle wire TLV
-codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, and
-fail-closed malformed/duplicate/unsupported TLV and nonce-reuse tests.
+codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, BIP86
+P2TR funding script handling, and fail-closed malformed/duplicate/unsupported
+TLV, wrong funding script, and nonce-reuse tests.
 They also cover experimental Taproot Asset channel type handling layered on
 that base and the bounded funding-controller approval surface. They provide
 the first versioned channel monitor aux blob hook for asset commitment state,
 the first HTLC metadata/final-hop validation and cooperative close allocation
 hooks, plus the first proof-ownership recovery hook for force-close,
 second-level HTLC, and final sweep paths.
+
+Rust Lightning uses `bitcoin::secp256k1`, the rust-bitcoin wrapper around
+libsecp256k1. The fork does not call raw libsecp APIs directly. The #63 TLV
+work only defined and validated the wire payloads for simple-taproot MuSig2
+nonces and partial signatures; it did not sign, aggregate, or verify them.
+Issue #64 added the feature-gated Rust `musig2` crate integration and signer
+state helpers. The remaining #67 work is to route those helpers through the
+live LDK channel state machine, monitor persistence, and reestablish flow.
 
 ## What Must Be Added To rust-lightning
 
@@ -418,6 +427,13 @@ a real live demo:
   survive serialization while rejecting reuse. Initial feature-gated support
   landed in `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; issue #67 still
   needs to wire this state through live channel updates and reestablish.
+- BOLT simple taproot P2TR funding: simple-taproot channels must derive BIP86
+  P2TR funding scripts from the sorted aggregate funding key, expose that
+  script in `FundingGenerationReady`, reject funding transactions with the
+  wrong script, and register the same script with channel monitors. Initial
+  support landed in `1602ac9e1e7454d39612e126c24a098e276d605a`; live channel
+  activation still depends on commitment output/control-block work in #66 and
+  channel signing/reestablish wiring in #67.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
@@ -1130,7 +1146,9 @@ The shortest path is:
 
 5. Patch the OpenAgentsInc rust-lightning fork.
    - Add feature/channel type gates.
-   - Add funding controller hooks.
+   - Add BOLT simple-taproot commitment outputs and control blocks.
+   - Wire MuSig2 channel signing and reestablish state through live channel
+     updates.
    - Add asset commitment monitor persistence hooks.
    - Add HTLC metadata hooks.
    - Add final-hop validation hooks.

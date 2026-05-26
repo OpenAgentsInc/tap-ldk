@@ -94,6 +94,9 @@ These are the contracts we definitely want around the rust-lightning work.
   keys, domain-separated counter/JIT nonce derivation, persisted nonce-use
   state, and duplicate-use rejection. Asset-level signing must not reuse that
   BTC-level nonce material.
+- BTC-level simple-taproot funding outputs must use the same BIP86 P2TR script
+  derived from the sorted aggregate funding key in event emission, funding
+  transaction validation, and monitor/watch registration.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,

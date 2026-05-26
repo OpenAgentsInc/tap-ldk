@@ -29,15 +29,11 @@ Last updated: 2026-05-26
   balance observer, an integrated `litd` counterparty harness, and a native
   LDK peer preflight that connects to `litd` over the Lightning P2P address.
 - The OpenAgentsInc `rust-lightning` fork now has BOLT simple taproot
-  final/staging feature-bit definitions, explicit staging channel-type
-  negotiation, and native simple-taproot lifecycle wire TLV codecs with
-  malformed/duplicate/unsupported TLV rejection tests, plus feature-gated
-  MuSig2 key aggregation, nonce generation, partial signing/verification,
-  final Schnorr aggregation, and persisted nonce-use rejection. `tap-ldk` is
-  pinned to that fork revision. The asset-channel feature gate now requires
-  the simple taproot staging base instead of pretending an asset channel can
-  sit on a legacy channel type.
-- Issue #57 is the active next implementation target. It now has the native
+  final/staging feature bits, staging channel-type negotiation, lifecycle wire
+  TLV codecs, feature-gated MuSig2 primitives, nonce-use rejection, and BIP86
+  P2TR funding scripts. `tap-ldk` is pinned to that fork revision. Real live
+  channel signing/reestablish still needs issue #67.
+- Issue #57 remains the live Path B target. It now has the native
   payment-session artifact and current balance observer needed before
   counterparty replacement, plus the integrated litd aux-controller topology
   that real asset channels need, plus a real native LDK peer connection to
@@ -285,7 +281,7 @@ needed for full Taproot Asset support in LDK.
 | #62 | Simple-taproot feature bits and channel type | Implemented in `OpenAgentsInc/rust-lightning` at `90054d8fc512eb9506955f27806b496e33d2b346`. |
 | #63 | Simple-taproot wire TLVs and message validation | Implemented in `OpenAgentsInc/rust-lightning` at `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. |
 | #64 | MuSig2 signer and nonce state | Implemented in `OpenAgentsInc/rust-lightning` at `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; key aggregation, counter/JIT nonce generation, partial-signature verification, final Schnorr aggregation, persisted nonce-use rejection, and signer-facing `InMemorySigner` helpers are covered. Channel/reestablish call-site wiring continues in #67. |
-| #65 | Simple-taproot P2TR funding flow | BTC-only simple-taproot funding outputs are constructed, signed, confirmed, and monitored. |
+| #65 | Simple-taproot P2TR funding flow | Implemented in `OpenAgentsInc/rust-lightning` at `1602ac9e1e7454d39612e126c24a098e276d605a`; BIP86 P2TR funding script generation, BOLT funding vector coverage, `FundingGenerationReady` P2TR output scripts, wrong-script rejection, and P2TR monitor registration are covered. Full live channel activation still depends on #66 and #67. |
 | #66 | Simple-taproot commitment outputs and control blocks | Commitment outputs and spend reconstruction data match the BOLT draft. |
 | #67 | Simple-taproot commitment update and reestablish state | Commitment signing, revocation, restart, and reestablish preserve simple-taproot signing state. |
 | #68 | Simple-taproot RBF cooperative close | Shutdown, close nonce rotation, RBF close signing, and invalid-close rejection are covered. |
@@ -808,7 +804,7 @@ The stronger demo adds:
 
 ## Immediate Next Steps
 
-1. Implement the simple-taproot P2TR funding flow in issue #65.
+1. Implement simple-taproot commitment outputs and control blocks in issue #66.
 2. Replay or derive BOLT simple-taproot vectors in issue #70 before claiming
    asset-channel completion.
 3. Replace the bounded hash+sum and commitment placeholders through issues

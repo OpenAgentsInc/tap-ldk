@@ -124,6 +124,9 @@ state:
   final Schnorr aggregation, serializable nonce-use state, and `InMemorySigner`
   helper methods, first landed in the OpenAgentsInc fork at
   `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`;
+- BOLT simple taproot BIP86 P2TR funding scripts, funding-output validation,
+  and monitor registration, first landed in the OpenAgentsInc fork at
+  `1602ac9e1e7454d39612e126c24a098e276d605a`;
 - funding controller hook that can block funding before channel state advances,
   first landed in the OpenAgentsInc fork at
   `84032b87d05a157ee9ef247102767bc100d84ed6`;

@@ -14,21 +14,17 @@ What works today:
 - Lightning Labs fixture checks read the imported funding, HTLC, commitment,
   proof, RFQ, invoice, and payment artifacts. Demo scripts write reviewable
   outputs under `target/`.
-- Live peer plumbing exists: a localhost `tap-ldk` peer smoke, an ordered
-  localhost asset-payment session, and a native LDK preflight connection to
-  integrated `litd` when the container topology is running.
-- The Lightning Labs harnesses can bootstrap Bitcoin Core, LND, `tapd`, and
-  `litd` when Docker or Podman is reachable. The live `tapd` proof-binding
-  path can mint `OPENUSD`, export TAPF proof material, and bind it into native
-  wallet state.
+- Live peer plumbing exists: localhost native peer smokes, ordered
+  asset-payment message sessions, `tapd` proof binding, and a native LDK
+  preflight connection to integrated `litd` when the test topology is running.
 - Path B writes outgoing-payment gate artifacts and current `tapd` balance
   observations, but still refuses completion until the Lightning Labs receiver
   balance is observed after settlement.
 - The OpenAgentsInc `rust-lightning` fork is pinned at
-  `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`. It includes asset-channel
+  `1602ac9e1e7454d39612e126c24a098e276d605a`. It includes asset-channel
   feature gates and hooks, BOLT simple-taproot staging negotiation, lifecycle
-  wire TLV codecs, and feature-gated MuSig2 signer/nonce-state helpers with
-  fail-closed validation tests.
+  wire TLV codecs, feature-gated MuSig2 primitives, and BIP86 P2TR funding
+  script handling with fail-closed validation tests.
 
 What does not work yet:
 
@@ -39,7 +35,8 @@ What does not work yet:
   needs the Taproot Assets/Lit aux-controller overlay path or an equivalent
   integration.
 - BTC-only BOLT simple-taproot channels do not yet open, pay, reestablish,
-  close, or force-close end to end. P2TR funding, commitments, close, HTLCs,
+  close, or force-close end to end. P2TR funding scripts are implemented, but
+  commitment outputs, live MuSig2 channel signing, close, HTLCs,
   channel/reestablish wiring, and vector replay remain open.
 - Full semantic Taproot Assets proof ancestry validation and live on-chain
   force-close/sweeper integration are not implemented yet.
@@ -50,12 +47,10 @@ What is being worked on now:
 
 - Issues #57 through #60 remain open for live Path B payments, observed
   Lightning Labs balances, and full proof ancestry validation.
-- Issues #62 through #64 are implemented and pinned. Issue #65 is next: P2TR
-  funding flow for BTC-only simple-taproot channels.
-- Issues #65 through #70 complete the BTC-only BOLT simple-taproot base.
-  Issues #71 through #76 then layer real Taproot Assets support on top:
-  MS-SMT, asset commitments, virtual transactions, TAP VM validation, LDK
-  channel integration, and Lightning Labs `tapd`/`litd` vectors.
+- Issues #62 through #65 are implemented and pinned. Issue #66 is next:
+  simple-taproot commitment outputs and control blocks.
+- Issues #66 through #70 complete the BTC-only BOLT simple-taproot base.
+  Issues #71 through #76 then layer real Taproot Assets support on top.
 - Issue #19 remains the parent Path B epic and should stay open until those
   implementation issues are actually done.
 

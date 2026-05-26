@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`
+- Current `tap-ldk` revision: `1602ac9e1e7454d39612e126c24a098e276d605a`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941"
+rev = "1602ac9e1e7454d39612e126c24a098e276d605a"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -87,6 +87,10 @@ channel-ready, commitment, revoke/reestablish, shutdown, and RBF cooperative
 close messages; and adds roundtrip plus malformed, duplicate, missing, and
 unsupported TLV tests.
 
+That TLV revision only defines and validates wire payload shapes. It does not
+perform MuSig2 signing, nonce aggregation, partial-signature verification, or
+final signature aggregation.
+
 Revision `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941` adds the first
 feature-gated simple-taproot MuSig2 signer state. It wires the `musig2` Rust
 crate behind `simple_taproot_musig2`, adds BIP-327 key sorting and aggregation,
@@ -94,6 +98,15 @@ counter/JIT nonce derivation, public nonce validation, partial-signature
 generation and verification, final Schnorr aggregation, serializable nonce-use
 state, nonce-reuse rejection tests, and `InMemorySigner` helper methods through
 `SimpleTaprootChannelSigner`.
+
+Revision `1602ac9e1e7454d39612e126c24a098e276d605a` adds BIP86 P2TR funding
+script handling for BTC-only simple-taproot channels. It derives the funding
+script from the sorted aggregate funding key, matches the BOLT funding vector,
+emits P2TR scripts in `FundingGenerationReady`, rejects funding transactions
+with the wrong script, and registers the P2TR funding script with channel
+monitors. This is funding-output plumbing, not full live simple-taproot channel
+completion; commitment output/control-block work and live MuSig2
+channel-signing/reestablish wiring remain separate issues.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the
