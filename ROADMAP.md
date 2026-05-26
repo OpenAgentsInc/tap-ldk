@@ -60,6 +60,9 @@ Last updated: 2026-05-26
 - `stablecoins-may25-transcript.md`
 - `blip-tap-pr-29.md`
 - `tap-ldk-proof-of-concept-analysis.md`
+- `docs/bolt-simple-taproot-ldk-analysis.md`
+- BOLT simple taproot channels draft:
+  https://github.com/lightning/bolts/blob/master/bolt-simple-taproot.md
 
 ## Non-Goals
 
@@ -76,6 +79,17 @@ Last updated: 2026-05-26
 
 ## What Must Be Real
 
+- BOLT simple taproot channel support in the OpenAgentsInc
+  `rust-lightning` fork before the project claims full Taproot Asset channel
+  support.
+- Simple taproot feature/channel-type negotiation, wire TLVs, MuSig2
+  nonce/signature state, P2TR funding, taproot commitment outputs, HTLC
+  scripts, RBF cooperative close, reestablish, monitor persistence, and
+  on-chain recovery.
+- Full Taproot Assets protocol primitives above the simple taproot base:
+  MS-SMT, split commitments, `AssetCommitment`, `TapCommitment`, virtual
+  transactions, TAP VM validation, proof ancestry, anchor binding, and
+  `tapd`-compatible proof import/export.
 - Native Rust parsing and validation for the Taproot Assets structures used by
   the demo.
 - Native LDK or rust-lightning channel integration for asset-channel state.
@@ -107,6 +121,15 @@ asset balances are an overlay on normal initiator/responder balances, and the
 Taproot Assets commitment appears as an additional tapscript sibling in the
 relevant outputs. The demo should follow that shape rather than invent a
 parallel payment protocol.
+
+That makes BOLT simple taproot a protocol dependency, not a background note.
+The `rust-lightning` fork needs a BTC-only simple taproot channel foundation
+first: feature and channel-type negotiation, simple-taproot TLVs, MuSig2
+signer/nonce state, P2TR funding, taproot commitments, HTLC scripts,
+second-level transactions, RBF cooperative close, reestablish, and vector
+coverage. Taproot Asset channels then add the asset commitment sibling and
+asset-state rules to that base. An asset channel negotiated without the simple
+taproot base must fail closed.
 
 First public demo scope:
 
@@ -236,6 +259,36 @@ to carry both demos to completion.
 | 34 | Automate the full demo harness | CI or a local smoke command can run Track A fully and run Track B as far as external container dependencies allow | Both |
 | 35 | Write the public demo runbook | The README or demo doc explains exact commands, mocked pieces, expected output, and compatibility limitations | Both |
 
+## Open And Future Issue Backlog
+
+The historical implementation sequence above is preserved as the completed
+demo-building track. The open/future backlog below reflects the work still
+needed for full Taproot Asset support in LDK.
+
+| Issue | Work | Exit condition |
+| --- | --- | --- |
+| #19 | Path B Lightning Labs interop epic | Live Lightning Labs interop path is complete. |
+| #57 | Live `tap-ldk` pays Lightning Labs asset payment | `tap-ldk` pays an independent `litd`/`tapd` receiver and records observed receiver balance after settlement. |
+| #58 | Live Lightning Labs pays `tap-ldk` asset payment | Independent Lightning Labs node pays `tap-ldk` and both sides agree on payment and balance state. |
+| #59 | Replace Path B documented gaps with observed live balance checks | Live daemon balance observations replace documented placeholders. |
+| #60 | Full semantic Taproot Assets proof ancestry validation | Proof ancestry, anchors, owner transitions, funding, HTLC, close, and recovery proofs validate semantically. |
+| #61 | BOLT simple taproot channels in `rust-lightning` epic | BTC-only simple-taproot LDK channels open, pay, reestablish, close, force-close, and leave legacy channels unaffected. |
+| #62 | Simple-taproot feature bits and channel type | Peers negotiate simple-taproot channels explicitly and fail closed when unsupported. |
+| #63 | Simple-taproot wire TLVs and message validation | Simple-taproot TLVs round-trip and malformed messages fail closed across the channel lifecycle. |
+| #64 | MuSig2 signer and nonce state | Simple-taproot nonce, partial-signature, final-signature, restart, and no-reuse behavior is implemented. |
+| #65 | Simple-taproot P2TR funding flow | BTC-only simple-taproot funding outputs are constructed, signed, confirmed, and monitored. |
+| #66 | Simple-taproot commitment outputs and control blocks | Commitment outputs and spend reconstruction data match the BOLT draft. |
+| #67 | Simple-taproot commitment update and reestablish state | Commitment signing, revocation, restart, and reestablish preserve simple-taproot signing state. |
+| #68 | Simple-taproot RBF cooperative close | Shutdown, close nonce rotation, RBF close signing, and invalid-close rejection are covered. |
+| #69 | Simple-taproot HTLC scripts and second-level transactions | Offered/accepted HTLC outputs and second-level success/timeout paths are implemented. |
+| #70 | BOLT simple-taproot vector replay | Wire, signing, transaction, close, and HTLC vectors pass in the fork. |
+| #71 | Full Taproot Assets protocol support for LDK epic | Real Taproot Assets primitives and channel state are layered onto simple-taproot LDK channels. |
+| #72 | MS-SMT hash-sum tree | Inclusion, exclusion, split-commitment, conservation, and overflow fixtures pass. |
+| #73 | `AssetCommitment` and `TapCommitment` layers | Asset and tap commitments replace bounded root placeholders. |
+| #74 | Virtual transaction and TAP VM validation | Asset transitions are validated semantically rather than by checksum/root placeholders. |
+| #75 | Full Taproot Asset channel state in simple-taproot LDK channels | Funding, commitments, HTLCs, close, monitor, and recovery state are integrated into the LDK state machine. |
+| #76 | Lightning Labs `tapd`/`litd` vectors for simple-taproot asset channels | Fixture and live interop checks prove codec, balance, and proof compatibility. |
+
 ## Milestone 0: Repo And Harness Setup
 
 Deliverables:
@@ -261,6 +314,15 @@ Exit criteria:
 
 Deliverables:
 
+- Import or derive BOLT simple taproot vectors for:
+  - feature/channel-type negotiation;
+  - simple-taproot wire TLVs;
+  - MuSig2 key aggregation, nonce exchange, partial signatures, and final
+    signatures;
+  - P2TR funding outputs;
+  - commitment transaction outputs and control blocks;
+  - cooperative close nonce rotation;
+  - offered/accepted HTLC scripts and second-level transactions.
 - Import TAP BIP JSON vectors from `Roasbeef/bips@bip-tap`.
 - Create fixture tests for:
   - asset TLV encoding;
@@ -301,9 +363,11 @@ Deliverables:
   - previous witnesses;
   - split commitments.
 - TLV serialization and strict decoding.
-- MS-SMT commitment implementation.
+- Real MS-SMT commitment implementation, including inclusion, exclusion, and
+  split-commitment behavior.
+- `AssetCommitment` and `TapCommitment` construction and verification.
 - TAP VM validation for the demo asset transitions.
-- Proof file parser and verifier.
+- Proof file parser and semantic proof ancestry verifier.
 - Address encode/decode.
 - Virtual PSBT structures for asset sends and channel funding.
 - Local asset database for proofs, balances, and spendable asset UTXOs.
@@ -314,6 +378,37 @@ Exit criteria:
 - The CLI can issue a demo asset on regtest and verify its proof.
 - The CLI can create and decode a Taproot Asset address.
 - The CLI can construct and verify a local asset transfer without Lightning.
+
+## Milestone 2A: BOLT Simple Taproot LDK Foundation
+
+This milestone is a prerequisite for the full Taproot Asset channel claim. It
+is allowed to complete with BTC-only channels before any Taproot Asset overlay
+is enabled.
+
+Deliverables:
+
+- `option_simple_taproot` feature and explicit simple-taproot channel-type
+  handling in the OpenAgentsInc `rust-lightning` fork.
+- Message TLV codecs and validation for open, accept, funding, channel-ready,
+  commitment signing, revocation, reestablish, shutdown, and close messages.
+- MuSig2 signer integration, nonce generation, nonce rotation, partial
+  signature verification, final signature aggregation, and persistence.
+- P2TR funding output construction and validation.
+- Taproot commitment outputs for local, remote, anchor, offered HTLC, accepted
+  HTLC, HTLC-success, and HTLC-timeout paths.
+- Control-block or reconstruction-data persistence in channel monitors.
+- RBF cooperative close flow with close nonce rotation.
+- BOLT simple taproot vector replay or equivalent fixture tests.
+- Test isolation proving existing legacy channel behavior is unaffected.
+
+Exit criteria:
+
+- Two LDK nodes can open a BTC-only simple-taproot channel on regtest.
+- The channel can send a normal BTC payment.
+- Restart and `channel_reestablish` preserve nonce/signature state.
+- Cooperative close and force-close paths are covered.
+- Normal non-taproot channel tests still pass.
+- Taproot Asset channel code cannot negotiate unless this base is available.
 
 ## Milestone 3: rust-lightning Extension Boundary
 
@@ -335,7 +430,7 @@ Deliverables:
   `OpenAgentsInc/rust-lightning`, then wire `tap-ldk` to that fork explicitly.
 - Add feature flags so normal BTC Lightning behavior stays isolated.
 - Add or fork the message/channel-type plumbing needed for a new Taproot Asset
-  feature bit and channel type.
+  feature bit and channel type on top of simple taproot.
 - Define how asset-level MuSig2 nonces and partial signatures are carried
   without reusing BTC-level nonces.
 - Define persistence data that must be written through channel monitors.
@@ -343,7 +438,8 @@ Deliverables:
 Exit criteria:
 
 - The design maps each required LND aux hook to an LDK/rust-lightning surface.
-- The demo can compile with an experimental asset-channel feature enabled.
+- The demo can compile with an experimental asset-channel feature enabled only
+  when the simple-taproot base is present.
 - Normal LDK channel tests remain conceptually isolated from asset-channel code.
 
 ## Milestone 4: RFQ And Custom Messages
@@ -388,15 +484,18 @@ Current implementation note:
 
 Deliverables:
 
-- Asset-channel feature negotiation.
+- Asset-channel feature negotiation layered on negotiated BOLT simple taproot
+  channels.
 - Funding flow with separate asset proof exchange.
 - Support for multiple proof messages to avoid Lightning message-size limits.
 - Support for merging multiple inputs of the same asset ID into a single
   channel asset UTXO.
 - Anchor-proof handling for the channel funding output, with full proof history
   retrieved from local universe/proof service when needed.
-- Funding output construction with a Taproot Assets commitment sibling.
-- Final `tap_asset_root` hash+sum construction.
+- Funding output construction by adding the Taproot Assets commitment sibling
+  to the simple-taproot funding/commitment tree.
+- Final `TapCommitment` and `AssetCommitment` root construction, not only a
+  bounded root hash+sum placeholder.
 - Asset-level `funding_signed` and channel-ready nonce handling, including
   `next_local_nonce` per distinct asset ID.
 - Channel-level asset blob persistence.
@@ -406,6 +505,8 @@ Deliverables:
 Exit criteria:
 
 - Two native wallets can open a single-asset Taproot Asset channel on regtest.
+- The channel is a simple-taproot LDK channel with an asset overlay, not a
+  parallel channel model.
 - The channel state records the initial asset balances.
 - The funding flow can reject invalid proofs, wrong asset IDs, or missing
   anchor data.
@@ -417,7 +518,9 @@ Current implementation note:
   one asset ID per channel, same-asset multi-input merge, funding root
   derivation, spent-proof replay protection, initial balance persistence, and a
   persisted monitor blob at commitment number `0`. Commitment updates and
-  signing context now build on top of this funded state in Milestone 6.
+  signing context now build on top of this funded state in Milestone 6. This
+  remains a scaffold until it is rewired through the simple-taproot funding
+  and real Taproot Assets commitment layers.
 
 ## Milestone 6: Commitments And HTLC State
 
@@ -426,8 +529,10 @@ Deliverables:
 - Per-commitment asset balances.
 - Incoming and outgoing asset HTLC blobs.
 - `ApplyHtlcView` equivalent for rust-lightning commitment updates.
-- Auxiliary leaves for local and remote commitment outputs.
-- Auxiliary leaves for second-level HTLC outputs.
+- Taproot Assets auxiliary leaves attached to the simple-taproot local and
+  remote commitment outputs.
+- Taproot Assets auxiliary leaves attached to simple-taproot second-level HTLC
+  outputs.
 - Asset-level signatures or witnesses where the TAP layer requires them.
 - HTLC and revocation script semantics lifted onto the Taproot Assets layer for
   the single-asset channel case.
@@ -437,7 +542,8 @@ Deliverables:
 
 Exit criteria:
 
-- A commitment update can move asset balance from sender to receiver.
+- A real simple-taproot commitment update can move asset balance from sender
+  to receiver.
 - Asset state is persisted before any commitment state can be considered safe.
 - Wrong asset amount, wrong asset ID, stale quote, or malformed HTLC blob fails.
 - Restart tests recover the same asset-channel state.
@@ -449,13 +555,14 @@ Current implementation note:
   deterministic asset virtual transaction/witness/signature contexts, BTC-vs-
   asset signing-domain separation, and restart validation through a persisted
   commitment monitor blob plus the OpenAgentsInc rust-lightning fork's asset
-  monitor aux blob surface.
+  monitor aux blob surface. This is not yet a full simple-taproot channel
+  state-machine integration.
 - `tap-ldk-core::asset_htlc` implements asset HTLC custom-record codecs,
   final-hop validation against quote-bound invoices, quote-derived BTC msat
   enforcement, BTC-only pass-through behavior, OpenAgentsInc rust-lightning
   HTLC metadata/final-hop hook validation, and bounded add/settle/fail smoke
   coverage. Real MuSig2/Taproot Assets witness integration and Lightning HTLC
-  dispatch remain follow-on surfaces.
+  dispatch over simple-taproot HTLC outputs remain follow-on surfaces.
 - `tap-ldk-core::asset_payment` wires the bounded native payment path across
   RFQ, quote-bound invoice, asset HTLC records, final-hop validation,
   commitment update, settled HTLC state, payment state, restart round-trip, and
@@ -558,6 +665,7 @@ Deliverables:
 - Native LDK to native LDK happy path.
 - Native LDK to LND/tapd compatibility path for:
   - Polar-managed or Polar-inspired Bitcoin/LND/`tapd` or `litd` topology;
+  - simple-taproot channel negotiation and transaction shape;
   - RFQ negotiation;
   - asset-channel funding or compatible pre-funded asset-channel setup;
   - asset invoice payment;
@@ -623,13 +731,23 @@ The first public demo is ready when:
 
 - the `tap-ldk` wallet runs without LND or tapd as a sidecar;
 - the wallet can issue or load a demo stablecoin asset;
-- two native wallets can open a single-asset channel;
+- two native wallets can open a single-asset channel on the simple-taproot LDK
+  base;
 - one wallet can pay the other using RFQ-bound asset HTLC metadata;
 - one native wallet can interoperate with a Lightning Labs LND/tapd node for an
   asset invoice payment;
 - the receiving wallet shows the asset balance change;
 - restart recovery works;
 - all mocked pieces are clearly labeled.
+
+The stronger full-LDK support bar also requires:
+
+- BTC-only BOLT simple taproot channels implemented and tested in the
+  OpenAgentsInc `rust-lightning` fork;
+- full MS-SMT, `AssetCommitment`, `TapCommitment`, TAP VM, virtual
+  transaction, and semantic proof ancestry support;
+- asset funding, commitment, HTLC, close, monitor, and recovery state wired
+  into the real simple-taproot channel state machine.
 
 ## Stretch Demo Bar
 
@@ -645,6 +763,13 @@ The stronger demo adds:
 
 ## Open Decisions
 
+- Whether to use final `option_simple_taproot` bits, staging bits, or an
+  OpenAgents-only experimental namespace until the BOLT draft settles.
+- Whether to upstream BTC-only simple-taproot support independently before
+  layering Taproot Assets on top.
+- How the Taproot Assets commitment sibling maps into each simple-taproot
+  output type: funding, local commitment, remote commitment, offered HTLC,
+  accepted HTLC, and second-level HTLC.
 - Whether the native asset protocol core lives inside `tap-ldk` first or starts
   as a separate crate from day one.
 - Which `OpenAgentsInc` forks are required before upstreaming, and which
@@ -674,25 +799,29 @@ The stronger demo adds:
 
 ## Immediate Next Steps
 
-1. Scaffold the `tap-ldk` Rust workspace.
-2. Write a BLIP-TAP implementation note covering first-demo scope,
-   single-asset constraints, proof messages, RFQ expiry, SCID aliases, and
-   per-asset nonce/signature handling.
-3. Copy or reference the TAP BIP test vectors from local synced refs.
-4. Implement asset TLV parsing and MS-SMT fixtures.
-5. Write the rust-lightning aux-hook-equivalent design document in `tap-ldk/`.
-6. Build the RFQ custom-message skeleton.
-7. Run a Polar smoke network and record the exact LND/`tapd`/`litd` topology
-   usable for the Lightning Labs interop demo.
-8. Build the headless regtest demo harness.
-9. Create the first native asset issuance and proof-verification CLI command.
-10. Start the asset-channel funding spike once the core asset proof path passes
-   fixture tests.
+1. Start issue #62 for simple-taproot feature/channel-type negotiation.
+2. Start issue #63 for simple-taproot TLV codecs and message validation.
+3. Implement the simple-taproot MuSig2 signer and nonce persistence model in
+   issue #64.
+4. Replay or derive BOLT simple-taproot vectors in issue #70 before claiming
+   asset-channel completion.
+5. Replace the bounded hash+sum and commitment placeholders through issues
+   #72 and #73.
+6. Add virtual transaction and TAP VM validation through issue #74.
+7. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
+   onto the simple-taproot channel state machine through issue #75.
+8. Keep Path B live interop issues #57 through #60 open until observed
+   balances and proof compatibility are recorded from independent Lightning
+   Labs nodes.
+9. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
+   checks tied to the simple-taproot asset-channel path.
 
 ## Risks
 
 - Scope is large: this is protocol work, not a wallet skin.
 - The BLIP and TAP BIP materials are still draft inputs.
+- The current asset hooks can become the wrong abstraction if the simple
+  taproot state machine is not implemented first.
 - BLIP-TAP has unresolved review questions around proof transport, per-asset
   nonces, quote expiry, SCID aliases, scaling precision, multiple HTLCs, MPP,
   and multi-asset channel outputs; first-demo scope should stay single-asset
