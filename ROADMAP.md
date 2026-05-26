@@ -35,7 +35,7 @@ Lightning Labs daemons.
 
 - `INVARIANTS.md`
 - `stablecoins-may25-transcript.md`
-- `blip-0029-taproot-assets-pr-29.md`
+- `blip-tap-pr-29.md`
 - `tap-ldk-proof-of-concept-analysis.md`
 
 ## Non-Goals
@@ -77,7 +77,7 @@ Lightning Labs daemons.
 - Universe/proof courier, using a local file or local service.
 - UI, using CLI or a simple local web view.
 
-## BLIP-0029 Scope Notes
+## BLIP-TAP Scope Notes
 
 The BLIP frames Taproot Asset channels as a variant of simple taproot channels:
 asset balances are an overlay on normal initiator/responder balances, and the
@@ -647,7 +647,7 @@ The stronger demo adds:
 ## Immediate Next Steps
 
 1. Scaffold the `tap-ldk` Rust workspace.
-2. Write a BLIP-0029 implementation note covering first-demo scope,
+2. Write a BLIP-TAP implementation note covering first-demo scope,
    single-asset constraints, proof messages, RFQ expiry, SCID aliases, and
    per-asset nonce/signature handling.
 3. Copy or reference the TAP BIP test vectors from local synced refs.
@@ -665,7 +665,7 @@ The stronger demo adds:
 
 - Scope is large: this is protocol work, not a wallet skin.
 - The BLIP and TAP BIP materials are still draft inputs.
-- BLIP-0029 has unresolved review questions around proof transport, per-asset
+- BLIP-TAP has unresolved review questions around proof transport, per-asset
   nonces, quote expiry, SCID aliases, scaling precision, multiple HTLCs, MPP,
   and multi-asset channel outputs; first-demo scope should stay single-asset
   until those edges are explicit.

@@ -377,7 +377,7 @@ SHA-256 digest. The receiver must reconstruct all chunks and verify the digest
 before funding can advance.
 
 This keeps bulky proof data out of `open_channel`. That matches the design
-direction captured from BLIP-0029 review: funding proof transport is a separate
+direction captured from BLIP-TAP review: funding proof transport is a separate
 flow, not a bloated base channel-open message.
 
 ## RFQ And Invoice Binding
@@ -1021,4 +1021,3 @@ When changing the architecture:
 - Keep fixture-backed, smoke-backed, and live-backed claims separate.
 - Never claim live Lightning Labs success from expected-only balances.
 - Never hide mocked pieces in public demo docs.
-

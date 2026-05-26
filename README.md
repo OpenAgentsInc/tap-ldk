@@ -79,7 +79,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
 - [Protocol References](docs/protocol-references.md)
-- [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
+- [BLIP-TAP Implementation Note](docs/blip-tap-implementation-note.md)
 - [LDK Asset-Channel Extension Boundary](docs/ldk-asset-channel-extension-boundary.md)
 - [OpenAgentsInc Rust-Lightning Fork](docs/openagents-rust-lightning-fork.md)
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)

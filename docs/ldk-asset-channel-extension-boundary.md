@@ -141,6 +141,6 @@ Issue #25 is responsible for creating and wiring any required
   RFQ binding, close/recovery ownership, and the no-sidecar runtime rule.
 - docs/lightning-labs-interop-matrix.md: maps the required Lightning Labs
   funding, commitment, HTLC, RFQ, invoice, close, and balance surfaces.
-- docs/blip-0029-implementation-note.md: keeps proof transport separate from
+- docs/blip-tap-implementation-note.md: keeps proof transport separate from
   `open_channel`, preserves BOLT 11 format, and treats force-close as a
   stronger-demo gate until implemented.

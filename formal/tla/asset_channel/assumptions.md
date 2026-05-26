@@ -1,7 +1,7 @@
 # Asset Channel Phase 1 Assumptions
 
 This model is an abstract state-machine model for the first asset-channel
-funding contract. It is not a line-by-line proof of Rust code or BLIP-0029.
+funding contract. It is not a line-by-line proof of Rust code or BLIP-TAP.
 
 Assumptions:
 

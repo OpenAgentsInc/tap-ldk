@@ -9,7 +9,7 @@ reference repos.
 
 | Area | Upstream | Local workspace path | Local commit |
 | --- | --- | --- | --- |
-| BLIP-0029 PR capture | https://github.com/lightning/blips/pull/29 | `../stablecoins/blip-0029-taproot-assets-pr-29.md` | workspace doc |
+| BLIP-TAP PR #29 capture | https://github.com/lightning/blips/pull/29 | `../stablecoins/blip-tap-pr-29.md` | workspace doc |
 | Stablecoins transcript | local transcript source | `../stablecoins/stablecoins-may25-transcript.md` | workspace doc |
 | Tap-LDK analysis | local planning source | `../stablecoins/tap-ldk-proof-of-concept-analysis.md` | workspace doc |
 | TAP BIPs draft source | https://github.com/Roasbeef/bips | `../projects/lightninglabs/repos/bips` | `bd3cdc153bea` |

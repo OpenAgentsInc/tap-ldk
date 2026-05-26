@@ -1,9 +1,9 @@
-# BLIP-0029 Implementation Note
+# BLIP-TAP Implementation Note
 
 Date: 2026-05-25
 
-This note scopes the first `tap-ldk` demo against BLIP-0029 and its PR review
-discussion. BLIP-0029 is still draft material, so this document should be
+This note scopes the first `tap-ldk` demo against BLIP-TAP and its PR review
+discussion. BLIP-TAP is still draft material, so this document should be
 treated as implementation planning, not as final protocol authority.
 
 ## First Demo Scope
@@ -26,7 +26,7 @@ first demo unless the single-asset path is already working.
 
 ## Channel Model
 
-BLIP-0029 treats Taproot Asset channels as a variant of simple taproot
+BLIP-TAP treats Taproot Asset channels as a variant of simple taproot
 channels. Asset state is an overlay on normal initiator/responder Lightning
 balances, and the Taproot Assets commitment appears as an additional tapscript
 sibling in relevant outputs.
