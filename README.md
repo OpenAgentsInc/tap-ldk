@@ -2,6 +2,39 @@
 
 This is an experimental effort to explore native Taproot Assets support in Rust Lightning/LDK, with the goal of proving that stablecoin-style assets can be issued, validated, routed, and transacted through an LDK-based wallet without depending on an LND/tapd sidecar. The work here is early research and implementation planning, focused on interoperability, protocol fit, and the engineering needed to make a real native LDK proof of concept possible.
 
+## Status
+
+What works today:
+
+- The native `tap-ldk` demo runs end to end between two local `tap-ldk` wallets.
+  It issues a demo `OPENUSD` asset, moves proof data between wallets, opens a
+  mocked single-asset channel, makes a demo payment, restarts, closes the
+  channel, and exports final proof artifacts.
+- The Lightning Labs compatibility checks can read the current Taproot Assets
+  fixture data we imported from Lightning Labs. That includes funding blobs,
+  HTLC blobs, commitment blobs, proof files, RFQ data, invoice binding, and
+  both payment directions as stored demo artifacts.
+- The demo scripts write reviewable artifacts under `target/`, including
+  balances, proof files, restart checks, close checks, and logs.
+
+What does not work yet:
+
+- `tap-ldk` does not yet complete a real live payment with an independent
+  Lightning Labs LND/`tapd` node.
+- The current Lightning Labs path still stops at fixture-backed checks. It does
+  not yet start a healthy counterparty, perform live asset-channel funding,
+  exchange live RFQ/payment messages, or compare real balances from both sides.
+- Force-close recovery is not implemented. The demo says this explicitly and
+  must not be presented as working.
+- LND/`tapd` are only test counterparties for interoperability. They are not
+  sidecars inside the `tap-ldk` wallet.
+
+To make the Lightning Labs demo fully work, we need a working container runtime
+or other live regtest environment, a reliable Bitcoin Core/LND/`tapd` bring-up
+flow, live asset funding through the Lightning Labs counterparty, live
+`tap-ldk` protocol message handling, and final balance checks that replace the
+current expected-only fixture results.
+
 ## Development
 
 Run the current setup checks from the repo root:
@@ -43,6 +76,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 ## Planning Docs
 
 - [Roadmap](ROADMAP.md)
+- [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
 - [Protocol References](docs/protocol-references.md)
 - [BLIP-0029 Implementation Note](docs/blip-0029-implementation-note.md)
