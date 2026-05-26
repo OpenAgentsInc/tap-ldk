@@ -14,6 +14,11 @@ opens a single-asset channel, pays, restarts, cooperatively closes, exports
 proof artifacts, and exercises the fork-backed simple-taproot asset-channel
 lifecycle state.
 
+The local fork verification script now checks the current pinned
+OpenAgentsInc `rust-lightning` revision,
+`cbc508b8ae972fd1134b0c5f1dc1792139276268`, so later issue verification does
+not fail against the older proof-ownership-only fork revision.
+
 Path B is live-ready but not live-settled. The current #57 gate reaches:
 
 - live `tapd` proof binding;
