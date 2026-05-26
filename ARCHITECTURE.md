@@ -31,6 +31,9 @@ The Lightning Labs path is not a live payment yet:
   fixtures.
 - It can build fixture-backed reports for both payment directions.
 - It can prove that expected balances are conserved in those reports.
+- It now writes a live outgoing-payment gate that links live `tapd` proof
+  binding to the native outgoing RFQ/invoice/HTLC artifact and keeps the result
+  blocked until a Lightning Labs receiver balance is actually observed.
 - It does not yet drive a healthy live LND/`tapd` counterparty through asset
   funding and payment settlement.
 - It does not yet query real live balances from both nodes after settlement.
@@ -867,9 +870,10 @@ It:
 8. runs fixture-backed funding interop;
 9. runs RFQ/invoice compatibility;
 10. builds outgoing payment artifacts;
-11. builds incoming payment artifacts;
-12. writes consolidated interop checks;
-13. prints the dependency gap and interop report.
+11. writes the live outgoing-payment gate artifact;
+12. builds incoming payment artifacts;
+13. writes consolidated interop checks;
+14. prints the dependency gap and interop report.
 
 Artifacts land in:
 

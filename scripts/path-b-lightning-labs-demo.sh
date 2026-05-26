@@ -161,6 +161,11 @@ run_json rfq-invoice "$ARTIFACT_DIR/lightning-labs-rfq-invoice.json" \
 run_json outgoing-payment "$ARTIFACT_DIR/lightning-labs-outgoing-payment-report.json" \
   cargo run -q -p tap-ldk-cli -- lightning-labs-outgoing-payment-smoke \
     "$TAPCHANNEL_FIXTURE_DIR" "$ARTIFACT_DIR/lightning-labs-outgoing-payment-store.json"
+run_optional_log live-outgoing-payment ./scripts/live-lightning-labs-outgoing-payment.sh \
+  "$ARTIFACT_DIR/live-lightning-labs-outgoing-payment.json" \
+  "$ARTIFACT_DIR/live-tapd-wallet.json" \
+  "$ARTIFACT_DIR/lightning-labs-outgoing-payment-store.json" \
+  "$ARTIFACT_DIR/lightning-labs-outgoing-payment-report.json" || true
 run_json incoming-payment "$ARTIFACT_DIR/lightning-labs-incoming-payment-report.json" \
   cargo run -q -p tap-ldk-cli -- lightning-labs-incoming-payment-smoke \
     "$TAPCHANNEL_FIXTURE_DIR" "$ARTIFACT_DIR/lightning-labs-incoming-payment-store.json"
@@ -183,6 +188,7 @@ Fixture-backed checks:
 - funding interop: $ARTIFACT_DIR/lightning-labs-funding-interop-report.json
 - RFQ invoice compatibility: $ARTIFACT_DIR/lightning-labs-rfq-invoice.json
 - tap-ldk pays Lightning Labs artifacts: $ARTIFACT_DIR/lightning-labs-outgoing-payment-report.json
+- live tap-ldk pays Lightning Labs gate: $ARTIFACT_DIR/live-lightning-labs-outgoing-payment.json
 - Lightning Labs pays tap-ldk artifacts: $ARTIFACT_DIR/lightning-labs-incoming-payment-report.json
 - consolidated checks: $ARTIFACT_DIR/lightning-labs-interop-checks.json
 

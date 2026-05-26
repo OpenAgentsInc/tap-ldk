@@ -4,8 +4,8 @@ Path B is the native `tap-ldk` to independent Lightning Labs interop demo. The
 current harness captures version info, counterparty config/status, blob
 fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
-proof-binding report, and the consolidated interop check report into an
-ignored artifact directory.
+proof-binding report, the live outgoing-payment gate, and the consolidated
+interop check report into an ignored artifact directory.
 
 ```bash
 ./scripts/path-b-lightning-labs-demo.sh
@@ -27,6 +27,12 @@ The Path B wrapper also runs `scripts/live-tapd-proof-bind.sh`. With a live
 daemon, that script mints `OPENUSD`, exports a TAPF proof from `tapd`, and
 binds it into native wallet state. Without a reachable runtime it writes a
 blocked JSON report at `live-tapd-proof-binding.json`.
+
+The wrapper also runs `scripts/live-lightning-labs-outgoing-payment.sh`. That
+gate links live proof binding to the sender-side RFQ/invoice/HTLC artifact and
+keeps issue #57 marked incomplete until the native LDK payment path settles
+against the independent Lightning Labs receiver and a receiver balance is
+observed.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement

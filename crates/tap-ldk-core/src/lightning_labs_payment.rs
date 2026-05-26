@@ -196,6 +196,7 @@ pub struct LightningLabsOutgoingPaymentState {
     pub asset_htlc_digest: Bytes32,
     pub quote_replay_rejected: bool,
     pub wrong_asset_rejected: bool,
+    pub wrong_amount_rejected: bool,
     pub expected_balance_conserved: bool,
     pub restart_state_matches: bool,
     pub observed_lightning_labs_receiver_balance_after: Option<u64>,
@@ -235,6 +236,7 @@ impl LightningLabsOutgoingPaymentState {
         if !self.expected_balance_conserved
             || !self.quote_replay_rejected
             || !self.wrong_asset_rejected
+            || !self.wrong_amount_rejected
             || !self.restart_state_matches
         {
             return Err(LightningLabsOutgoingPaymentError::StorageInvariant(
@@ -296,6 +298,7 @@ pub struct LightningLabsOutgoingPaymentReport {
     pub expected_balance_conserved: bool,
     pub quote_replay_rejected: bool,
     pub wrong_asset_rejected: bool,
+    pub wrong_amount_rejected: bool,
     pub restart_state_matches: bool,
     pub request_data_digest: Bytes32,
     pub accept_data_digest: Bytes32,
@@ -620,6 +623,7 @@ pub fn run_lightning_labs_outgoing_payment_smoke(
         expected_balance_conserved: state.expected_balance_conserved,
         quote_replay_rejected: state.quote_replay_rejected,
         wrong_asset_rejected: state.wrong_asset_rejected,
+        wrong_amount_rejected: state.wrong_amount_rejected,
         restart_state_matches,
         request_data_digest: state.request_data_digest,
         accept_data_digest: state.accept_data_digest,
@@ -753,8 +757,17 @@ fn build_outgoing_payment_state(
         now + 3,
     )?;
 
+    let mut wrong_amount_records = decoded_records.clone();
+    wrong_amount_records.asset_amount += 1;
+    let wrong_amount_rejected = validate_final_hop(
+        &wrong_amount_records,
+        &invoice,
+        &quote_payment.authorization,
+        now + 3,
+    )
+    .is_err();
     let mut wrong_asset_records = decoded_records.clone();
-    wrong_asset_records.asset_amount += 1;
+    wrong_asset_records.asset_id = Bytes32([99; 32]);
     let wrong_asset_rejected = validate_final_hop(
         &wrong_asset_records,
         &invoice,
@@ -826,6 +839,7 @@ fn build_outgoing_payment_state(
         asset_htlc_digest: sha256_digest(&htlc_bytes),
         quote_replay_rejected,
         wrong_asset_rejected,
+        wrong_amount_rejected,
         expected_balance_conserved,
         restart_state_matches: false,
         observed_lightning_labs_receiver_balance_after: None,
@@ -1186,6 +1200,7 @@ mod tests {
         assert!(report.expected_balance_conserved);
         assert!(report.quote_replay_rejected);
         assert!(report.wrong_asset_rejected);
+        assert!(report.wrong_amount_rejected);
         assert!(report.restart_state_matches);
         assert!(store.payments.contains_key(&report.payment_id));
     }

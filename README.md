@@ -33,6 +33,11 @@ What works today:
   into native `tap-ldk` wallet state. The bounded CLI path and negative checks
   for wrong asset id, stale proof digest, and wrong owner binding are covered
   by tests.
+- Path B now writes a live outgoing-payment gate artifact. It ties the live
+  `tapd` proof-binding report to the native outgoing RFQ/invoice/HTLC artifact,
+  records the payment id, quote id, asset id, amount, and expected balances,
+  and refuses to mark issue #57 complete until the Lightning Labs receiver
+  balance is observed after settlement.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
   aux blob surface for asset commitment state. It also has the first HTLC
@@ -52,10 +57,8 @@ What does not work yet:
   comparison from both sides.
 - The new live peer smoke is localhost `tap-ldk` to `tap-ldk`. It is not yet a
   Lightning Labs daemon-backed P2P session.
-- The Lightning Labs daemon smoke requires a reachable Docker or Podman
-  runtime. This shell can see the Docker Desktop CLI bundle, but cannot reach a
-  Docker socket yet, so the live `tapd` mint path currently writes a blocked
-  report on this host.
+- The live Lightning Labs checks need Docker or Podman so the independent
+  regtest Bitcoin Core, LND, and `tapd` counterparty can run.
 - Full semantic Taproot Assets proof ancestry validation is still open; the
   live proof binding preserves and binds TAPF material with bounded anchor
   checks until issue #60 lands.
@@ -74,8 +77,11 @@ What is being worked on now:
   proof-ownership recovery, plus the first live localhost `tap-ldk` peer smoke
   and the hardened Lightning Labs counterparty bootstrap harness, plus the
   live `tapd` mint/export/bind command path.
-- Issue #57 is next: implement live `tap-ldk` pays Lightning Labs asset
-  payment.
+- Issue #57 is active: the repo now has the live outgoing-payment gate, the
+  local failure checks, and the proof-binding handoff. The remaining #57 work
+  is the native LDK asset-channel wire payment against the independent
+  Lightning Labs receiver and the observed receiver-balance check after
+  settlement.
 - Issues #57 through #60 cover the remaining live demo path: payments in both
   directions, observed live balance checks, and full proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until those

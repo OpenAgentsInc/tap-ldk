@@ -9,6 +9,7 @@ and receiver balance delta, and persists a restart-safe interop payment state.
 
 ```bash
 cargo run -p tap-ldk-cli -- lightning-labs-outgoing-payment-smoke fixtures/lightning-labs/tapchannelmsg/testdata target/lightning-labs-outgoing-payment.json
+./scripts/live-lightning-labs-outgoing-payment.sh target/live-lightning-labs-outgoing-payment/report.json target/live-lightning-labs-outgoing-payment/wallet.json
 ```
 
 The stored status is `stopped_at_live_daemon_gap`. This is intentional: the
@@ -23,12 +24,14 @@ the exact remaining gap instead of reporting a successful interop settlement.
 - Binds the RFQ to opaque BOLT 11 invoice text without changing the invoice.
 - Encodes and validates asset HTLC custom records before payment state can
   advance.
-- Rejects quote replay and wrong asset metadata.
+- Rejects quote replay, wrong asset metadata, and wrong amount metadata.
 - Persists the outgoing payment gap state and reloads it unchanged.
+- The live gate report links the live `tapd` proof-binding artifact to the
+  outgoing payment artifact and keeps `issue_57_acceptance_met=false` until a
+  real Lightning Labs receiver balance is observed after settlement.
 
 ## Next Step
 
-Run these same RFQ, invoice, and HTLC artifacts through the headless or
-Polar-backed Lightning Labs counterparty, then replace the expected receiver
-balance with an observed daemon balance before claiming Track B payment
-success.
+Finish the native LDK asset-channel wire payment path against the independent
+Lightning Labs receiver, then replace the expected receiver balance with an
+observed daemon balance before claiming Track B payment success.
