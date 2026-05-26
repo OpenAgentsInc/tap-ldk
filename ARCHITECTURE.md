@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `6af69ad385b864d7666edebbbbb668dab485bdde`
+- current revision: `983c4385ff66105ab70d766d34f49c1bd547a81a`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "6af69ad385b864d7666edebbbbb668dab485bdde", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "983c4385ff66105ab70d766d34f49c1bd547a81a", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -393,8 +393,9 @@ codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, BIP86
 P2TR funding script handling, P2TR to-local/to-remote/anchor commitment output
 scripts, HTLC P2TR output scripts, second-level HTLC output scripts,
 taproot-sighash signing helpers, tap tweak and control-block reconstruction
-data, and fail-closed malformed/duplicate/unsupported TLV, wrong funding
-script, and nonce-reuse tests.
+data, BOLT-vector replay coverage for the implemented simple-taproot surfaces,
+and fail-closed malformed/duplicate/unsupported TLV, wrong funding script, and
+nonce-reuse tests.
 They also cover experimental Taproot Asset channel type handling layered on
 that base and the bounded funding-controller approval surface. They provide
 the first versioned channel monitor aux blob hook for asset commitment state,
@@ -459,7 +460,7 @@ a real live demo:
   must fail closed. First support landed in
   `26346a56af75eadf60763eb1e32a740656d4e384`; #69 unignored the functional
   close harness after fixing simple-taproot anchor/output accounting during
-  channel open. Vector replay remains #70.
+  channel open. Vector replay landed in #70.
 - BOLT simple taproot HTLC outputs and second-level spends: simple-taproot
   commitments must emit BOLT-vector-matching offered/accepted HTLC P2TR
   outputs, construct P2TR second-level HTLC outputs, use sequence `1` for
@@ -468,6 +469,15 @@ a real live demo:
   success/timeout path. Initial support landed in
   `6af69ad385b864d7666edebbbbb668dab485bdde`; full asset-aware HTLC recovery
   and monitor sweep semantics remain in #75.
+- BOLT simple taproot vector replay: the fork must keep fixture tests tied to
+  `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
+  shapes, funding scripts, commitment output scripts and leaf hashes, close
+  behavior, HTLC scripts, second-level outputs, and multi-HTLC value/trimming
+  cases. Initial coverage landed in
+  `983c4385ff66105ab70d766d34f49c1bd547a81a`. The BOLT draft transaction JSON
+  currently disagrees with its script-vector section for some multi-HTLC
+  output keys, so the fork asserts unambiguous script vectors exactly and uses
+  transaction cases for output count, value/order, P2TR shape, and trimming.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

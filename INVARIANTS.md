@@ -115,6 +115,10 @@ These are the contracts we definitely want around the rust-lightning work.
   outputs, and BIP342 `SIGHASH_SINGLE|ANYONECANPAY` witness shape for each
   offered/accepted success and timeout path. Asset-level HTLC state must be
   layered on top of that base without changing the BTC script semantics.
+- BTC-level simple-taproot vector tests must cite the BOLT draft surface they
+  replay and distinguish exact script-vector assertions from transaction-case
+  assertions when the draft's generated transaction JSON is internally
+  inconsistent.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,

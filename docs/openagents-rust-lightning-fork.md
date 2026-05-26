@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `6af69ad385b864d7666edebbbbb668dab485bdde`
+- Current `tap-ldk` revision: `983c4385ff66105ab70d766d34f49c1bd547a81a`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "6af69ad385b864d7666edebbbbb668dab485bdde"
+rev = "983c4385ff66105ab70d766d34f49c1bd547a81a"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -144,6 +144,16 @@ with `SIGHASH_SINGLE|ANYONECANPAY`, builds separate witness stacks for each
 offered/accepted success and timeout path, forwards MuSig2 signer methods
 through test/dynamic signer wrappers, and unignores the cooperative close
 functional harness.
+
+Revision `983c4385ff66105ab70d766d34f49c1bd547a81a` adds the BOLT
+simple-taproot vector replay pass for the surfaces implemented so far. The
+tests now pin BOLT TLV payload shapes, nonce and partial-signature wire
+payloads, funding scripts, commitment output scripts and leaf hashes, close
+harness behavior, HTLC scripts, second-level outputs, and multi-HTLC
+transaction value/trimming cases. The draft transaction JSON currently differs
+from the script-vector section for some multi-HTLC output keys, so exact script
+assertions stay on the unambiguous script vectors while transaction coverage
+checks output count, values, ordering, P2TR shape, and trimming.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

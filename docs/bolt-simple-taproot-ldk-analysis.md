@@ -8,19 +8,21 @@ Source reviewed:
 
 ## Did We Use This Already?
 
-Yes, now partially. The OpenAgentsInc `rust-lightning` fork is directly
+Yes, now materially. The OpenAgentsInc `rust-lightning` fork is directly
 implementing the BTC-only BOLT simple taproot base before asset-channel state
-is layered on top. Issues #62 through #69 now cover negotiation, wire TLVs,
+is layered on top. Issues #62 through #70 now cover negotiation, wire TLVs,
 MuSig2 signer state, P2TR funding, P2TR commitment outputs, commitment
 update/reestablish nonce state, cooperative close, and offered/accepted HTLC
-scripts plus second-level HTLC signing helpers.
+scripts plus second-level HTLC signing helpers, with vector replay coverage
+for the implemented surfaces.
 
-The remaining BTC-only BOLT simple taproot work is #70: replay the draft's
-wire, signing, transaction, close, and HTLC vectors against the fork. Full
-Taproot Assets protocol semantics are still separate work: real MS-SMT,
+Full Taproot Assets protocol semantics are still separate work: real MS-SMT,
 `AssetCommitment`, `TapCommitment`, TAP VM, virtual transaction validation,
 semantic proof ancestry, and asset-aware channel monitor recovery remain in
-#71 through #76.
+#71 through #76. The BOLT draft transaction JSON currently differs from its
+script-vector section for some multi-HTLC output keys, so the fork asserts the
+unambiguous script vectors exactly and uses the transaction cases for output
+count, value/order, P2TR shape, and trimming coverage.
 
 ## Why This Matters
 

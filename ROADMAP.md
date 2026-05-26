@@ -27,14 +27,15 @@ Last updated: 2026-05-26
   not done until asset-channel funding/payment runs over that peer and records
   the receiver balance after settlement.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `6af69ad385b864d7666edebbbbb668dab485bdde`. BOLT simple-taproot issues #62
-  through #69 are implemented: negotiation, TLVs, MuSig2 primitives, P2TR
+  `983c4385ff66105ab70d766d34f49c1bd547a81a`. BOLT simple-taproot issues #62
+  through #70 are implemented: negotiation, TLVs, MuSig2 primitives, P2TR
   funding, P2TR commitment outputs/control-block data, and commitment
   update/reestablish nonce state, cooperative-close nonce/signature handling,
-  HTLC outputs, and second-level HTLC signing helpers.
+  HTLC outputs, second-level HTLC signing helpers, and BOLT vector replay
+  coverage for those surfaces.
 - Current open work is #57 through #60 for live Path B and proof validation,
-  #70 for BTC-only simple-taproot vector replay, and #71 through #76 for real
-  Taproot Assets support. #19 remains the parent Path B epic.
+  #61 as the BTC-only simple-taproot readiness epic, and #71 through #76 for
+  real Taproot Assets support. #19 remains the parent Path B epic.
 
 ## Implementation Home
 
@@ -277,7 +278,7 @@ needed for full Taproot Asset support in LDK.
 | #67 | Simple-taproot commitment update and reestablish state | Implemented in `OpenAgentsInc/rust-lightning` at `1176e837e5aacac7d1a3237c2bb00910989dbd93`; channel-ready, commitment-signed, revoke-and-ack, and channel-reestablish carry/persist next-local nonces; sent partial signatures are retained for retransmission; mismatched or missing simple-taproot nonces fail closed. |
 | #68 | Simple-taproot RBF cooperative close | Implemented in `OpenAgentsInc/rust-lightning` at `26346a56af75eadf60763eb1e32a740656d4e384`; shutdown carries closee nonces, `closing_complete`/`closing_sig` are handled under `simple_close`, close partials aggregate to a P2TR key-path close transaction, nonce state is persisted, and malformed/missing close nonces or signatures fail closed. The functional close harness is unignored by #69. |
 | #69 | Simple-taproot HTLC scripts and second-level transactions | Implemented in `OpenAgentsInc/rust-lightning` at `6af69ad385b864d7666edebbbbb668dab485bdde`; offered/accepted HTLC P2TR outputs match BOLT vectors, second-level HTLC outputs use P2TR delay scripts, BIP342 `SIGHASH_SINGLE|ANYONECANPAY` signing helpers cover all four success/timeout witness shapes, simple-taproot anchor/output accounting is fixed, signer wrappers forward MuSig2 methods, and the cooperative-close harness is unignored. |
-| #70 | BOLT simple-taproot vector replay | Open. Replay wire, signing, transaction, close, and HTLC vectors in the fork. |
+| #70 | BOLT simple-taproot vector replay | Implemented in `OpenAgentsInc/rust-lightning` at `983c4385ff66105ab70d766d34f49c1bd547a81a`; fixture coverage now replays BOLT TLV payload shapes, nonce/partial-signature payloads, funding scripts, commitment output scripts and leaf hashes, close harness behavior, HTLC scripts, second-level outputs, and the multi-HTLC transaction value/trimming cases. |
 | #71 | Full Taproot Assets protocol support for LDK epic | Real Taproot Assets primitives and channel state are layered onto simple-taproot LDK channels. |
 | #72 | MS-SMT hash-sum tree | Inclusion, exclusion, split-commitment, conservation, and overflow fixtures pass. |
 | #73 | `AssetCommitment` and `TapCommitment` layers | Asset and tap commitments replace bounded root placeholders. |
@@ -795,19 +796,15 @@ The stronger demo adds:
 
 ## Immediate Next Steps
 
-1. Implement simple-taproot commitment update and reestablish nonce state in
-   issue #67.
-2. Replay or derive BOLT simple-taproot vectors in issue #70 before claiming
-   asset-channel completion.
-3. Replace the bounded hash+sum and commitment placeholders through issues
+1. Replace the bounded hash+sum and commitment placeholders through issues
    #72 and #73.
-4. Add virtual transaction and TAP VM validation through issue #74.
-5. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
+2. Add virtual transaction and TAP VM validation through issue #74.
+3. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
    onto the simple-taproot channel state machine through issue #75.
-6. Keep Path B live interop issues #57 through #60 open until observed
+4. Keep Path B live interop issues #57 through #60 open until observed
    balances and proof compatibility are recorded from independent Lightning
    Labs nodes.
-7. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
+5. Use issue #76 to keep Lightning Labs `tapd`/`litd` fixture and live interop
    checks tied to the simple-taproot asset-channel path.
 
 ## Risks
