@@ -31,6 +31,10 @@ What works today:
   Bitcoin wallet setup, regtest mining, LND wallet init/unlock, LND funding,
   LND sync, tapd startup after LND credentials exist, tapd RPC readiness, and
   a secret-safe readiness report.
+- The integrated Lightning Labs `litd` counterparty harness now starts the
+  real asset-channel target topology: Bitcoin Core plus litd with integrated
+  LND/taproot-assets, taproot overlay channels, RFQ mock oracle config, and the
+  asset-channel RPC surface reachable.
 - The live `tapd` proof-binding path is wired. When the Lightning Labs daemon
   is reachable, `scripts/live-tapd-proof-bind.sh` mints `OPENUSD` through
   `tapcli`, mines confirmations, exports the TAPF proof, and binds that proof
@@ -89,10 +93,11 @@ What is being worked on now:
   live `tapd` mint/export/bind command path.
 - Issue #57 is active: the repo now has the live outgoing-payment gate, the
   local failure checks, the proof-binding handoff, and the ordered native
-  asset-payment wire session, plus the current `tapd` balance observer for the
-  Lightning Labs side. The remaining #57 work is to replace that loopback
-  session with the independent Lightning Labs receiver and record the observed
-  receiver-balance check after settlement.
+  asset-payment wire session, plus the current `tapd` balance observer and an
+  integrated `litd` asset-channel counterparty for the Lightning Labs side. The
+  remaining #57 work is to replace that loopback session with the independent
+  Lightning Labs litd receiver and record the observed receiver-balance check
+  after settlement.
 - Issues #57 through #60 cover the remaining live demo path: payments in both
   directions, observed live balance checks, and full proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until those
@@ -111,6 +116,8 @@ cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ./scripts/lightning-labs-counterparty.sh connection
 ./scripts/lightning-labs-counterparty.sh smoke
 ./scripts/lightning-labs-counterparty.sh tapd-balance '<asset-id>'
+./scripts/lightning-labs-litd-counterparty.sh start
+./scripts/lightning-labs-litd-counterparty.sh balance '<asset-id>'
 ./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
 cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json
@@ -166,6 +173,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Lightning Labs Interop Checks](docs/lightning-labs-interop-checks.md)
 - [tapd Proof Import/Export](docs/tapd-proof-import-export.md)
 - [Lightning Labs Counterparty Harness](docs/lightning-labs-counterparty-harness.md)
+- [Lightning Labs litd Counterparty](docs/lightning-labs-litd-counterparty.md)
 - [Wallet Storage](docs/wallet-storage.md)
 - [Public Demo Runbook](docs/public-demo-runbook.md)
 - [Path A Native-To-Native Demo](docs/path-a-native-demo.md)

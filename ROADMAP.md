@@ -26,11 +26,13 @@ Last updated: 2026-05-26
   payment-direction artifact checks, live `tapd` proof binding, and a live
   localhost native asset-payment session that sends the ordered proof,
   funding, RFQ, quote, and HTLC peer messages. It also has a current `tapd`
-  balance observer for the Lightning Labs side.
+  balance observer plus an integrated `litd` counterparty harness for the
+  Lightning Labs side.
 - Issue #57 is the active next implementation target. It now has the native
   payment-session artifact and current balance observer needed before
-  counterparty replacement, but it is not done until that session runs against
-  the independent Lightning Labs LND/`tapd` receiver and records the observed
+  counterparty replacement, plus the integrated litd aux-controller topology
+  that real asset channels need. It is not done until the native session runs
+  against the independent Lightning Labs litd receiver and records the observed
   receiver balance after settlement.
 - Issues #58 through #60 remain open for the reverse payment direction,
   observed live balance checks, and full semantic proof ancestry validation.
@@ -176,7 +178,9 @@ Track B: `tap-ldk` to Lightning Labs TAP-D.
 
 1. Start Bitcoin regtest.
 2. Start one native `tap-ldk` wallet.
-3. Start one Lightning Labs LND/tapd node as an independent counterparty.
+3. Start one Lightning Labs litd node as an independent counterparty. litd is
+   the practical target because it runs LND and taproot-assets together with
+   the aux funding controller enabled.
 4. Prefer Polar for the manual Track B network if it can provide the needed
    LND/`tapd` or `litd` topology; otherwise reproduce its Docker patterns in
    the headless harness.

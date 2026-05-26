@@ -44,6 +44,13 @@ therefore still needs the Taproot Assets/Lit aux-controller path or an
 equivalent daemon integration before it can claim a Lightning Labs
 asset-channel settlement.
 
+For that asset-channel target topology, use
+`scripts/lightning-labs-litd-counterparty.sh`. It starts integrated `litd`,
+which runs LND and taproot-assets together with the aux funding controller and
+taproot overlay channels enabled. The standalone harness remains useful for
+proof export/import and balance checks, but it is not the final #57 settlement
+peer.
+
 The `tapd` container receives the LND state directory as a writable mount
 because the Lightning Labs container entrypoint normalizes ownership before it
 starts. This remains counterparty harness state under `.tap-ldk/`, not native

@@ -113,7 +113,8 @@ try_counterparty() {
   if [ -z "$runtime" ]; then
     cat >"$DEPENDENCY_GAP" <<GAP
 Neither Docker nor Podman is installed. Path B fixture-backed checks ran, but
-the independent Lightning Labs LND/tapd counterparty was not started.
+the independent Lightning Labs LND/tapd and integrated litd counterparties were
+not started.
 GAP
     return 0
   fi
@@ -121,17 +122,17 @@ GAP
   if ! "$runtime" info >"$LOG_DIR/container-runtime-info.out" 2>"$LOG_DIR/container-runtime-info.err"; then
     cat >"$DEPENDENCY_GAP" <<GAP
 $runtime is installed, but its daemon/machine is not available. Path B
-fixture-backed checks ran, but the independent Lightning Labs LND/tapd
-counterparty was not started.
+fixture-backed checks ran, but the independent Lightning Labs LND/tapd and
+integrated litd counterparties were not started.
 GAP
     return 0
   fi
 
   if TAP_LDK_CONTAINER_RUNTIME="$runtime" run_optional_log lightning-labs-counterparty-smoke ./scripts/lightning-labs-counterparty.sh smoke; then
-    echo "Lightning Labs counterparty smoke completed with $runtime." >"$DEPENDENCY_GAP"
+    echo "Lightning Labs standalone LND/tapd counterparty smoke completed with $runtime. The live outgoing-payment gate starts the integrated litd counterparty when it runs." >"$DEPENDENCY_GAP"
   else
     cat >"$DEPENDENCY_GAP" <<GAP
-Lightning Labs counterparty smoke failed with $runtime. See:
+Lightning Labs standalone LND/tapd counterparty smoke failed with $runtime. See:
 - $LOG_DIR/lightning-labs-counterparty-smoke.out
 - $LOG_DIR/lightning-labs-counterparty-smoke.err
 GAP
@@ -181,7 +182,9 @@ cat >"$SUMMARY" <<SUMMARY_TEXT
 Path B Lightning Labs interop demo artifacts: $ARTIFACT_DIR
 
 Independent counterparty:
-- target: Bitcoin Core 30.0, LND 0.19.0-beta, tapd 0.7.0-alpha
+- standalone target: Bitcoin Core 30.0, LND 0.19.0-beta, tapd 0.7.0-alpha
+- asset-channel target: Bitcoin Core 30.0, litd 0.16.0-alpha with integrated
+  LND/taproot-assets and aux funding controller
 - status/gap: $DEPENDENCY_GAP
 
 Fixture-backed checks:

@@ -4,8 +4,9 @@ Path B is the native `tap-ldk` to independent Lightning Labs interop demo. The
 current harness captures version info, counterparty config/status, blob
 fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
-proof-binding report, the live outgoing-payment gate, and the consolidated
-interop check report into an ignored artifact directory.
+proof-binding report, the integrated `litd` counterparty readiness report, the
+live outgoing-payment gate, and the consolidated interop check report into an
+ignored artifact directory.
 
 ```bash
 ./scripts/path-b-lightning-labs-demo.sh
@@ -17,11 +18,14 @@ default. Override with `TAP_LDK_PATH_B_ARTIFACT_DIR=/path/to/artifacts`.
 If Docker or Podman is available, the script attempts the independent Bitcoin
 Core/LND/`tapd` counterparty smoke with the selected Lightning Labs target.
 That smoke now includes daemon readiness, LND wallet init/unlock, regtest
-mining, LND funding, LND sync, tapd startup ordering, and tapd readiness. If no
-runtime is available, or if the selected daemon/machine is down, the script
-records the runtime prerequisite and still runs every fixture-backed Track B
-check. LND and `tapd` remain compatibility peers, not sidecars inside the
-`tap-ldk` wallet.
+mining, LND funding, LND sync, tapd startup ordering, and tapd readiness. The
+live outgoing-payment gate also starts an integrated `litd` counterparty,
+because real asset-channel settlement needs Lightning Labs' aux funding
+controller with taproot overlay channels enabled. If no runtime is available,
+or if the selected daemon/machine is down, the script records the runtime
+prerequisite and still runs every fixture-backed Track B check. LND, `tapd`,
+and `litd` remain compatibility peers, not sidecars inside the `tap-ldk`
+wallet.
 
 The Path B wrapper also runs `scripts/live-tapd-proof-bind.sh`. With a live
 daemon, that script mints `OPENUSD`, exports a TAPF proof from `tapd`, and
@@ -31,7 +35,7 @@ blocked JSON report at `live-tapd-proof-binding.json`.
 The wrapper also runs `scripts/live-lightning-labs-outgoing-payment.sh`. That
 gate links live proof binding to the sender-side RFQ/invoice/HTLC artifact and
 keeps issue #57 marked incomplete until the native LDK payment path settles
-against the independent Lightning Labs receiver and a receiver balance is
+against the independent Lightning Labs litd receiver and a receiver balance is
 observed.
 
 The current consolidated report can pass fixture-backed checks while still
@@ -43,4 +47,5 @@ The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
 OpenAgentsInc rust-lightning fork, and sends an encoded native RFQ custom
 message over the socket. It is not yet a Lightning Labs daemon-backed P2P
-session.
+session. The integrated `litd` readiness report is now the daemon-backed target
+that this native session needs to replace.
