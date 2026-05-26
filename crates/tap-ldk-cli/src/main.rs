@@ -22,6 +22,7 @@ use tap_ldk_core::{
     },
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
     live_peer::run_live_peer_smoke,
+    live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
@@ -650,6 +651,46 @@ fn main() {
             save_wallet_or_exit(wallet_path, &wallet);
             println!("{} tapd proof {}", outcome.status(), outcome.proof_id());
         }
+        [
+            command,
+            wallet_path,
+            proof_path,
+            asset_id,
+            amount,
+            script_key,
+            genesis_outpoint,
+            anchor_outpoint,
+            report_path,
+        ] if command == "live-tapd-proof-bind" => {
+            let tapd_proof_file = read_tapd_proof_file_or_exit(proof_path);
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let amount = parse_amount_or_exit(amount);
+            let script_key = parse_script_key_or_exit(script_key, "owner script key");
+            let mut wallet = load_wallet_or_default_or_exit(wallet_path);
+            let report = match bind_live_tapd_proof(
+                &mut wallet,
+                LiveTapdProofBindingRequest {
+                    asset_id,
+                    amount: AssetAmount::new(amount),
+                    owner_script_key: script_key,
+                    genesis_outpoint: genesis_outpoint.to_owned(),
+                    anchor_outpoint: anchor_outpoint.to_owned(),
+                    tapd_proof_file,
+                    expected_asset_id: Some(asset_id),
+                    expected_proof_digest: None,
+                    expected_owner_script_key: Some(script_key),
+                },
+            ) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed to bind live tapd proof: {err}");
+                    process::exit(1);
+                }
+            };
+            save_wallet_or_exit(wallet_path, &wallet);
+            save_json_or_exit(report_path, &report, "live tapd proof binding report");
+            print_json_or_exit(&report, "live tapd proof binding report");
+        }
         [command, wallet_path] if command == "wallet-balances" => {
             let wallet = load_wallet_or_exit(wallet_path);
             match wallet.balances().and_then(|balances| {
@@ -764,6 +805,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk wallet-import-proof-fixture <wallet.json> <proof.json>");
     println!(
         "  tap-ldk wallet-import-tapd-proof-file <wallet.json> <tapd-proof-file> <asset-id> <amount> <owner-script-key> <genesis-outpoint> <anchor-outpoint>"
+    );
+    println!(
+        "  tap-ldk live-tapd-proof-bind <wallet.json> <tapd-proof-file> <asset-id> <amount> <owner-script-key> <genesis-outpoint> <anchor-outpoint> <report.json>"
     );
     println!("  tap-ldk wallet-balances <wallet.json>");
     println!("  tap-ldk wallet-proofs <wallet.json>");

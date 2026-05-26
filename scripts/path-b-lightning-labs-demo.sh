@@ -146,6 +146,8 @@ run_json live-tap-ldk-peer "$ARTIFACT_DIR/live-tap-ldk-peer.json" \
   cargo run -q -p tap-ldk-cli -- live-peer-smoke "$ARTIFACT_DIR/live-tap-ldk-peer-saved.json" "$ASSET_ID"
 run_log counterparty-status ./scripts/lightning-labs-counterparty.sh status || true
 try_counterparty
+run_optional_log live-tapd-proof-binding ./scripts/live-tapd-proof-bind.sh \
+  "$ARTIFACT_DIR/live-tapd-proof-binding.json" "$ARTIFACT_DIR/live-tapd-wallet.json" || true
 
 run_json blob-fixtures "$ARTIFACT_DIR/lightning-labs-blob-fixtures.json" \
   cargo run -q -p tap-ldk-cli -- lightning-labs-blob-fixture-smoke "$TAPCHANNEL_FIXTURE_DIR"
@@ -175,6 +177,7 @@ Independent counterparty:
 
 Fixture-backed checks:
 - live tap-ldk peer smoke: $ARTIFACT_DIR/live-tap-ldk-peer.json
+- live tapd proof binding: $ARTIFACT_DIR/live-tapd-proof-binding.json
 - blob fixtures: $ARTIFACT_DIR/lightning-labs-blob-fixtures.json
 - proof fixtures: $ARTIFACT_DIR/lightning-labs-proof-fixtures.json
 - funding interop: $ARTIFACT_DIR/lightning-labs-funding-interop-report.json

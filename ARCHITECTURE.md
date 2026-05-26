@@ -88,6 +88,9 @@ Important modules:
 - `proof`: bounded native proof format used by the local demo.
 - `tapd_proof`: Lightning Labs `TAPP` single proof and `TAPF` proof-file
   envelope parsing.
+- `live_tapd_proof`: binds a daemon-exported TAPF proof into native wallet
+  state, reports asset id/balance/proof metadata, and fails closed on wrong
+  asset id, stale proof digest, or wrong owner script key.
 - `wallet`: local JSON wallet state, issuance, proof import/export, local
   proof transfer, tapd proof import/export, balances, and atomic persistence.
 - `ldk_baseline`: BTC-only baseline LDK smoke and planning state.
@@ -913,10 +916,16 @@ The readiness report includes container names, image tags, LND and tapd node
 pubkeys, chain heights, LND wallet balance, and credential file paths. It does
 not print the Bitcoin RPC password or the LND wallet password.
 
-Remaining live Path B work sits above that bootstrap:
+The live `tapd` proof-binding command path now sits on top of that bootstrap:
 
-- mint/import a live asset;
-- export a live proof;
+- mint `OPENUSD` through `tapcli`;
+- finalize the batch;
+- mine confirmations;
+- export the daemon TAPF proof;
+- bind the proof into native `tap-ldk` wallet state.
+
+Remaining live Path B work sits above the proof-binding path:
+
 - open or attach an asset channel;
 - run the live payment.
 
@@ -1039,17 +1048,15 @@ The live Lightning Labs demo is incomplete.
 Missing pieces:
 
 1. A healthy live regtest runtime for Bitcoin Core, LND, and `tapd`.
-2. Live asset mint/import/export through `tapd`.
-3. Live proof binding from `tapd` into `tap-ldk`.
-4. Real asset-channel funding between `tap-ldk` and the Lightning Labs
+2. Real asset-channel funding between `tap-ldk` and the Lightning Labs
    counterparty.
-5. Real Lightning wire custom-message exchange through LDK/rust-lightning.
-6. Real RFQ exchange with Lightning Labs peer/session semantics.
-7. Real payment from `tap-ldk` to Lightning Labs.
-8. Real payment from Lightning Labs to `tap-ldk`.
-9. Observed balance checks from both live sides.
-10. Full semantic proof ancestry validation.
-11. Live force-close and sweep recovery.
+3. Real Lightning wire custom-message exchange through LDK/rust-lightning.
+4. Real RFQ exchange with Lightning Labs peer/session semantics.
+5. Real payment from `tap-ldk` to Lightning Labs.
+6. Real payment from Lightning Labs to `tap-ldk`.
+7. Observed balance checks from both live sides.
+8. Full semantic proof ancestry validation.
+9. Live force-close and sweep recovery.
 
 Until those are done, Track B must keep saying:
 
@@ -1071,11 +1078,10 @@ The shortest path is:
    - The remaining prerequisite is a reachable Docker or Podman runtime on the
      host running the live demo.
 
-3. Add live `tapd` asset setup.
-   - Mint or import `OPENUSD`.
-   - Mine confirmations.
-   - Export proof files.
-   - Record live asset ID and anchor outpoint.
+3. Use `scripts/live-tapd-proof-bind.sh`.
+   - The script mints or imports `OPENUSD`, mines confirmations, exports proof
+     files, records the live asset ID and anchor outpoint, and binds the TAPF
+     proof into native wallet state when the daemon is reachable.
 
 4. Add a real `tap-ldk` peer process.
    - The current code is mostly smoke functions and JSON stores.

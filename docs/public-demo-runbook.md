@@ -147,6 +147,7 @@ Key artifacts:
 - `lightning-labs-counterparty-config.json`
 - `lightning-labs-counterparty-gap.txt`
 - `live-tap-ldk-peer.json`
+- `live-tapd-proof-binding.json`
 - `lightning-labs-blob-fixtures.json`
 - `lightning-labs-proof-fixtures.json`
 - `lightning-labs-funding-interop-report.json`
@@ -166,6 +167,8 @@ Mocked or bounded pieces:
 - Manual/local discovery is used for the first interop target.
 - Live `tap-ldk` peer smoke is local `tap-ldk` to `tap-ldk`; it is not yet a
   Lightning Labs daemon-backed P2P session.
+- Live `tapd` proof binding writes a blocked report until the Lightning Labs
+  daemon runtime is reachable from the host.
 - Live LND/`tapd` settlement and observed balance comparison remain open.
 
 ## Full Smoke Wrapper

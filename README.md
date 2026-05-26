@@ -27,6 +27,12 @@ What works today:
   Bitcoin wallet setup, regtest mining, LND wallet init/unlock, LND funding,
   LND sync, tapd startup after LND credentials exist, tapd RPC readiness, and
   a secret-safe readiness report.
+- The live `tapd` proof-binding path is wired. When the Lightning Labs daemon
+  is reachable, `scripts/live-tapd-proof-bind.sh` mints `OPENUSD` through
+  `tapcli`, mines confirmations, exports the TAPF proof, and binds that proof
+  into native `tap-ldk` wallet state. The bounded CLI path and negative checks
+  for wrong asset id, stale proof digest, and wrong owner binding are covered
+  by tests.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
   aux blob surface for asset commitment state. It also has the first HTLC
@@ -48,7 +54,11 @@ What does not work yet:
   Lightning Labs daemon-backed P2P session.
 - The Lightning Labs daemon smoke requires a reachable Docker or Podman
   runtime. This shell can see the Docker Desktop CLI bundle, but cannot reach a
-  Docker socket yet.
+  Docker socket yet, so the live `tapd` mint path currently writes a blocked
+  report on this host.
+- Full semantic Taproot Assets proof ancestry validation is still open; the
+  live proof binding preserves and binds TAPF material with bounded anchor
+  checks until issue #60 lands.
 - Live on-chain force-close and sweeper integration is not implemented yet. The
   bounded recovery smoke now proves that `tap-ldk` refuses to call an asset
   recovered when only BTC sweep state exists, but it is not a live chain spend.
@@ -57,17 +67,17 @@ What does not work yet:
 
 What is being worked on now:
 
-- Issues #48 through #55 have landed the first Rust Lightning fork gates for
+- Issues #48 through #56 have landed the first Rust Lightning fork gates for
   asset-channel negotiation, bounded funding approval, monitor aux blob
   persistence tied to asset commitment numbers, and HTLC metadata/final-hop
   validation, plus cooperative close allocation export and force-close/sweep
   proof-ownership recovery, plus the first live localhost `tap-ldk` peer smoke
-  and the hardened Lightning Labs counterparty bootstrap harness.
-- Issue #56 is next: drive live `tapd` asset mint/import/export and bind that
-  proof material into the native `tap-ldk` side.
-- Issues #56 through #60 cover the remaining live demo path: live `tapd` proof
-  binding, payments in both directions, observed live balance checks, and full
-  proof ancestry validation.
+  and the hardened Lightning Labs counterparty bootstrap harness, plus the
+  live `tapd` mint/export/bind command path.
+- Issue #57 is next: implement live `tap-ldk` pays Lightning Labs asset
+  payment.
+- Issues #57 through #60 cover the remaining live demo path: payments in both
+  directions, observed live balance checks, and full proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until those
   implementation issues are actually done.
 
@@ -83,6 +93,7 @@ cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ./scripts/lightning-labs-counterparty.sh connection
 ./scripts/lightning-labs-counterparty.sh smoke
+./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
 cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json
 cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
@@ -125,6 +136,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
 - [Baseline LDK Node](docs/baseline-ldk-node.md)
 - [Live tap-ldk Peer Smoke](docs/live-tap-ldk-peer.md)
+- [Live tapd Proof Binding](docs/live-tapd-proof-binding.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Funding Interop](docs/lightning-labs-funding-interop.md)

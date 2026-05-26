@@ -26,5 +26,7 @@ not production proof-discovery infrastructure.
 ```bash
 cargo run -p tap-ldk-cli -- lightning-labs-proof-fixture-smoke fixtures/lightning-labs/proof/testdata
 cargo run -p tap-ldk-cli -- wallet-import-tapd-proof-file target/tapd-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f 9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1
+cargo run -p tap-ldk-cli -- live-tapd-proof-bind target/live-tapd-proof-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f 9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1 target/live-tapd-proof-binding.json
 cargo run -p tap-ldk-cli -- wallet-export-tapd-proof-file target/tapd-wallet.json '<proof-id>' target/exported.tapf
+./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 ```
