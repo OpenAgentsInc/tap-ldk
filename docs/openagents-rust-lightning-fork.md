@@ -164,6 +164,13 @@ cooperative close allocation, and proof-ownership recovery to one state object.
 `tap-ldk` pins this revision and exercises it with
 `simple-taproot-asset-channel-smoke`.
 
+Issue #61 remains open even though #62 through #70 and #75 are implemented.
+The epic closes only after BTC-only simple-taproot LDK channels open, pay,
+reestablish, cooperatively close, force-close, and prove legacy channels are
+unaffected in live channel-manager paths. Issue #71 remains open until the
+Taproot Assets overlay is wired through those live paths and Path B interop
+records observed live balances.
+
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the
 LDK crates affected by the fork. Do that only when the fork changes require

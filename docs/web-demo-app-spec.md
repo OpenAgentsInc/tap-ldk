@@ -299,7 +299,9 @@ Use explicit status labels:
 - `deferred`
 
 Do not label expected placeholders as successful live interop. Path B can show
-green fixture checks while the live settlement gate remains blocked.
+green fixture checks while the live settlement gate remains blocked. The UI
+must distinguish the current #57 pre-settlement readiness state from a
+post-settlement observed-balance success.
 
 ## Local Demo Agent
 
@@ -564,7 +566,9 @@ conservation across the displayed topology.
   to automate.
 - Render LND/`tapd`/`litd` readiness separately.
 - Render live `tapd` proof binding and native LDK to `litd` preflight.
-- Keep current live settlement blocked state visible until issue #57 is done.
+- Keep current live settlement blocked state visible until #57 is done, keep
+  the reverse direction blocked until #58 is done, and do not show Path B as
+  complete until #59 replaces expected balances with observed balances.
 
 Exit condition: The app can run the current Path B wrapper, show fixture checks
 as passed, and show live settlement as blocked unless observed balances exist.

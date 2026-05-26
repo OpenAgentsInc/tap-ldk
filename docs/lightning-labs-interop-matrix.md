@@ -46,13 +46,13 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go`; `docs/tapd-proof-import-export.md` | Fixture-backed `TAPF`/`TAPP` decoder validates version/checksum/TLV transport, stores raw proof files across restart, and exports raw proof bytes for Lightning Labs verification tooling. Full semantic proof ancestry remains required. | Partially implemented |
 | Address encoding | `../projects/lightninglabs/repos/bips/bip-tap-addr.mediawiki`; `address/address.go`; `address/encoding.go` | Native address encode/decode already passes imported TAP BIP vectors; still needs wallet integration. | Partially implemented |
 | Virtual PSBT / TAP VM | `../projects/lightninglabs/repos/bips/bip-tap-psbt.mediawiki`; `tappsbt/interface.go`; `tappsbt/decode.go`; `fixtures/tap-bips/psbt_encoding_generated.json`; `fixtures/tap-bips/vm_validation_generated.json` | Native `tap_vm` validates generated TAP BIP issuance, transfer, split, hash-lock, signature, and negative vectors, and channel funding/commitment updates derive virtual IDs only after validation. Full VPacket signing and proof-chain ancestry remain required. | Partially implemented |
-| Issuance and proof sync | `itest/assets_test.go`; `itest/mint_fund_seal_test.go`; `proof` package; `scripts/live-tapd-proof-bind.sh`; `crates/tap-ldk-core/src/live_tapd_proof.rs` | Live command path can mint `OPENUSD` through `tapcli`, mine confirmations, export TAPF proof material, and bind it into native `tap-ldk` wallet state when the Lightning Labs daemon is reachable. Local host currently records a runtime prerequisite before minting. | Partially implemented |
+| Issuance and proof sync | `itest/assets_test.go`; `itest/mint_fund_seal_test.go`; `proof` package; `scripts/live-tapd-proof-bind.sh`; `crates/tap-ldk-core/src/live_tapd_proof.rs` | Live command path can mint `OPENUSD` through `tapcli`, mine confirmations, export TAPF proof material, and bind it into native `tap-ldk` wallet state when the Lightning Labs daemon is reachable. The #57 gate has reached `proof_binding_status=bound` in a live run. | Partially implemented |
 | Universe/proof courier | `bip-tap-universe.mediawiki`; `proof/courier.go`; `itest/universe_test.go` | Use local proof/universe courier for demo; do not make it production infrastructure. | Mocked for first demo |
 | RFQ message types | `rfqmsg/request_test.go`; `rfqmsg/accept_test.go`; `rfqmsg/reject_test.go`; `rfqmsg/messages_test.go`; `docs/lightning-labs-rfq-invoice.md` | Lightning Labs request/accept/reject payloads round-trip with message types `52884..52886`, RFQ-ID-derived SCID aliases, fixed-point rates, and fail-closed version/expiry checks. Native `tap-ldk` RFQ shell message types remain intentionally separate. | Partially implemented |
 | Invoice behavior | `tapchannel/aux_invoice_manager.go`; `itest/custom_channels/decode_invoice_test.go`; `itest/custom_channels/invoice_expiry_test.go`; `docs/lightning-labs-rfq-invoice.md` | BOLT 11 invoice text stays opaque; Lightning Labs RFQ metadata is checked against native quote-bound invoice fields before HTLC/payment state can advance. | Partially implemented |
 | Quote expiry | `itest/custom_channels/invoice_expiry_test.go`; `rfq/manager_test.go`; `docs/lightning-labs-rfq-invoice.md` | RFQ request/accept expiry, invoice expiry, quote expiry, and replay checks are enforced in the bounded interop smoke. Live daemon expiry behavior still needs Track B payment execution. | Partially implemented |
 | Multi-RFQ and routing | `itest/custom_channels/multi_rfq_test.go`; `itest/custom_channels/multi_channel_pathfinding_test.go` | Out of first-demo scope except as a compatibility note. | Deferred |
-| Payment direction: `tap-ldk` pays Lightning Labs | `itest/custom_channels/core_test.go`; `itest/custom_channels/single_asset_multi_input_test.go`; `itest/custom_channels/strict_forwarding_test.go`; `docs/lightning-labs-outgoing-payment.md`; `scripts/live-lightning-labs-outgoing-payment.sh` | Sender-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs RFQ payloads, quote-bound invoice, asset HTLC metadata, expected balance delta, replay rejection, wrong-asset rejection, wrong-amount rejection, and a live outgoing-payment gate that refuses success until a real Lightning Labs receiver balance is observed. | Stopped at live settlement gap |
+| Payment direction: `tap-ldk` pays Lightning Labs | `itest/custom_channels/core_test.go`; `itest/custom_channels/single_asset_multi_input_test.go`; `itest/custom_channels/strict_forwarding_test.go`; `docs/lightning-labs-outgoing-payment.md`; `scripts/live-lightning-labs-outgoing-payment.sh` | Sender-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs RFQ payloads, quote-bound invoice, asset HTLC metadata, expected balance delta, replay rejection, wrong-asset rejection, wrong-amount rejection, and a live outgoing-payment gate. The gate now reaches proof binding, native session readiness, integrated `litd` readiness, native LDK-to-`litd` peer connection, and a pre-settlement current-balance observation. | Stopped at live asset-channel payment settlement |
 | Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go`; `docs/lightning-labs-incoming-payment.md` | Receiver-side Track B artifacts are built and persisted: fixture-backed funding state, Lightning Labs buy-direction RFQ payloads, native quote-bound receive invoice, final-hop asset HTLC metadata, expected balance delta, stale/wrong-amount/malformed/replay rejection, and documented live-daemon settlement gap. | Stopped at live daemon gap |
 | Balance comparison | `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records.go`; `itest/custom_channels/balance_consistency_test.go`; `docs/lightning-labs-interop-checks.md` | Automated interop check report compares funding balances, HTLC RFQ metadata, RFQ message types, proof availability, both payment-direction asset IDs, expected balance deltas, metadata rejection checks, restart round trips, simple-taproot asset-channel lifecycle state, close/proof recovery, and explicit observed-balance gates. Live observed balance comparison remains a documented gap until a daemon-backed run supplies actual post-settlement balances. | Partially implemented |
 | Cooperative close | `tapchannel/aux_closer.go`; `itest/custom_channels/restart_coop_close_test.go` | Close/proof export is required for a strong demo; may remain after first payment interop if documented. | Stronger-demo gate |
@@ -78,20 +78,19 @@ reported as settled interop.
 
 ## Follow-Up Implementation Issues
 
-- Close the live funding gap recorded by
-  `docs/lightning-labs-funding-interop.md`: drive a headless or Polar-backed
-  LND/`tapd` channel funding attempt and bind the live funding outpoint to the
-  proof and funding blob.
-- Drive a live LND/`tapd` RFQ exchange and verify Lightning Labs accept
-  signatures against the peer/session once payment execution begins.
-- Extend proof import/export from byte-compatible `TAPF` preservation to full
-  semantic proof ancestry validation.
-- Use the hardened `scripts/lightning-labs-counterparty.sh` readiness report as
-  the first external counterparty smoke path once a Docker or Podman runtime is
-  reachable.
-- Replace expected-only payment deltas with observed balance comparison checks
-  after each live interop payment.
-- Document any mismatch as a failing compatibility gap, not a partial success.
+Close the remaining issues in this order:
+
+1. #57: run asset-channel funding/payment over the connected independent
+   `litd` peer and record the Lightning Labs receiver balance after settlement.
+2. #58: drive the reverse Lightning Labs sender flow into `tap-ldk`, persist
+   the received balance/proof reference, and verify restart.
+3. #59: replace expected-only payment deltas with observed balance comparison
+   checks after both live interop payments.
+4. #60: extend proof import/export from byte-compatible `TAPF` preservation to
+   full semantic proof ancestry validation and wire it into funding, HTLC,
+   close, and recovery.
+5. Close #19 only when Path B reports live settlement in both directions and
+   any mismatch is a failing compatibility gap, not a partial success.
 
 ## Current Known Gaps
 
@@ -108,8 +107,9 @@ reported as settled interop.
   compatibility, but does not yet run the live daemon RFQ session or verify the
   Lightning Labs accept signature.
 - `tap-ldk` builds sender-side artifacts for the `tap-ldk` pays Lightning Labs
-  direction, but does not yet drive a live LND/`tapd` receiver or observe the
-  Lightning Labs receiver balance.
+  direction and reaches the connected integrated `litd` peer, but does not yet
+  run asset-channel funding/payment over that peer or observe the
+  post-settlement Lightning Labs receiver balance.
 - `tap-ldk` builds receiver-side artifacts for the Lightning Labs pays
   `tap-ldk` direction, but does not yet drive a live LND/`tapd` sender or
   observe a durable `tap-ldk` receiver balance.

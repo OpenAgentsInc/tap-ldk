@@ -37,6 +37,11 @@ The Lightning Labs path is not a live payment yet:
 - It can start integrated Lightning Labs `litd`, confirm the asset-channel RPC
   surface is reachable, then start a native LDK node and connect it to the
   `litd` Lightning P2P address.
+- The current #57 gate reaches `proof_binding_status=bound`,
+  `native_asset_payment_session_ready=true`,
+  `integrated_litd_counterparty_ready=true`,
+  `native_litd_peer_connected=true`, and a pre-settlement Lightning Labs
+  current-balance observation.
 - It does not yet drive that connected `litd` counterparty through asset
   funding and payment settlement.
 - It does not yet query real live balances from both nodes after settlement.
@@ -56,7 +61,7 @@ the full asset channel implementation:
   surface, and a proof-ownership recovery surface for force-close,
   second-level HTLC, and final sweep paths.
 - The fork still needs full live channel-manager, resolver, and sweeper
-  call-site integration.
+  call-site integration before the open epics can close.
 
 ## Repository Layout
 
@@ -505,7 +510,8 @@ a real live demo:
   success/timeout path. Initial support landed in
   `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
   single-asset lifecycle state on top of these surfaces, while live
-  channel-manager and interop exercises continue in #57, #58, #59, and #76.
+  channel-manager and interop exercises continue in #57, #58, #59, and the
+  epics #61, #71, and #19.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
@@ -832,6 +838,11 @@ Current target:
 - LND `0.19.0-beta`;
 - `tapd` `0.7.0-alpha`.
 
+Live asset-channel settlement currently targets integrated `litd`
+`0.16.0-alpha`, because it runs LND plus taproot-assets with the aux funding
+controller and taproot overlay channel support enabled. Standalone LND/`tapd`
+remains useful for proof import/export and balance checks.
+
 ### Blob fixtures
 
 `lightning_labs_blob.rs` decodes imported fixture hexdumps:
@@ -1018,6 +1029,12 @@ It:
 13. writes consolidated interop checks;
 14. prints the dependency gap and interop report.
 
+When Docker is reachable, the live outgoing-payment gate also runs the
+standalone proof-binding/current-balance path, starts integrated `litd`, and
+runs the native LDK-to-`litd` peer preflight. It still blocks at
+`live_asset_channel_payment_settlement` because the live asset-channel
+funding/payment flow has not moved onto that connected peer.
+
 Artifacts land in:
 
 ```text
@@ -1075,10 +1092,6 @@ Remaining live Path B work sits above the proof-binding path:
 
 - open or attach an asset channel;
 - run the live payment.
-
-On this shell the Docker Desktop CLI bundle is visible, but the Docker socket
-is not reachable. The harness records that as a host prerequisite when the
-smoke is run.
 
 ## Formal Models
 
@@ -1198,16 +1211,16 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. A healthy live regtest runtime for Bitcoin Core, LND, and `tapd`.
-2. Real asset-channel funding between `tap-ldk` and the Lightning Labs
+1. Real asset-channel funding between `tap-ldk` and the Lightning Labs
    counterparty.
-3. Real Lightning wire custom-message exchange through LDK/rust-lightning.
-4. Real RFQ exchange with Lightning Labs peer/session semantics.
-5. Real payment from `tap-ldk` to Lightning Labs.
-6. Real payment from Lightning Labs to `tap-ldk`.
-7. Observed balance checks from both live sides.
-8. Full semantic proof ancestry validation.
-9. Live force-close and sweep recovery.
+2. Real Lightning wire custom-message exchange through LDK/rust-lightning over
+   the connected independent `litd` peer.
+3. Real RFQ exchange with Lightning Labs peer/session semantics.
+4. Real payment from `tap-ldk` to Lightning Labs.
+5. Real payment from Lightning Labs to `tap-ldk`.
+6. Observed post-settlement balance checks from both live sides.
+7. Full semantic proof ancestry validation.
+8. Live force-close and sweep recovery.
 
 Until those are done, Track B must keep saying:
 
@@ -1217,43 +1230,46 @@ Until those are done, Track B must keep saying:
 
 ## How To Make Path B Fully Work
 
-The shortest path is:
+The shortest path is now the open issue sequence:
 
-1. Fix local container runtime.
-   - Install/start Docker Desktop, or fix/start Podman machine.
-   - Confirm `docker info` or `podman info` works.
-
-2. Use `scripts/lightning-labs-counterparty.sh`.
-   - The script now has readiness loops, LND wallet init/unlock, mining,
-     funding, tapd startup ordering, and secret-safe connection material.
-   - The remaining prerequisite is a reachable Docker or Podman runtime on the
-     host running the live demo.
-
-3. Use `scripts/live-tapd-proof-bind.sh`.
+1. Finish #57: live `tap-ldk` pays Lightning Labs.
+   - Use `scripts/lightning-labs-counterparty.sh` for standalone proof/balance
+     plumbing and `scripts/lightning-labs-litd-counterparty.sh` for the
+     integrated asset-channel counterparty.
+   - Use `scripts/live-tapd-proof-bind.sh`.
    - The script mints or imports `OPENUSD`, mines confirmations, exports proof
      files, records the live asset ID and anchor outpoint, and binds the TAPF
      proof into native wallet state when the daemon is reachable.
+   - Replace the loopback native asset-payment session with messages over the
+     connected `litd` peer.
+   - Drive native Rust/LDK asset-channel funding/payment against that peer and
+     record the Lightning Labs receiver balance after settlement.
 
-4. Add a real `tap-ldk` peer process.
-   - The current code is mostly smoke functions and JSON stores.
-   - Live Path B needs a running LDK peer that can send and receive custom
-     messages.
+2. Finish #58: live Lightning Labs pays `tap-ldk`.
+   - Expose the native receiver invoice/final-hop path to the Lightning Labs
+     sender.
+   - Validate received asset HTLC metadata through the LDK/fork boundary.
+   - Persist the received asset balance and proof reference, restart
+     `tap-ldk`, and compare observed balances on both sides.
 
-5. Patch the OpenAgentsInc rust-lightning fork.
-   - Add feature/channel type gates.
-   - Wire MuSig2 channel signing and reestablish state through live channel
-     updates.
-   - Add asset commitment monitor persistence hooks.
-   - Add HTLC metadata hooks.
-   - Add final-hop validation hooks.
-   - Add close and recovery hooks.
-
-6. Replace fixture-backed reports with live reports.
+3. Finish #59: observed-balance reporting.
    - Keep fixture tests as regression coverage.
-   - Add live artifact paths for the daemon run.
-   - Query both sides after payment.
-   - Only mark Track B complete when asset ID, payment state, and balances
-     match.
+   - Make reports fail completion when observed post-settlement balances are
+     missing.
+   - Only mark Track B complete when asset ID, payment state, proof reference,
+     and balances match in both directions.
+
+4. Finish #60: semantic proof ancestry.
+   - Replace the current `TAPF` envelope/raw-byte preservation boundary with
+     semantic validation of asset leaves, anchors, virtual transaction
+     history, owner transitions, split/previous-witness ancestry, and amount
+     conservation.
+   - Use the same validation boundary in wallet import, funding, HTLC receipt,
+     cooperative close, and recovery.
+
+5. Close #61, #71, and #19 only after their acceptance criteria are actually
+   met. The issue-by-issue closeout table lives in
+   `docs/remaining-issue-closure-plan.md`.
 
 ## Design Boundaries
 

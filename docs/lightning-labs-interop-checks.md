@@ -19,6 +19,14 @@ The report can pass its automated fixture checks while still setting
 incoming payment checks still stop at expected balance deltas until a live
 LND/`tapd` counterparty reports observed settlement and durable balances.
 
+Current live status is more specific: the #57 gate can start the relevant
+Lightning Labs stacks, bind a live proof, run the native ordered
+asset-payment-session smoke, connect native LDK to integrated `litd`, and query
+a current Lightning Labs balance. It still has no post-settlement balance
+because the live asset-channel funding/payment flow has not run over the
+connected `litd` peer. #59 should only flip the Path B completion flag after
+#57 and #58 both record observed post-settlement balances.
+
 ## Checks
 
 - Funding local plus remote balances equal the decoded funding total.
@@ -35,3 +43,15 @@ LND/`tapd` counterparty reports observed settlement and durable balances.
   rust-lightning fork state.
 - Wrong, stale, malformed, and replayed payment metadata checks remain true.
 - Live observed balance gaps are recorded as documented gaps, not success.
+
+## Closure Gate
+
+- #57 must provide the live `tap-ldk` pays Lightning Labs observed receiver
+  balance.
+- #58 must provide the live Lightning Labs pays `tap-ldk` observed durable
+  receiver balance.
+- #59 must make `live_daemon_gaps_remaining=false` impossible unless both live
+  directions agree on asset ID, amount, payment state, proof reference, and
+  balances.
+- #60 must replace shallow proof acceptance with semantic proof ancestry
+  validation before the full protocol epics close.

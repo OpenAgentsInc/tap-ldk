@@ -1,0 +1,63 @@
+# Remaining Issue Closure Plan
+
+Date: 2026-05-26
+
+This is the current path from the open issue list to a fully closed demo
+track. Do not close the epics from fixture-backed reports, expected balances,
+or local loopback smokes. Close them only when the issue-specific live and
+semantic checks below pass.
+
+## Current State
+
+Path A works as a bounded native-to-native demo. It issues demo `OPENUSD`,
+opens a single-asset channel, pays, restarts, cooperatively closes, exports
+proof artifacts, and exercises the fork-backed simple-taproot asset-channel
+lifecycle state.
+
+Path B is live-ready but not live-settled. The current #57 gate reaches:
+
+- live `tapd` proof binding;
+- ordered native asset-payment session readiness;
+- standalone Lightning Labs current-balance observation;
+- integrated `litd` readiness with the asset-channel RPC surface enabled;
+- native LDK peer connection to the independent `litd` node.
+
+The gate still stops at `live_asset_channel_payment_settlement`. The observed
+Lightning Labs balance currently recorded by #57 is a pre-settlement/current
+balance, not the post-settlement receiver balance required to close the issue.
+
+## Closure Sequence
+
+| Order | Issue | Current state | Required before close |
+| --- | --- | --- | --- |
+| 1 | #57 Live `tap-ldk` pays Lightning Labs | Harness, proof binding, live current-balance query, integrated `litd`, and native LDK peer preflight are in place. | Run asset-channel funding/payment over the connected independent `litd` peer, settle the payment, record post-settlement Lightning Labs receiver balance, record `tap-ldk` sender state, and keep wrong-quote/wrong-asset/wrong-amount failures covered. |
+| 2 | #58 Live Lightning Labs pays `tap-ldk` | Receiver-side fixtures, buy-direction RFQ artifacts, quote-bound receive invoice, final-hop metadata, expected balance deltas, and negative checks exist. | Drive a Lightning Labs sender through the live path, have `tap-ldk` receive and validate the asset HTLC metadata through the LDK/fork boundary, persist the received balance and proof reference, restart `tap-ldk`, and compare observed balances on both sides. |
+| 3 | #59 Observed live balance reporting | Reports distinguish fixture-backed expected balances from live gates, and `live_daemon_gaps_remaining` remains true. | Make Path B completion impossible unless #57 and #58 both have observed post-settlement balances, compatible asset IDs, compatible payment state, and non-secret proof/payment references. Update README, ROADMAP, ARCHITECTURE, and public runbook after the reports pass. |
+| 4 | #60 Semantic proof ancestry validation | MS-SMT, `AssetCommitment`, `TapCommitment`, TAP VM, `TAPF` transport validation, and raw proof preservation exist; full semantic proof ancestry does not. | Validate asset identity, type, anchors, Taproot commitment roots, owner transitions, amount conservation, virtual transaction history, split/previous-witness ancestry, and failure cases. Route the same validation boundary through wallet import, funding, HTLC receipt, cooperative close, and recovery. |
+| 5 | #61 BTC simple-taproot LDK epic | Fork surfaces #62 through #70 and #75 are implemented and pinned, with vector and lifecycle smoke coverage. | Close only after BTC-only simple-taproot LDK channels open, pay, reestablish, cooperatively close, force-close, and prove legacy channel behavior is unaffected. |
+| 6 | #71 Full Taproot Assets LDK epic | Native primitives, bounded channel state, fork hooks, and live interop scaffolding exist. | Close only after #57 through #60 pass and asset funding, commitment, HTLC, close, monitor, and recovery state are wired into the real simple-taproot LDK state machine without weakening BTC-only behavior. |
+| 7 | #19 Path B Lightning Labs interop epic | Fixture-backed interop checks and live readiness gates exist. | Close only after both live payment directions settle against Lightning Labs, observed balances match in both directions, semantic proof validation is enforced, and Path B reports `live_daemon_gaps_remaining=false`. |
+
+## Engineering Path
+
+1. Finish #57 by replacing the loopback native asset-payment session with the
+   connected `litd` peer path. The run must use native Rust/LDK asset-channel
+   funding/payment logic; `litd` is the counterparty, not a `tap-ldk` sidecar.
+2. Finish #58 by adding the reverse live sender flow from Lightning Labs into
+   `tap-ldk`, including durable receiver balance and restart validation.
+3. Finish #59 by tightening report schemas and docs so no expected-only value
+   can be read as live interop success.
+4. Finish #60 by replacing the remaining proof-envelope boundary with semantic
+   proof ancestry validation, then wire that boundary into every path that can
+   accept or move asset state.
+5. Audit #61, #71, and #19 against their acceptance criteria. Do not close
+   them until the live and semantic checks above are complete.
+
+## Verification Before Closing Issues
+
+For every issue, run the issue-specific live command, `cargo fmt --check`,
+`cargo test`, and `git diff --check`. For #57, #58, and #59, attach the
+non-secret live report summary showing asset ID, payment ID, amount, balance
+before/after, proof reference, and whether each side observed the same final
+state. For #60, include the semantic proof-validation coverage and negative
+fixture classes.

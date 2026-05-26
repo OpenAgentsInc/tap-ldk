@@ -19,4 +19,5 @@ This is still not issue #57 completion. It proves the native LDK process can
 connect to the Lightning Labs peer. The remaining work is to drive the
 asset-channel funding and payment messages over that connected peer, then
 record the Lightning Labs receiver's observed Taproot Asset balance after
+settlement. The current #57 report treats this as a readiness gate, not as live
 settlement.

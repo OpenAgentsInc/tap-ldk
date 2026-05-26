@@ -39,14 +39,28 @@ Works today:
   amount conservation, witness presence, supported TAP script witnesses, and
   generated TAP BIP valid/error vectors before deriving virtual IDs.
 
-Open work:
+Open work, in closure order:
 
-- #57 through #60 are the live Path B work: real Lightning Labs asset payment,
-  reverse direction, observed balances, and proof ancestry validation.
-- #61 remains the parent BTC-only simple-taproot readiness epic.
-- #71 remains the full Taproot Assets epic. LND, `tapd`, and `litd` remain
-  interop peers, not wallet sidecars; #19 stays open until Path B is actually
-  complete.
+- #57 is the next live Path B implementation step. The current gate reaches
+  live `tapd` proof binding, native payment-session readiness, integrated
+  `litd` readiness, native LDK-to-`litd` peer connection, and a
+  pre-settlement Lightning Labs balance observation. It still must run
+  asset-channel funding/payment over that connected independent `litd` peer
+  and record the Lightning Labs receiver balance after settlement.
+- #58 follows with the reverse direction: Lightning Labs pays `tap-ldk`, and
+  `tap-ldk` must persist the received asset balance across restart.
+- #59 closes the reporting gap only after #57 and #58 pass. Path B reports
+  must stop relying on expected fixture balances and require observed live
+  balances in both directions.
+- #60 replaces the remaining shallow/bounded proof boundary with semantic
+  Taproot Assets proof ancestry validation wired through funding, HTLC
+  receipt, cooperative close, and recovery.
+- #61 stays open until BTC-only simple-taproot LDK channels can open, pay,
+  reestablish, close, force-close, and keep legacy channels unaffected. #71
+  stays open until full Taproot Assets channel support is layered onto that
+  base. #19 stays open until the live Lightning Labs interop demo is complete.
+
+LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
 ## Development
 
@@ -101,6 +115,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Roadmap](ROADMAP.md)
 - [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
+- [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
 - [Protocol References](docs/protocol-references.md)
 - [BLIP-TAP Implementation Note](docs/blip-tap-implementation-note.md)
 - [LDK Asset-Channel Extension Boundary](docs/ldk-asset-channel-extension-boundary.md)

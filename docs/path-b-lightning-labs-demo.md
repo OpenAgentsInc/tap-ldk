@@ -42,6 +42,13 @@ starts the integrated `litd` counterparty, connects a native LDK node to that
 payment path settles against the independent Lightning Labs litd receiver and a
 receiver balance is observed.
 
+Current #57 status is narrower than the old runtime prerequisite. The gate can
+reach live proof binding, native asset-payment session readiness, integrated
+`litd` readiness, native LDK-to-`litd` peer connection, and a pre-settlement
+Lightning Labs current-balance observation. It still stops at
+`live_asset_channel_payment_settlement` because the asset-channel
+funding/payment flow has not run over that connected `litd` peer.
+
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement
 and observed balance replacement are still required before Track B is a settled
@@ -54,3 +61,14 @@ message over the socket. It is not yet a Lightning Labs daemon-backed P2P
 session. The native LDK peer preflight now proves that a native LDK node can
 connect to integrated `litd`; the remaining work is to run the asset-channel
 funding/payment messages over that connected daemon-backed peer.
+
+Open issue path:
+
+1. #57: live `tap-ldk` pays Lightning Labs and records post-settlement receiver
+   balance.
+2. #58: live Lightning Labs pays `tap-ldk` and `tap-ldk` persists the received
+   balance across restart.
+3. #59: Path B reports require observed live balances in both directions.
+4. #60: semantic proof ancestry validation replaces the remaining bounded
+   proof boundary.
+5. #19 closes only after those live and semantic gates pass.

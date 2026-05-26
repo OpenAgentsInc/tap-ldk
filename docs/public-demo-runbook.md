@@ -21,8 +21,10 @@ Path B is the native `tap-ldk` to independent Lightning Labs compatibility
 demo. It runs fixture-backed Lightning Labs blob/proof/funding/RFQ/payment
 checks and optionally starts a Docker- or Podman-backed Bitcoin
 Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
-`tap-ldk` runtime sidecars. Live daemon settlement and observed balance
-replacement are still open gaps.
+`tap-ldk` runtime sidecars. The live gate now also starts integrated `litd`
+for the asset-channel path, connects native LDK to that `litd` peer, and can
+observe a pre-settlement Lightning Labs balance. Live asset-channel settlement
+and post-settlement observed balance replacement are still open gaps.
 
 ## Prerequisites
 
@@ -167,9 +169,12 @@ Mocked or bounded pieces:
 - Manual/local discovery is used for the first interop target.
 - Live `tap-ldk` peer smoke is local `tap-ldk` to `tap-ldk`; it is not yet a
   Lightning Labs daemon-backed P2P session.
-- Live `tapd` proof binding writes a blocked report until the Lightning Labs
-  daemon runtime is reachable from the host.
-- Live LND/`tapd` settlement and observed balance comparison remain open.
+- Live `tapd` proof binding can bind daemon-exported proof material when the
+  Lightning Labs runtime is reachable.
+- Native LDK can connect to integrated `litd`, but the asset-channel
+  funding/payment flow has not yet run over that connected peer.
+- Live LND/`tapd`/`litd` settlement and post-settlement observed balance
+  comparison remain open.
 
 ## Full Smoke Wrapper
 
@@ -218,4 +223,6 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 
 Report Path A and Path B separately. Do not describe Path B as complete until
 live daemon settlement and observed balance checks replace the current
-fixture-backed gap.
+fixture-backed gap. The remaining open path is #57 live `tap-ldk` pays
+Lightning Labs, #58 live Lightning Labs pays `tap-ldk`, #59 observed-balance
+reporting, and #60 semantic proof ancestry validation.

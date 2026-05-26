@@ -22,6 +22,13 @@ RPC surface. It then starts a native LDK node and connects it to that `litd`
 node over the Lightning P2P address. It records the expected balance change and
 the exact remaining gap instead of reporting a successful interop settlement.
 
+Current #57 state: the gate reaches proof binding, native payment-session
+readiness, integrated `litd` readiness, native LDK-to-`litd` peer connection,
+and a pre-settlement Lightning Labs balance observation. That balance is not
+the close condition. #57 closes only after the live asset-channel
+funding/payment flow runs over the connected `litd` peer and the report records
+the Lightning Labs receiver balance after settlement.
+
 ## Checks
 
 - Reuses the fixture-backed Lightning Labs funding state.
@@ -48,5 +55,7 @@ the exact remaining gap instead of reporting a successful interop settlement.
 ## Next Step
 
 Run the asset-channel funding and payment flow over the connected independent
-Lightning Labs litd peer, then replace the expected receiver balance with an
-observed daemon balance before claiming Track B payment success.
+Lightning Labs `litd` peer, then replace the expected receiver balance with an
+observed post-settlement daemon balance before claiming Track B payment
+success. After that, #58 implements the reverse live payment direction and #59
+turns both observed balances into the Path B completion gate.

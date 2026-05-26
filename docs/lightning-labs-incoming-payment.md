@@ -17,6 +17,12 @@ current smoke does not drive a live LND/`tapd` sender or observe a durable
 `tap-ldk` receiver balance. It records the expected balance change and the
 exact remaining gap instead of reporting a successful interop settlement.
 
+This issue follows #57. Once `tap-ldk` can pay Lightning Labs over the live
+asset-channel path, the reverse direction must expose the native receive path
+to the Lightning Labs sender, validate the received asset HTLC metadata through
+the LDK/fork boundary, persist the received proof reference and balance, and
+prove restart does not lose that state.
+
 ## Checks
 
 - Reuses the fixture-backed Lightning Labs funding state.
@@ -32,4 +38,5 @@ exact remaining gap instead of reporting a successful interop settlement.
 Run these same RFQ, invoice, and HTLC artifacts through the headless or
 Polar-backed Lightning Labs sender, then replace the expected `tap-ldk`
 receiver balance with an observed durable settlement balance before claiming
-Track B payment success.
+Track B payment success. #59 should only close after both this observed balance
+and the #57 Lightning Labs receiver balance are present in the Path B report.
