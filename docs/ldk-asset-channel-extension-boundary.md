@@ -18,8 +18,8 @@ demo must live under `OpenAgentsInc` and be wired explicitly from this repo.
 | Funding controller | `AuxFundingController` | `OpenAgentsInc/rust-lightning` fork | Required | Funding approval needs asset ID, proof root, funding output, and allocation checks. |
 | Commitment blob | `tapchannelmsg` commitment blob | `OpenAgentsInc/rust-lightning` fork | Required | Asset blob is versioned with the Lightning commitment number and monitor update. |
 | Asset signer | `AuxLeafSigner` | `tap-ldk-core` | No | Asset virtual transaction signing and nonce state stay separate from BTC signing. |
-| HTLC modifier | custom records / aux HTLC view | `OpenAgentsInc/rust-lightning` fork | Required | Asset metadata can only be attached with an accepted RFQ quote. |
-| Final-hop validator | `AuxInvoiceManager` validation | `OpenAgentsInc/rust-lightning` fork | Required | Wrong, stale, or malformed asset metadata fails before settlement. |
+| HTLC modifier | custom records / aux HTLC view | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Asset metadata can only be attached with an accepted RFQ quote. |
+| Final-hop validator | `AuxInvoiceManager` validation | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Wrong, stale, or malformed asset metadata fails before settlement. |
 | RFQ manager | `rfq.Manager` | `tap-ldk-core` | No | Quotes bind asset ID, asset amount, BTC amount, peer, expiry, invoice context, and replay domain. |
 | Invoice binder | `AuxInvoiceManager` invoice behavior | `tap-ldk` LDK-node adapter | No | BOLT 11 stays unchanged; RFQ and route metadata select asset semantics. |
 | Close handler | `AuxCloser` | `OpenAgentsInc/rust-lightning` fork | Required | Cooperative close returns the latest mutually valid asset allocation. |
@@ -118,8 +118,9 @@ state:
 - channel monitor aux blob storage coupled to commitment durability, first
   landed in the OpenAgentsInc fork at
   `4394c0e350dd5faf34ca37fc6bde5cc14497e3f9`;
+- HTLC metadata preparation and final-hop validation, first landed in the
+  OpenAgentsInc fork at `ef2538fe181025231c1f2a946df713b3109fa9ef`;
 - commitment update hook for asset balances and asset signatures;
-- HTLC custom-record injection and final-hop validation;
 - close, force-close, second-level HTLC, sweep, and proof ownership hooks.
 
 Issue #25 is responsible for creating and wiring any required

@@ -6,6 +6,15 @@ use std::{
     str::FromStr,
 };
 
+use lightning::{
+    ln::taproot_asset::{
+        SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION, TaprootAssetChannelDescriptor,
+        TaprootAssetHtlcMetadata, TaprootAssetHtlcMetadataError,
+        TaprootAssetHtlcMetadataExpectation, prepare_asset_htlc_metadata,
+        validate_asset_htlc_final_hop as validate_ldk_asset_htlc_final_hop,
+    },
+    types::features::{ChannelTypeFeatures, InitFeatures},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -31,6 +40,9 @@ pub const RECORD_BTC_MSAT: u64 = ASSET_HTLC_RECORD_BASE + 9;
 pub const RECORD_SCID_ALIAS: u64 = ASSET_HTLC_RECORD_BASE + 11;
 pub const RECORD_PAYMENT_HASH: u64 = ASSET_HTLC_RECORD_BASE + 13;
 pub const RECORD_FINAL_HOP_DIGEST: u64 = ASSET_HTLC_RECORD_BASE + 15;
+pub const RECORD_PROTOCOL_VERSION: u64 = ASSET_HTLC_RECORD_BASE + 17;
+pub const RECORD_PROOF_ROOT_HASH: u64 = ASSET_HTLC_RECORD_BASE + 19;
+pub const RECORD_PROOF_ROOT_SUM: u64 = ASSET_HTLC_RECORD_BASE + 21;
 
 const ASSET_RECORD_TYPES: &[u64] = &[
     RECORD_ASSET_ID,
@@ -41,12 +53,18 @@ const ASSET_RECORD_TYPES: &[u64] = &[
     RECORD_SCID_ALIAS,
     RECORD_PAYMENT_HASH,
     RECORD_FINAL_HOP_DIGEST,
+    RECORD_PROTOCOL_VERSION,
+    RECORD_PROOF_ROOT_HASH,
+    RECORD_PROOF_ROOT_SUM,
 ];
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AssetHtlcCustomRecords {
+    pub protocol_version: u16,
     pub asset_id: Bytes32,
     pub asset_amount: u64,
+    pub proof_root_hash: Bytes32,
+    pub proof_root_sum: u64,
     pub quote_id: Bytes32,
     pub invoice_context: Bytes32,
     pub btc_msat: u64,
@@ -59,6 +77,20 @@ impl AssetHtlcCustomRecords {
     pub fn from_authorization(
         invoice: &crate::rfq_invoice::QuoteBoundInvoice,
         authorization: &RfqHtlcAuthorization,
+    ) -> Result<Self, AssetHtlcError> {
+        Self::from_authorization_with_proof_root(
+            invoice,
+            authorization,
+            authorization.asset_id,
+            authorization.asset_amount,
+        )
+    }
+
+    pub fn from_authorization_with_proof_root(
+        invoice: &crate::rfq_invoice::QuoteBoundInvoice,
+        authorization: &RfqHtlcAuthorization,
+        proof_root_hash: Bytes32,
+        proof_root_sum: u64,
     ) -> Result<Self, AssetHtlcError> {
         let quote_id = Bytes32::from_str(&authorization.quote_id)
             .map_err(|_| AssetHtlcError::InvalidQuoteId)?;
@@ -73,17 +105,20 @@ impl AssetHtlcCustomRecords {
         }
 
         let final_hop_digest = final_hop_digest(
+            SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
             authorization.asset_id,
             authorization.asset_amount,
+            proof_root_hash,
+            proof_root_sum,
             quote_id,
-            authorization.invoice_context,
-            authorization.btc_msat,
-            authorization.scid_alias,
             invoice.payment_hash,
         );
         Ok(Self {
+            protocol_version: SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
             asset_id: authorization.asset_id,
             asset_amount: authorization.asset_amount,
+            proof_root_hash,
+            proof_root_sum,
             quote_id,
             invoice_context: authorization.invoice_context,
             btc_msat: authorization.btc_msat,
@@ -95,10 +130,19 @@ impl AssetHtlcCustomRecords {
 
     pub fn to_custom_records(&self) -> BTreeMap<u64, Vec<u8>> {
         BTreeMap::from([
+            (
+                RECORD_PROTOCOL_VERSION,
+                self.protocol_version.to_be_bytes().to_vec(),
+            ),
             (RECORD_ASSET_ID, self.asset_id.0.to_vec()),
             (
                 RECORD_ASSET_AMOUNT,
                 self.asset_amount.to_be_bytes().to_vec(),
+            ),
+            (RECORD_PROOF_ROOT_HASH, self.proof_root_hash.0.to_vec()),
+            (
+                RECORD_PROOF_ROOT_SUM,
+                self.proof_root_sum.to_be_bytes().to_vec(),
             ),
             (RECORD_QUOTE_ID, self.quote_id.0.to_vec()),
             (RECORD_INVOICE_CONTEXT, self.invoice_context.0.to_vec()),
@@ -111,6 +155,24 @@ impl AssetHtlcCustomRecords {
 
     pub fn encode_tlv(&self) -> Result<Vec<u8>, AssetHtlcError> {
         encode_custom_records(&self.to_custom_records())
+    }
+
+    pub fn to_ldk_metadata(&self) -> Result<TaprootAssetHtlcMetadata, AssetHtlcError> {
+        let mut metadata = TaprootAssetHtlcMetadata::new(
+            self.asset_id.0,
+            self.asset_amount,
+            self.proof_root_hash.0,
+            self.proof_root_sum,
+            self.quote_id.0,
+            self.payment_hash.0,
+        )
+        .map_err(AssetHtlcError::LdkHtlcMetadata)?;
+        metadata.protocol_version = self.protocol_version;
+        metadata.final_hop_digest = self.final_hop_digest.0;
+        metadata
+            .validate_integrity()
+            .map_err(AssetHtlcError::LdkHtlcMetadata)?;
+        Ok(metadata)
     }
 
     pub fn to_peer_message(&self, rfq_id: Bytes32) -> Result<AssetPeerMessage, AssetHtlcError> {
@@ -282,6 +344,7 @@ pub struct AssetHtlcSmokeReport {
     pub btc_msat: u64,
     pub wrong_metadata_rejected: bool,
     pub btc_only_unaffected: bool,
+    pub ldk_metadata_attached_after_quote_acceptance: bool,
 }
 
 pub fn encode_custom_records(records: &BTreeMap<u64, Vec<u8>>) -> Result<Vec<u8>, AssetHtlcError> {
@@ -320,8 +383,11 @@ pub fn decode_custom_record_map(
     }
 
     Ok(AssetHtlcDecode::Asset(AssetHtlcCustomRecords {
+        protocol_version: parse_u16(required(records, RECORD_PROTOCOL_VERSION)?)?,
         asset_id: parse_bytes32(required(records, RECORD_ASSET_ID)?)?,
         asset_amount: parse_u64(required(records, RECORD_ASSET_AMOUNT)?, "asset_amount")?,
+        proof_root_hash: parse_bytes32(required(records, RECORD_PROOF_ROOT_HASH)?)?,
+        proof_root_sum: parse_u64(required(records, RECORD_PROOF_ROOT_SUM)?, "proof_root_sum")?,
         quote_id: parse_bytes32(required(records, RECORD_QUOTE_ID)?)?,
         invoice_context: parse_bytes32(required(records, RECORD_INVOICE_CONTEXT)?)?,
         btc_msat: parse_u64(required(records, RECORD_BTC_MSAT)?, "btc_msat")?,
@@ -370,17 +436,31 @@ pub fn validate_final_hop(
         return Err(AssetHtlcError::PaymentHashMismatch);
     }
     let expected_digest = final_hop_digest(
+        records.protocol_version,
         records.asset_id,
         records.asset_amount,
+        records.proof_root_hash,
+        records.proof_root_sum,
         records.quote_id,
-        records.invoice_context,
-        records.btc_msat,
-        records.scid_alias,
         records.payment_hash,
     );
     if records.final_hop_digest != expected_digest {
         return Err(AssetHtlcError::FinalHopDigestMismatch);
     }
+    let ldk_metadata = records.to_ldk_metadata()?;
+    let ldk_expectation = TaprootAssetHtlcMetadataExpectation {
+        asset_id: authorization.asset_id.0,
+        asset_amount: authorization.asset_amount,
+        proof_root_hash: records.proof_root_hash.0,
+        proof_root_sum: records.proof_root_sum,
+        quote_id: quote_id.0,
+        payment_hash: invoice.payment_hash.0,
+        quote_accepted: true,
+        now_unix_seconds,
+        quote_expiry_unix_seconds: invoice.quote_expiry_unix_seconds,
+    };
+    validate_ldk_asset_htlc_final_hop(Some(&ldk_metadata), &ldk_expectation)
+        .map_err(AssetHtlcError::LdkHtlcMetadata)?;
 
     Ok(AssetHtlcValidation {
         asset_id: records.asset_id,
@@ -396,17 +476,29 @@ pub fn run_asset_htlc_smoke()
 -> Result<(AssetHtlcStore, AssetCommitmentStore, AssetHtlcSmokeReport), AssetHtlcError> {
     let (mut commitment_store, mut commitment_state) = initialized_commitment_store()?;
     let channel_id = commitment_state.channel_id.clone();
+    let proof_root_hash = commitment_state.monitor_blob.proof_root_hash;
+    let proof_root_sum = commitment_state.total_amount;
     let (settle_records, settle_invoice, settle_authorization) = quote_bound_records(
         commitment_state.asset_id,
         125,
         Bytes32([21; 32]),
         Bytes32([22; 32]),
+        proof_root_hash,
+        proof_root_sum,
     )?;
     let encoded = settle_records.encode_tlv()?;
     let decoded = match decode_custom_records(&encoded)? {
         AssetHtlcDecode::Asset(records) => records,
         AssetHtlcDecode::BtcOnly => return Err(AssetHtlcError::MissingAssetRecords),
     };
+    let metadata_attached_after_quote_acceptance = prepare_ldk_asset_htlc_metadata(&decoded, true)
+        .is_ok()
+        && matches!(
+            prepare_ldk_asset_htlc_metadata(&decoded, false),
+            Err(AssetHtlcError::LdkHtlcMetadata(
+                TaprootAssetHtlcMetadataError::MissingAcceptedQuote
+            ))
+        );
     let validation = validate_final_hop(&decoded, &settle_invoice, &settle_authorization, 1_002)?;
 
     let mut wrong = decoded.clone();
@@ -437,6 +529,8 @@ pub fn run_asset_htlc_smoke()
         10,
         Bytes32([24; 32]),
         Bytes32([25; 32]),
+        proof_root_hash,
+        proof_root_sum,
     )?;
     let fail_validation =
         validate_final_hop(&fail_records, &fail_invoice, &fail_authorization, 1_002)?;
@@ -459,6 +553,7 @@ pub fn run_asset_htlc_smoke()
             btc_msat: settle_authorization.btc_msat,
             wrong_metadata_rejected,
             btc_only_unaffected,
+            ldk_metadata_attached_after_quote_acceptance: metadata_attached_after_quote_acceptance,
         },
     ))
 }
@@ -470,6 +565,7 @@ pub enum AssetHtlcError {
     Tlv(TlvError),
     Rfq(RfqInvoiceError),
     Commitment(AssetCommitmentError),
+    LdkHtlcMetadata(TaprootAssetHtlcMetadataError),
     InvalidQuoteId,
     InvoiceAuthorizationMismatch,
     MissingAssetRecords,
@@ -506,6 +602,9 @@ impl fmt::Display for AssetHtlcError {
             Self::Tlv(err) => write!(f, "asset HTLC TLV error: {err}"),
             Self::Rfq(err) => write!(f, "asset HTLC RFQ error: {err}"),
             Self::Commitment(err) => write!(f, "asset HTLC commitment error: {err}"),
+            Self::LdkHtlcMetadata(err) => {
+                write!(f, "LDK asset HTLC metadata rejected payment: {err:?}")
+            }
             Self::InvalidQuoteId => write!(f, "asset HTLC quote ID is not 32 bytes"),
             Self::InvoiceAuthorizationMismatch => {
                 write!(f, "asset HTLC invoice and authorization mismatch")
@@ -594,23 +693,59 @@ fn parse_u64(bytes: &[u8], field: &'static str) -> Result<u64, AssetHtlcError> {
     Ok(u64::from_be_bytes(bytes))
 }
 
+fn parse_u16(bytes: &[u8]) -> Result<u16, AssetHtlcError> {
+    let actual = bytes.len();
+    let bytes: [u8; 2] = bytes
+        .try_into()
+        .map_err(|_| AssetHtlcError::InvalidFieldLength {
+            field: "protocol_version",
+            expected: 2,
+            actual,
+        })?;
+    Ok(u16::from_be_bytes(bytes))
+}
+
+pub fn prepare_ldk_asset_htlc_metadata(
+    records: &AssetHtlcCustomRecords,
+    quote_accepted: bool,
+) -> Result<TaprootAssetHtlcMetadata, AssetHtlcError> {
+    let mut features = InitFeatures::empty();
+    features.set_static_remote_key_optional();
+    features.set_channel_type_optional();
+    features.set_taproot_asset_channel_optional();
+    let descriptor = TaprootAssetChannelDescriptor::new(
+        records.asset_id.0,
+        SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
+    )
+    .map_err(|_| AssetHtlcError::LdkHtlcMetadata(TaprootAssetHtlcMetadataError::AssetIdMismatch))?;
+    prepare_asset_htlc_metadata(
+        &features,
+        &features,
+        &ChannelTypeFeatures::taproot_asset_single_asset(),
+        descriptor,
+        quote_accepted,
+        records.to_ldk_metadata()?,
+    )
+    .map_err(AssetHtlcError::LdkHtlcMetadata)
+}
+
 fn final_hop_digest(
+    protocol_version: u16,
     asset_id: Bytes32,
     asset_amount: u64,
+    proof_root_hash: Bytes32,
+    proof_root_sum: u64,
     quote_id: Bytes32,
-    invoice_context: Bytes32,
-    btc_msat: u64,
-    scid_alias: u64,
     payment_hash: Bytes32,
 ) -> Bytes32 {
     let mut hasher = Sha256::new();
-    hasher.update(b"tap-ldk:asset-htlc-final-hop:v1");
+    hasher.update(b"openagents:taproot-asset-htlc-final-hop:v1");
+    hasher.update(protocol_version.to_be_bytes());
     hasher.update(asset_id.0);
     hasher.update(asset_amount.to_be_bytes());
+    hasher.update(proof_root_hash.0);
+    hasher.update(proof_root_sum.to_be_bytes());
     hasher.update(quote_id.0);
-    hasher.update(invoice_context.0);
-    hasher.update(btc_msat.to_be_bytes());
-    hasher.update(scid_alias.to_be_bytes());
     hasher.update(payment_hash.0);
     Bytes32(hasher.finalize().into())
 }
@@ -658,6 +793,8 @@ fn quote_bound_records(
     asset_amount: u64,
     rfq_id: Bytes32,
     payment_hash: Bytes32,
+    proof_root_hash: Bytes32,
+    proof_root_sum: u64,
 ) -> Result<
     (
         AssetHtlcCustomRecords,
@@ -699,8 +836,12 @@ fn quote_bound_records(
     .map_err(AssetHtlcError::Rfq)?;
     let payment =
         pay_quote_bound_invoice(&mut quote_store, invoice, 1_002).map_err(AssetHtlcError::Rfq)?;
-    let records =
-        AssetHtlcCustomRecords::from_authorization(&payment.invoice, &payment.authorization)?;
+    let records = AssetHtlcCustomRecords::from_authorization_with_proof_root(
+        &payment.invoice,
+        &payment.authorization,
+        proof_root_hash,
+        proof_root_sum,
+    )?;
     Ok((records, payment.invoice, payment.authorization))
 }
 
@@ -713,8 +854,15 @@ mod tests {
         crate::rfq_invoice::QuoteBoundInvoice,
         RfqHtlcAuthorization,
     ) {
-        quote_bound_records(Bytes32([7; 32]), 25, Bytes32([8; 32]), Bytes32([9; 32]))
-            .expect("records build")
+        quote_bound_records(
+            Bytes32([7; 32]),
+            25,
+            Bytes32([8; 32]),
+            Bytes32([9; 32]),
+            Bytes32([10; 32]),
+            1_000,
+        )
+        .expect("records build")
     }
 
     #[test]
@@ -764,7 +912,7 @@ mod tests {
         ));
 
         let mut unknown = records.to_custom_records();
-        unknown.insert(ASSET_HTLC_RECORD_BASE + 17, vec![1]);
+        unknown.insert(ASSET_HTLC_RECORD_BASE + 23, vec![1]);
         assert!(matches!(
             decode_custom_record_map(&unknown),
             Err(AssetHtlcError::UnknownAssetRecord(_))
@@ -809,12 +957,33 @@ mod tests {
     }
 
     #[test]
+    fn ldk_metadata_attaches_only_after_quote_acceptance() {
+        let (records, _invoice, _authorization) = records();
+        let metadata = prepare_ldk_asset_htlc_metadata(&records, true).expect("metadata attaches");
+        assert_eq!(metadata.asset_id, records.asset_id.0);
+        assert_eq!(metadata.asset_amount, records.asset_amount);
+        assert_eq!(metadata.proof_root_hash, records.proof_root_hash.0);
+        assert!(matches!(
+            prepare_ldk_asset_htlc_metadata(&records, false),
+            Err(AssetHtlcError::LdkHtlcMetadata(
+                TaprootAssetHtlcMetadataError::MissingAcceptedQuote
+            ))
+        ));
+    }
+
+    #[test]
     fn wrong_metadata_fails_before_commitment_state_advances() {
         let (mut commitment_store, state) =
             initialized_commitment_store().expect("commitment state");
-        let (mut records, invoice, authorization) =
-            quote_bound_records(state.asset_id, 125, Bytes32([10; 32]), Bytes32([11; 32]))
-                .expect("records build");
+        let (mut records, invoice, authorization) = quote_bound_records(
+            state.asset_id,
+            125,
+            Bytes32([10; 32]),
+            Bytes32([11; 32]),
+            state.monitor_blob.proof_root_hash,
+            state.total_amount,
+        )
+        .expect("records build");
         records.asset_amount += 1;
 
         assert!(validate_final_hop(&records, &invoice, &authorization, 1_002).is_err());
@@ -825,8 +994,13 @@ mod tests {
         assert_eq!(unchanged.local_balance, 700);
         assert_eq!(unchanged.remote_balance, 300);
 
-        let valid_records = AssetHtlcCustomRecords::from_authorization(&invoice, &authorization)
-            .expect("valid records");
+        let valid_records = AssetHtlcCustomRecords::from_authorization_with_proof_root(
+            &invoice,
+            &authorization,
+            state.monitor_blob.proof_root_hash,
+            state.total_amount,
+        )
+        .expect("valid records");
         let validation =
             validate_final_hop(&valid_records, &invoice, &authorization, 1_002).expect("valid");
         let update = build_commitment_update(&state, validation.asset_amount, 0, Bytes32([12; 32]))
@@ -872,5 +1046,6 @@ mod tests {
         assert_eq!(report.btc_msat, 12_500);
         assert!(report.wrong_metadata_rejected);
         assert!(report.btc_only_unaffected);
+        assert!(report.ldk_metadata_attached_after_quote_acceptance);
     }
 }

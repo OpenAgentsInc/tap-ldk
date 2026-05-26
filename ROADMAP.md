@@ -427,9 +427,10 @@ Current implementation note:
   monitor aux blob surface.
 - `tap-ldk-core::asset_htlc` implements asset HTLC custom-record codecs,
   final-hop validation against quote-bound invoices, quote-derived BTC msat
-  enforcement, BTC-only pass-through behavior, and bounded add/settle/fail
-  smoke coverage. Real MuSig2/Taproot Assets witness integration and Lightning
-  HTLC dispatch remain follow-on surfaces.
+  enforcement, BTC-only pass-through behavior, OpenAgentsInc rust-lightning
+  HTLC metadata/final-hop hook validation, and bounded add/settle/fail smoke
+  coverage. Real MuSig2/Taproot Assets witness integration and Lightning HTLC
+  dispatch remain follow-on surfaces.
 - `tap-ldk-core::asset_payment` wires the bounded native payment path across
   RFQ, quote-bound invoice, asset HTLC records, final-hop validation,
   commitment update, settled HTLC state, payment state, restart round-trip, and

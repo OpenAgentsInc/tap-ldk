@@ -20,9 +20,11 @@ What works today:
   balances, proof files, restart checks, close checks, and logs.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
-  aux blob surface for asset commitment state. The native `tap-ldk` funding and
-  commitment stores call those fork hooks before writing funded channel state or
-  treating asset commitment state as restart-safe.
+  aux blob surface for asset commitment state. It also has the first HTLC
+  metadata/final-hop validation hook. The native `tap-ldk` funding,
+  commitment, and HTLC stores call those fork hooks before writing funded
+  channel state, treating asset commitment state as restart-safe, or settling
+  asset HTLC metadata.
 
 What does not work yet:
 
@@ -38,13 +40,13 @@ What does not work yet:
 
 What is being worked on now:
 
-- Issues #48 through #50 have landed the first Rust Lightning fork gates for
-  asset-channel negotiation, bounded funding approval, and monitor aux blob
-  persistence tied to asset commitment numbers.
-- Issue #51 is next: add forked HTLC metadata support so accepted asset quotes
-  can be carried with Lightning HTLC state.
-- Issues #52 and #53 continue the Rust Lightning fork work with final-hop
-  metadata, final-hop validation, close, and recovery hooks.
+- Issues #48 through #51 have landed the first Rust Lightning fork gates for
+  asset-channel negotiation, bounded funding approval, monitor aux blob
+  persistence tied to asset commitment numbers, and HTLC metadata/final-hop
+  validation.
+- Issue #52 is next: add the cooperative close hook so close state returns the
+  latest mutually valid asset allocation.
+- Issue #53 continues force-close, sweep, and proof-ownership recovery hooks.
 - Issues #54 through #60 cover the live demo path: a running `tap-ldk` peer,
   Lightning Labs counterparty integration, live `tapd` proof binding, payments
   in both directions, observed live balance checks, and full proof ancestry
