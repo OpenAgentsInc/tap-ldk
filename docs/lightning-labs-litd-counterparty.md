@@ -20,13 +20,14 @@ issue #57.
 The readiness report records the litd identity pubkey, LND sync state,
 taproot-assets sync state, wallet balance, subserver status, and whether the
 asset-channel RPC surface is reachable. The live outgoing-payment gate now uses
-that identity and P2P address to run an upstream `ldk-node` peer preflight
+that identity and P2P address to run a fork-backed `ldk-node` peer preflight
 against `litd`.
 In the current #57 gate this reaches `integrated_litd_counterparty_ready=true`
 and `native_litd_peer_connected=true`. It does not mark a `tap-ldk` to
-Lightning Labs payment complete; that still requires #77 through #81 to supply
-fork-backed `ldk-node`, then running asset-channel funding/payment over the
-connected `litd` peer and recording the post-settlement receiver balance.
+Lightning Labs payment complete; that still requires #79 through #81 to expose
+and use the fork-backed asset-channel config/message/payment APIs, then run
+asset-channel funding/payment over the connected `litd` peer and record the
+post-settlement receiver balance.
 
 The harness mines a fresh regtest block before the LND sync checks, and again
 after the wallet-funding step, so a persisted regtest chain with an old tip

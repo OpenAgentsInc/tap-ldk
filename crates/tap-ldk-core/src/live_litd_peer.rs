@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fmt,
+    fmt, fs,
     path::{Path, PathBuf},
     str::FromStr,
     thread,
@@ -10,11 +10,11 @@ use std::{
 use ldk_node::{
     Builder, Node,
     bitcoin::{Network, secp256k1::PublicKey},
+    entropy::NodeEntropy,
     lightning::ln::msgs::SocketAddress,
+    provenance::runtime_provenance,
 };
 use serde::{Deserialize, Serialize};
-
-use crate::ldk_fork::OPENAGENTS_RUST_LIGHTNING_REV;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LiveLitdPeerPreflightRequest {
@@ -118,6 +118,7 @@ pub fn run_live_litd_peer_preflight(
     request: LiveLitdPeerPreflightRequest,
 ) -> Result<LiveLitdPeerPreflightReport, LiveLitdPeerError> {
     let request = request.validate()?;
+    let provenance = runtime_provenance();
     let node = build_node(&request)?;
     node.start()
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
@@ -151,9 +152,13 @@ pub fn run_live_litd_peer_preflight(
         status: "connected".to_owned(),
         network: "regtest".to_owned(),
         storage_dir_path: request.storage_dir_path.display().to_string(),
-        live_node_runtime: "ldk-node 0.7.0".to_owned(),
-        live_node_uses_openagents_rust_lightning_fork: false,
-        openagents_rust_lightning_rev: OPENAGENTS_RUST_LIGHTNING_REV.to_owned(),
+        live_node_runtime: format!(
+            "ldk-node {} ({})",
+            provenance.ldk_node_crate_version, provenance.ldk_node_fork_url
+        ),
+        live_node_uses_openagents_rust_lightning_fork: provenance
+            .uses_openagents_rust_lightning_fork,
+        openagents_rust_lightning_rev: provenance.rust_lightning_fork_rev.to_owned(),
         fork_asset_channel_hooks_reachable_from_live_node: false,
         native_node_id: native_node_id.to_string(),
         native_listening_socket: request.listening_socket.to_string(),
@@ -164,7 +169,7 @@ pub fn run_live_litd_peer_preflight(
         peer_persisted,
         known_peer_count: peer_details.len(),
         asset_channel_settlement_ready: false,
-        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer, but this preflight uses ldk-node's upstream Lightning runtime. #57 still needs a live node built directly on the OpenAgentsInc rust-lightning fork, or an ldk-node patch that exposes that fork's simple-taproot and Taproot Asset channel-manager surfaces, before asset-channel funding/payment can settle."
+        remaining_asset_channel_gap: "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, and the runtime reports the OpenAgentsInc rust-lightning revision. #79 and #80 still need to expose opt-in simple-taproot/Taproot Asset channel config plus proof, funding, RFQ, quote, and asset HTLC APIs before asset-channel funding/payment can settle."
             .to_owned(),
     })
 }
@@ -182,8 +187,15 @@ fn build_node(request: &ValidatedLiveLitdPeerPreflightRequest) -> Result<Node, L
     builder
         .set_listening_addresses(vec![request.listening_socket.clone()])
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
+    let node_entropy = node_entropy_from_storage(&request.storage_dir_path)?;
     builder
-        .build()
+        .build(node_entropy)
+        .map_err(|err| LiveLitdPeerError::Node(err.to_string()))
+}
+
+fn node_entropy_from_storage(storage_dir_path: &Path) -> Result<NodeEntropy, LiveLitdPeerError> {
+    fs::create_dir_all(storage_dir_path).map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
+    NodeEntropy::from_seed_path(storage_dir_path.join("node-entropy").display().to_string())
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))
 }
 
@@ -247,5 +259,20 @@ mod tests {
             request.validate(),
             Err(LiveLitdPeerError::InvalidNodeId(_))
         ));
+    }
+
+    #[test]
+    fn imported_ldk_node_reports_openagents_rust_lightning_fork() {
+        let provenance = runtime_provenance();
+
+        assert!(provenance.uses_openagents_rust_lightning_fork);
+        assert_eq!(
+            provenance.rust_lightning_fork_rev,
+            "cbc508b8ae972fd1134b0c5f1dc1792139276268"
+        );
+        assert_eq!(
+            provenance.ldk_node_fork_url,
+            "https://github.com/OpenAgentsInc/ldk-node"
+        );
     }
 }

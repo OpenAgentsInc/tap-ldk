@@ -480,12 +480,14 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- The remaining open issue sequence is #57, #58, #59, #60, then epics #61,
-  #71, and #19. #57 currently reaches live proof binding, native
-  payment-session readiness, integrated `litd` readiness, native LDK-to-`litd`
-  peer connection, and a pre-settlement Lightning Labs current-balance
-  observation. It is not complete until asset-channel funding/payment runs over
-  that connected peer and records a post-settlement receiver balance.
+- The remaining open issue sequence is #79, #80, #81, #57, #58, #59, #60,
+  then epics #61, #71, and #19. #57 currently reaches live proof binding,
+  native payment-session readiness, integrated `litd` readiness, fork-backed
+  LDK-to-`litd` peer connection, and a pre-settlement Lightning Labs
+  current-balance observation. It is not complete until #79 and #80 expose the
+  live asset-channel config/message/payment API surface and asset-channel
+  funding/payment runs over that connected peer with a recorded
+  post-settlement receiver balance.
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
   proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
   construction, bounded synthetic asset identity/hash+sum conservation helpers,

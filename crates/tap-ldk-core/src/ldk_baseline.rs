@@ -5,7 +5,9 @@ use std::{
     str::FromStr,
 };
 
-use ldk_node::{Builder, Node, bitcoin::Network, lightning::ln::msgs::SocketAddress};
+use ldk_node::{
+    Builder, Node, bitcoin::Network, entropy::NodeEntropy, lightning::ln::msgs::SocketAddress,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -57,8 +59,9 @@ impl BaselineLdkNodeConfig {
         builder
             .set_listening_addresses(vec![listening_socket])
             .map_err(|err| BaselineLdkError::Build(err.to_string()))?;
+        let node_entropy = node_entropy_from_storage(&self.storage_dir_path)?;
         builder
-            .build()
+            .build(node_entropy)
             .map_err(|err| BaselineLdkError::Build(err.to_string()))
     }
 }
@@ -381,6 +384,12 @@ fn stable_id(domain: &str, value: &str) -> String {
     hasher.update(domain.as_bytes());
     hasher.update(value.as_bytes());
     encode_hex(&hasher.finalize())
+}
+
+fn node_entropy_from_storage(storage_dir_path: &Path) -> Result<NodeEntropy, BaselineLdkError> {
+    fs::create_dir_all(storage_dir_path).map_err(BaselineLdkError::Io)?;
+    NodeEntropy::from_seed_path(storage_dir_path.join("node-entropy").display().to_string())
+        .map_err(|err| BaselineLdkError::Build(err.to_string()))
 }
 
 fn encode_hex(bytes: &[u8]) -> String {

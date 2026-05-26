@@ -11,16 +11,14 @@ open a single-asset channel, pay, restart, close, export proofs, and exercise
 the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
 Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
-checks, live `tapd` proof binding, integrated `litd`, and a peer-connection
-preflight. The current preflight uses upstream `ldk-node 0.7.0`, so it proves
-connectivity but cannot use the forked simple-taproot/Taproot Asset channel
-hooks. Issues #77 through #81 now track the required OpenAgentsInc `ldk-node`
-fork path.
+checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
+`ldk-node` peer preflight pinned to OpenAgentsInc `rust-lightning`. Issues #79
+through #81 now track the remaining live runtime work: opt-in asset-channel
+config, asset message/payment APIs, and live settlement against Lightning Labs.
 
-Current closure order: #77, #78, #79, #80, #81, then #57, #58, #59, #60, and
-the epics #61, #71, and #19. Path B must not be marked done until both payment
-directions settle against Lightning Labs with observed post-settlement
-balances.
+Current closure order: #79, #80, #81, then #57, #58, #59, #60, and the epics
+#61, #71, and #19. Path B must not be marked done until both payment directions
+settle against Lightning Labs with observed post-settlement balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 

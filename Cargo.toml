@@ -12,8 +12,8 @@ rust-version = "1.85"
 version = "0.1.0"
 
 [workspace.metadata.tap-ldk.rust-lightning-fork]
-url = "https://github.com/OpenAgentsInc/rust-lightning.git"
-upstream = "https://github.com/lightningdevkit/rust-lightning.git"
+url = "https://github.com/OpenAgentsInc/rust-lightning"
+upstream = "https://github.com/lightningdevkit/rust-lightning"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
 rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268"
 strategy = "Direct git dependency for fork touchpoints now; patch crates once asset-channel fork code lands."
@@ -22,8 +22,23 @@ strategy = "Direct git dependency for fork touchpoints now; patch crates once as
 url = "https://github.com/OpenAgentsInc/ldk-node.git"
 upstream = "https://github.com/lightningdevkit/ldk-node.git"
 base_version = "0.7.0"
+rev = "4b7d8de974a8b08ee8bfee94450dc5c332fe596c"
 tracking_issues = [77, 78, 79, 80, 81]
 strategy = "Fork ldk-node for the live demo runtime so it can use the OpenAgentsInc rust-lightning simple-taproot and Taproot Asset channel surfaces."
+
+[patch."https://github.com/lightningdevkit/rust-lightning"]
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-types = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-invoice = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-net-tokio = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-persister = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-background-processor = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-rapid-gossip-sync = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-block-sync = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-transaction-sync = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-liquidity = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-macros = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
+lightning-dns-resolver = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

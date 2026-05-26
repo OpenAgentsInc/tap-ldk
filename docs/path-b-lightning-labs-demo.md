@@ -5,7 +5,7 @@ current harness captures version info, counterparty config/status, blob
 fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
 proof-binding report, the integrated `litd` counterparty readiness report, the
-upstream `ldk-node` to `litd` peer preflight report, the live outgoing-payment
+fork-backed `ldk-node` to `litd` peer preflight report, the live outgoing-payment
 gate, and the consolidated interop check report into an ignored artifact
 directory. The
 consolidated report now includes the HTLC RFQ metadata vector, Lightning Labs
@@ -38,15 +38,14 @@ blocked JSON report at `live-tapd-proof-binding.json`.
 
 The wrapper also runs `scripts/live-lightning-labs-outgoing-payment.sh`. That
 gate links live proof binding to the sender-side RFQ/invoice/HTLC artifact,
-starts the integrated `litd` counterparty, connects an upstream `ldk-node`
-node to that `litd` peer, and keeps issue #57 marked incomplete until
-fork-backed `ldk-node` exists and the native LDK asset payment path settles
-against the independent Lightning Labs litd receiver with an observed receiver
-balance.
+starts the integrated `litd` counterparty, connects the fork-backed
+OpenAgentsInc `ldk-node` runtime to that `litd` peer, and keeps issue #57
+marked incomplete until the native LDK asset payment path settles against the
+independent Lightning Labs litd receiver with an observed receiver balance.
 
 Current #57 status is narrower than the old runtime prerequisite. The gate can
 reach live proof binding, native asset-payment session readiness, integrated
-`litd` readiness, upstream `ldk-node` to `litd` peer connection, and a
+`litd` readiness, fork-backed `ldk-node` to `litd` peer connection, and a
 pre-settlement Lightning Labs current-balance observation. It still stops at
 `live_asset_channel_payment_settlement` because the asset-channel
 funding/payment flow has not run over a fork-backed connected `litd` peer.
@@ -60,14 +59,16 @@ The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
 OpenAgentsInc rust-lightning fork, and sends an encoded native RFQ custom
 message over the socket. It is not yet a Lightning Labs daemon-backed P2P
-session. The `litd` peer preflight now proves that upstream `ldk-node` can
-connect to integrated `litd`; issues #77 through #81 move that runtime to an
-OpenAgentsInc `ldk-node` fork before the asset-channel funding/payment
-messages can settle over that daemon-backed peer.
+session. The `litd` peer preflight now proves that the OpenAgentsInc
+`ldk-node` fork can connect to integrated `litd` and report the OpenAgentsInc
+`rust-lightning` revision. Issues #79 and #80 still need to expose the
+asset-channel config plus message/payment APIs before funding/payment messages
+can settle over that daemon-backed peer.
 
 Open issue path:
 
-1. #77 through #81: create and wire fork-backed `OpenAgentsInc/ldk-node`.
+1. #79 through #81: expose and use fork-backed `OpenAgentsInc/ldk-node`
+   asset-channel config, message/payment APIs, and live settlement.
 2. #57: live `tap-ldk` pays Lightning Labs and records post-settlement receiver
    balance.
 3. #58: live Lightning Labs pays `tap-ldk` and `tap-ldk` persists the received

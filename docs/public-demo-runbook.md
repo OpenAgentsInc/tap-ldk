@@ -22,10 +22,10 @@ demo. It runs fixture-backed Lightning Labs blob/proof/funding/RFQ/payment
 checks and optionally starts a Docker- or Podman-backed Bitcoin
 Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
 `tap-ldk` runtime sidecars. The live gate now also starts integrated `litd`
-for the asset-channel path, connects upstream `ldk-node` to that `litd` peer,
-and can observe a pre-settlement Lightning Labs balance. Fork-backed
-`ldk-node`, live asset-channel settlement, and post-settlement observed
-balance replacement are still open gaps.
+for the asset-channel path, connects the fork-backed OpenAgentsInc `ldk-node`
+runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
+balance. Live asset-channel config/API exposure, settlement, and
+post-settlement observed balance replacement are still open gaps.
 
 ## Prerequisites
 
@@ -225,7 +225,7 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 
 Report Path A and Path B separately. Do not describe Path B as complete until
 live daemon settlement and observed balance checks replace the current
-fixture-backed gap. The remaining open path is #77 through #81 for
-fork-backed `ldk-node`, #57 live `tap-ldk` pays Lightning Labs, #58 live
-Lightning Labs pays `tap-ldk`, #59 observed-balance reporting, and #60
-semantic proof ancestry validation.
+fixture-backed gap. The remaining open path is #79 through #81 for
+fork-backed `ldk-node` config/API/live settlement, #57 live `tap-ldk` pays
+Lightning Labs, #58 live Lightning Labs pays `tap-ldk`, #59 observed-balance
+reporting, and #60 semantic proof ancestry validation.
