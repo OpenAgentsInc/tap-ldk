@@ -39,9 +39,10 @@ the full asset channel implementation:
   revision.
 - The repo records which asset-channel hooks must live inside the fork.
 - The fork now includes feature/channel-type gates, a bounded funding approval
-  hook, a channel monitor aux blob surface for asset commitments, and an HTLC
-  metadata/final-hop validation surface.
-- The fork still needs close, force-close, sweep, and full live channel-manager
+  hook, a channel monitor aux blob surface for asset commitments, an HTLC
+  metadata/final-hop validation surface, and a cooperative close allocation
+  surface.
+- The fork still needs force-close, sweep, and full live channel-manager
   integration.
 
 ## Repository Layout
@@ -276,12 +277,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `ef2538fe181025231c1f2a946df713b3109fa9ef`
+- current revision: `d6862145b43225d5002445c3733e70293bb0646e`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "ef2538fe181025231c1f2a946df713b3109fa9ef", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "d6862145b43225d5002445c3733e70293bb0646e", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -301,8 +302,12 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::TaprootAssetMonitorAuxBlobExpectation`
 - `lightning::ln::taproot_asset::TaprootAssetHtlcMetadata`
 - `lightning::ln::taproot_asset::TaprootAssetHtlcMetadataExpectation`
+- `lightning::ln::taproot_asset::TaprootAssetCloseAllocation`
+- `lightning::ln::taproot_asset::TaprootAssetCloseAllocationExpectation`
 - `lightning::ln::taproot_asset::prepare_asset_htlc_metadata`
 - `lightning::ln::taproot_asset::validate_asset_htlc_final_hop`
+- `lightning::ln::taproot_asset::prepare_cooperative_close_asset_allocation`
+- `lightning::ln::taproot_asset::validate_cooperative_close_asset_allocation`
 - `ChannelMonitorUpdate::taproot_asset_aux_update`
 - `ChannelMonitorUpdate::require_taproot_asset_aux_blob`
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
@@ -311,8 +316,8 @@ The current fork integration exposes the first real asset-channel gate:
 Those gates cover feature negotiation, explicit channel type handling, and the
 bounded funding-controller approval surface. They also provide the first
 versioned channel monitor aux blob hook for asset commitment state and the
-first HTLC metadata/final-hop validation hook. Close and recovery hooks still
-have to be added to the fork.
+first HTLC metadata/final-hop validation and cooperative close allocation
+hooks. Force-close and recovery hooks still have to be added to the fork.
 
 ## What Must Be Added To rust-lightning
 
@@ -346,7 +351,8 @@ a real live demo:
   final-hop metadata must fail before settlement. Initial fork support landed
   in `ef2538fe181025231c1f2a946df713b3109fa9ef`.
 - Close handler: cooperative close must return the latest mutually valid asset
-  allocation.
+  allocation. Initial fork support landed in
+  `d6862145b43225d5002445c3733e70293bb0646e`.
 - On-chain resolver/sweeper: force-close and sweep handling must preserve proof
   ownership.
 The following surfaces stay in `tap-ldk`:
@@ -596,6 +602,8 @@ Cooperative close:
 - produces local and remote final proof files;
 - records local and remote amounts;
 - records the commitment number;
+- validates the close allocation through the OpenAgentsInc rust-lightning fork;
+- records the fork close allocation digest for proof handoff review;
 - imports the final proofs into local wallets;
 - rejects obsolete proof views;
 - round-trips the close store to model restart.

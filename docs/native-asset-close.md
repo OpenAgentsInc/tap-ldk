@@ -5,7 +5,9 @@ Date: 2026-05-25
 `tap-ldk` now has a bounded cooperative close path for the strong Path A demo.
 The close uses the latest durable asset commitment, returns the exact local and
 remote asset allocation, exports owner proofs tied to final close anchors, and
-verifies those proofs by importing them into fresh wallets.
+verifies those proofs by importing them into fresh wallets. The close path now
+also validates the final allocation through the OpenAgentsInc rust-lightning
+cooperative-close hook and exports the resulting allocation digest.
 
 Smoke command:
 

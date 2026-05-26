@@ -1061,7 +1061,7 @@ dependencies = [
 [[package]]
 name = "lightning"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=ef2538fe181025231c1f2a946df713b3109fa9ef#ef2538fe181025231c1f2a946df713b3109fa9ef"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=d6862145b43225d5002445c3733e70293bb0646e#d6862145b43225d5002445c3733e70293bb0646e"
 dependencies = [
  "bech32 0.11.1",
  "bitcoin",
@@ -1072,7 +1072,7 @@ dependencies = [
  "lightning-invoice 0.35.0+git",
  "lightning-macros 0.2.2+git",
  "lightning-types 0.4.0+git",
- "possiblyrandom 0.2.0 (git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=ef2538fe181025231c1f2a946df713b3109fa9ef)",
+ "possiblyrandom 0.2.0 (git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=d6862145b43225d5002445c3733e70293bb0646e)",
 ]
 
 [[package]]
@@ -1118,7 +1118,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.35.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=ef2538fe181025231c1f2a946df713b3109fa9ef#ef2538fe181025231c1f2a946df713b3109fa9ef"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=d6862145b43225d5002445c3733e70293bb0646e#d6862145b43225d5002445c3733e70293bb0646e"
 dependencies = [
  "bech32 0.11.1",
  "bitcoin",
@@ -1155,7 +1155,7 @@ dependencies = [
 [[package]]
 name = "lightning-macros"
 version = "0.2.2+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=ef2538fe181025231c1f2a946df713b3109fa9ef#ef2538fe181025231c1f2a946df713b3109fa9ef"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=d6862145b43225d5002445c3733e70293bb0646e#d6862145b43225d5002445c3733e70293bb0646e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1223,7 +1223,7 @@ dependencies = [
 [[package]]
 name = "lightning-types"
 version = "0.4.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=ef2538fe181025231c1f2a946df713b3109fa9ef#ef2538fe181025231c1f2a946df713b3109fa9ef"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=d6862145b43225d5002445c3733e70293bb0646e#d6862145b43225d5002445c3733e70293bb0646e"
 dependencies = [
  "bitcoin",
 ]
@@ -1353,7 +1353,7 @@ dependencies = [
 [[package]]
 name = "possiblyrandom"
 version = "0.2.0"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=ef2538fe181025231c1f2a946df713b3109fa9ef#ef2538fe181025231c1f2a946df713b3109fa9ef"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning.git?rev=d6862145b43225d5002445c3733e70293bb0646e#d6862145b43225d5002445c3733e70293bb0646e"
 dependencies = [
  "getrandom 0.2.17",
 ]

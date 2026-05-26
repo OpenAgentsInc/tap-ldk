@@ -1,5 +1,17 @@
-use std::{collections::BTreeMap, error::Error, fmt};
+use std::{collections::BTreeMap, error::Error, fmt, str::FromStr};
 
+use lightning::{
+    ln::{
+        taproot_asset::{
+            SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION, TaprootAssetChannelDescriptor,
+            TaprootAssetCloseAllocation, TaprootAssetCloseAllocationError,
+            TaprootAssetCloseAllocationExpectation, prepare_cooperative_close_asset_allocation,
+            validate_cooperative_close_asset_allocation,
+        },
+        types::ChannelId,
+    },
+    types::features::{ChannelTypeFeatures, InitFeatures},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -119,10 +131,15 @@ pub struct NativeAssetClose {
     pub local_amount: u64,
     pub remote_amount: u64,
     pub total_amount: u64,
+    pub proof_root_hash: Bytes32,
+    pub proof_root_sum: u64,
     pub local_script_key: CompressedKey,
     pub remote_script_key: CompressedKey,
     pub local_proof_tlv_hex: String,
     pub remote_proof_tlv_hex: String,
+    pub local_proof_digest: Bytes32,
+    pub remote_proof_digest: Bytes32,
+    pub ldk_close_allocation_digest: Bytes32,
     pub status: NativeAssetCloseStatus,
     pub force_close_status: NativeForceCloseStatus,
     pub sweep_recovery_status: NativeSweepRecoveryStatus,
@@ -165,6 +182,7 @@ impl NativeAssetClose {
         let remote_proof = self.remote_proof()?;
         validate_close_proof(self, CloseOwnerSide::Local, &local_proof)?;
         validate_close_proof(self, CloseOwnerSide::Remote, &remote_proof)?;
+        validate_ldk_close_allocation(self, self.commitment_number)?;
         if self.close_digest
             != close_digest(
                 &self.channel_id,
@@ -174,6 +192,7 @@ impl NativeAssetClose {
                 self.remote_amount,
                 &self.local_proof_tlv_hex,
                 &self.remote_proof_tlv_hex,
+                self.ldk_close_allocation_digest,
             )
         {
             return Err(NativeAssetCloseError::StorageInvariant(
@@ -193,6 +212,7 @@ pub struct NativeAssetCloseSmokeReport {
     pub local_amount: u64,
     pub remote_amount: u64,
     pub total_amount: u64,
+    pub ldk_close_allocation_digest: Bytes32,
     pub local_proof_import_status: String,
     pub remote_proof_import_status: String,
     pub local_proof_tlv_hex: String,
@@ -212,7 +232,12 @@ pub fn cooperative_close(
     remote_script_key: CompressedKey,
 ) -> Result<NativeAssetClose, NativeAssetCloseError> {
     let state = store.channel_state(channel_id)?;
-    close_from_state(&state, local_script_key, remote_script_key)
+    close_from_state(
+        &state,
+        local_script_key,
+        remote_script_key,
+        state.latest_commitment_number,
+    )
 }
 
 pub fn run_native_asset_close_smoke() -> Result<NativeAssetCloseSmokeReport, NativeAssetCloseError>
@@ -268,6 +293,7 @@ pub fn run_native_asset_close_smoke() -> Result<NativeAssetCloseSmokeReport, Nat
         local_amount: close.local_amount,
         remote_amount: close.remote_amount,
         total_amount: close.total_amount,
+        ldk_close_allocation_digest: close.ldk_close_allocation_digest,
         local_proof_import_status: import_status(local_import).to_owned(),
         remote_proof_import_status: import_status(remote_import).to_owned(),
         local_proof_tlv_hex: close.local_proof_tlv_hex,
@@ -285,6 +311,7 @@ fn close_from_state(
     state: &AssetCommitmentChannelState,
     local_script_key: CompressedKey,
     remote_script_key: CompressedKey,
+    latest_safe_commitment_number: u64,
 ) -> Result<NativeAssetClose, NativeAssetCloseError> {
     let local_proof = build_close_proof(
         state,
@@ -300,6 +327,20 @@ fn close_from_state(
     )?;
     let local_proof_tlv_hex = encode_hex(&local_proof.encode()?);
     let remote_proof_tlv_hex = encode_hex(&remote_proof.encode()?);
+    let local_proof_digest = proof_handoff_digest(CloseOwnerSide::Local, &local_proof_tlv_hex);
+    let remote_proof_digest = proof_handoff_digest(CloseOwnerSide::Remote, &remote_proof_tlv_hex);
+    let ldk_allocation = TaprootAssetCloseAllocation::new(
+        parse_channel_id(&state.channel_id)?,
+        state.asset_id.0,
+        state.latest_commitment_number,
+        state.local_balance,
+        state.remote_balance,
+        state.monitor_blob.proof_root_hash.0,
+        state.monitor_blob.proof_root_sum,
+        local_proof_digest.0,
+        remote_proof_digest.0,
+    )
+    .map_err(NativeAssetCloseError::LdkCloseAllocation)?;
     let close_id = close_id(state);
     let close_digest = close_digest(
         &state.channel_id,
@@ -309,6 +350,7 @@ fn close_from_state(
         state.remote_balance,
         &local_proof_tlv_hex,
         &remote_proof_tlv_hex,
+        Bytes32(ldk_allocation.allocation_digest),
     );
 
     let close = NativeAssetClose {
@@ -319,15 +361,21 @@ fn close_from_state(
         local_amount: state.local_balance,
         remote_amount: state.remote_balance,
         total_amount: state.total_amount,
+        proof_root_hash: state.monitor_blob.proof_root_hash,
+        proof_root_sum: state.monitor_blob.proof_root_sum,
         local_script_key,
         remote_script_key,
         local_proof_tlv_hex,
         remote_proof_tlv_hex,
+        local_proof_digest,
+        remote_proof_digest,
+        ldk_close_allocation_digest: Bytes32(ldk_allocation.allocation_digest),
         status: NativeAssetCloseStatus::CooperativeClosed,
         force_close_status: NativeForceCloseStatus::Deferred,
         sweep_recovery_status: NativeSweepRecoveryStatus::NotAttempted,
         close_digest,
     };
+    validate_ldk_close_allocation(&close, latest_safe_commitment_number)?;
     close.validate()?;
     Ok(close)
 }
@@ -391,6 +439,60 @@ fn validate_close_proof(
         || proof.genesis_outpoint != close_genesis_outpoint(close.asset_id)
     {
         return Err(NativeAssetCloseError::ProofDoesNotMatchClose(owner));
+    }
+    Ok(())
+}
+
+fn validate_ldk_close_allocation(
+    close: &NativeAssetClose,
+    latest_safe_commitment_number: u64,
+) -> Result<(), NativeAssetCloseError> {
+    let allocation = TaprootAssetCloseAllocation::new(
+        parse_channel_id(&close.channel_id)?,
+        close.asset_id.0,
+        close.commitment_number,
+        close.local_amount,
+        close.remote_amount,
+        close.proof_root_hash.0,
+        close.proof_root_sum,
+        close.local_proof_digest.0,
+        close.remote_proof_digest.0,
+    )
+    .map_err(NativeAssetCloseError::LdkCloseAllocation)?;
+    let expected = TaprootAssetCloseAllocationExpectation {
+        channel_id: parse_channel_id(&close.channel_id)?,
+        asset_id: close.asset_id.0,
+        latest_commitment_number: latest_safe_commitment_number,
+        local_amount: close.local_amount,
+        remote_amount: close.remote_amount,
+        proof_root_hash: close.proof_root_hash.0,
+        proof_root_sum: close.proof_root_sum,
+    };
+    validate_cooperative_close_asset_allocation(Some(&allocation), &expected)
+        .map_err(NativeAssetCloseError::LdkCloseAllocation)?;
+    let mut features = InitFeatures::empty();
+    features.set_static_remote_key_optional();
+    features.set_channel_type_optional();
+    features.set_taproot_asset_channel_optional();
+    let descriptor = TaprootAssetChannelDescriptor::new(
+        close.asset_id.0,
+        SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION,
+    )
+    .map_err(|_| {
+        NativeAssetCloseError::LdkCloseAllocation(TaprootAssetCloseAllocationError::AssetIdMismatch)
+    })?;
+    prepare_cooperative_close_asset_allocation(
+        &features,
+        &features,
+        &ChannelTypeFeatures::taproot_asset_single_asset(),
+        descriptor,
+        allocation,
+    )
+    .map_err(NativeAssetCloseError::LdkCloseAllocation)?;
+    if close.ldk_close_allocation_digest.0 != allocation.allocation_digest {
+        return Err(NativeAssetCloseError::LdkCloseAllocation(
+            TaprootAssetCloseAllocationError::AllocationDigestMismatch,
+        ));
     }
     Ok(())
 }
@@ -501,6 +603,7 @@ fn close_digest(
     remote_amount: u64,
     local_proof_tlv_hex: &str,
     remote_proof_tlv_hex: &str,
+    ldk_close_allocation_digest: Bytes32,
 ) -> Bytes32 {
     let mut hasher = Sha256::new();
     hasher.update(b"tap-ldk:native-asset-close-digest:v1");
@@ -510,11 +613,26 @@ fn close_digest(
     hasher.update(commitment_number.to_be_bytes());
     hasher.update(local_amount.to_be_bytes());
     hasher.update(remote_amount.to_be_bytes());
+    hasher.update(ldk_close_allocation_digest.0);
     hasher.update((local_proof_tlv_hex.len() as u64).to_be_bytes());
     hasher.update(local_proof_tlv_hex.as_bytes());
     hasher.update((remote_proof_tlv_hex.len() as u64).to_be_bytes());
     hasher.update(remote_proof_tlv_hex.as_bytes());
     Bytes32(hasher.finalize().into())
+}
+
+fn proof_handoff_digest(owner: CloseOwnerSide, proof_tlv_hex: &str) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-close-proof-handoff:v1");
+    hasher.update(owner.as_str().as_bytes());
+    hasher.update((proof_tlv_hex.len() as u64).to_be_bytes());
+    hasher.update(proof_tlv_hex.as_bytes());
+    Bytes32(hasher.finalize().into())
+}
+
+fn parse_channel_id(channel_id: &str) -> Result<ChannelId, NativeAssetCloseError> {
+    let bytes = Bytes32::from_str(channel_id).map_err(NativeAssetCloseError::Asset)?;
+    Ok(ChannelId::from_bytes(bytes.0))
 }
 
 fn close_genesis_outpoint(asset_id: Bytes32) -> String {
@@ -600,6 +718,7 @@ pub enum NativeAssetCloseError {
     Payment(NativeAssetPaymentError),
     Htlc(AssetHtlcError),
     Rfq(RfqInvoiceError),
+    LdkCloseAllocation(TaprootAssetCloseAllocationError),
     UnsupportedVersion(u32),
     DuplicateClose(String),
     UnknownClose(String),
@@ -630,6 +749,9 @@ impl fmt::Display for NativeAssetCloseError {
             Self::Payment(err) => write!(f, "native asset close payment error: {err}"),
             Self::Htlc(err) => write!(f, "native asset close HTLC error: {err}"),
             Self::Rfq(err) => write!(f, "native asset close RFQ error: {err}"),
+            Self::LdkCloseAllocation(err) => {
+                write!(f, "LDK asset close allocation rejected close: {err:?}")
+            }
             Self::UnsupportedVersion(version) => {
                 write!(f, "unsupported native asset close version {version}")
             }
@@ -735,6 +857,7 @@ mod tests {
         assert_eq!(report.remote_wallet_balance, 425);
         assert_eq!(report.local_proof_import_status, "imported");
         assert_eq!(report.remote_proof_import_status, "imported");
+        assert_ne!(report.ldk_close_allocation_digest, Bytes32([0; 32]));
         assert!(report.restart_after_close_matches);
         assert!(report.obsolete_proof_rejected);
         assert_eq!(report.force_close_status, NativeForceCloseStatus::Deferred);
@@ -755,6 +878,59 @@ mod tests {
         assert_eq!(close.commitment_number, state.latest_commitment_number);
         assert_eq!(close.local_amount, state.local_balance);
         assert_eq!(close.remote_amount, state.remote_balance);
+    }
+
+    #[test]
+    fn stale_close_allocation_fails_before_close_is_built() {
+        let (_commitment_store, state) =
+            initialized_settled_commitment_store().expect("settled state");
+        let stale = stale_commitment_view(&state).expect("stale state");
+        assert!(matches!(
+            close_from_state(
+                &stale,
+                close_script_key(2).expect("local key"),
+                close_script_key(3).expect("remote key"),
+                state.latest_commitment_number,
+            ),
+            Err(NativeAssetCloseError::LdkCloseAllocation(
+                TaprootAssetCloseAllocationError::CommitmentNumberMismatch
+            ))
+        ));
+    }
+
+    #[test]
+    fn missing_or_tampered_close_allocation_fails_validation() {
+        let (commitment_store, state) =
+            initialized_settled_commitment_store().expect("settled state");
+        let mut close = cooperative_close(
+            &commitment_store,
+            &state.channel_id,
+            close_script_key(2).expect("local key"),
+            close_script_key(3).expect("remote key"),
+        )
+        .expect("close succeeds");
+        close.ldk_close_allocation_digest = Bytes32([0; 32]);
+        assert!(matches!(
+            close.validate(),
+            Err(NativeAssetCloseError::LdkCloseAllocation(
+                TaprootAssetCloseAllocationError::AllocationDigestMismatch
+            ))
+        ));
+
+        let mut close = cooperative_close(
+            &commitment_store,
+            &state.channel_id,
+            close_script_key(2).expect("local key"),
+            close_script_key(3).expect("remote key"),
+        )
+        .expect("close succeeds");
+        close.proof_root_hash = Bytes32([99; 32]);
+        assert!(matches!(
+            close.validate(),
+            Err(NativeAssetCloseError::LdkCloseAllocation(
+                TaprootAssetCloseAllocationError::AllocationDigestMismatch
+            ))
+        ));
     }
 
     #[test]

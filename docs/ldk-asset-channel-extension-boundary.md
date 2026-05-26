@@ -22,7 +22,7 @@ demo must live under `OpenAgentsInc` and be wired explicitly from this repo.
 | Final-hop validator | `AuxInvoiceManager` validation | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Wrong, stale, or malformed asset metadata fails before settlement. |
 | RFQ manager | `rfq.Manager` | `tap-ldk-core` | No | Quotes bind asset ID, asset amount, BTC amount, peer, expiry, invoice context, and replay domain. |
 | Invoice binder | `AuxInvoiceManager` invoice behavior | `tap-ldk` LDK-node adapter | No | BOLT 11 stays unchanged; RFQ and route metadata select asset semantics. |
-| Close handler | `AuxCloser` | `OpenAgentsInc/rust-lightning` fork | Required | Cooperative close returns the latest mutually valid asset allocation. |
+| Close handler | `AuxCloser` | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Cooperative close returns the latest mutually valid asset allocation. |
 | On-chain resolver/sweeper | `AuxSweeper` | `OpenAgentsInc/rust-lightning` fork | Required | Force-close support cannot claim recovery without proof ownership material. |
 | Monitor persistence | channel monitor aux data | `OpenAgentsInc/rust-lightning` fork | Initial support landed | Asset-channel state is durable before the corresponding Lightning commitment is safe. |
 | Lightning Labs blob codec | funding/commitment/HTLC fixtures | Track B interop harness | No | Blob mismatches are failing compatibility gaps, not partial success. |
@@ -120,6 +120,8 @@ state:
   `4394c0e350dd5faf34ca37fc6bde5cc14497e3f9`;
 - HTLC metadata preparation and final-hop validation, first landed in the
   OpenAgentsInc fork at `ef2538fe181025231c1f2a946df713b3109fa9ef`;
+- cooperative close allocation export, first landed in the OpenAgentsInc fork
+  at `d6862145b43225d5002445c3733e70293bb0646e`;
 - commitment update hook for asset balances and asset signatures;
 - close, force-close, second-level HTLC, sweep, and proof ownership hooks.
 

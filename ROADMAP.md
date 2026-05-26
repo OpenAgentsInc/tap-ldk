@@ -439,8 +439,9 @@ Current implementation note:
   quote acceptance, HTLC add, commitment sign, settlement, and close
   preparation, including stale-checkpoint refusal.
 - `tap-ldk-core::asset_close` adds bounded cooperative close and final owner
-  proof export from the latest asset commitment view. Force-close and sweep
-  recovery remain explicitly deferred.
+  proof export from the latest asset commitment view, validated through the
+  OpenAgentsInc rust-lightning cooperative-close allocation hook. Force-close
+  and sweep recovery remain explicitly deferred.
 
 ## Milestone 7: Payment Send, Receive, And Routing
 
