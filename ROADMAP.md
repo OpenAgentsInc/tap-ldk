@@ -33,9 +33,14 @@ Last updated: 2026-05-26
   update/reestablish nonce state, cooperative-close nonce/signature handling,
   HTLC outputs, second-level HTLC signing helpers, and BOLT vector replay
   coverage for those surfaces.
+- #72 is implemented in `tap-ldk-core::mssmt`: native MS-SMT root calculation,
+  inclusion/exclusion proofs, compressed proof encoding, overflow rejection,
+  and Lightning Labs fixture replay now replace the old root hash-list
+  placeholder where the bounded helper needs a hash+sum commitment.
 - Current open work is #57 through #60 for live Path B and proof validation,
-  #61 as the BTC-only simple-taproot readiness epic, and #71 through #76 for
-  real Taproot Assets support. #19 remains the parent Path B epic.
+  #61 as the BTC-only simple-taproot readiness epic, #71 as the full Taproot
+  Assets epic, and #73 through #76 for the next concrete protocol layers. #19
+  remains the parent Path B epic.
 
 ## Implementation Home
 
@@ -280,7 +285,7 @@ needed for full Taproot Asset support in LDK.
 | #69 | Simple-taproot HTLC scripts and second-level transactions | Implemented in `OpenAgentsInc/rust-lightning` at `6af69ad385b864d7666edebbbbb668dab485bdde`; offered/accepted HTLC P2TR outputs match BOLT vectors, second-level HTLC outputs use P2TR delay scripts, BIP342 `SIGHASH_SINGLE|ANYONECANPAY` signing helpers cover all four success/timeout witness shapes, simple-taproot anchor/output accounting is fixed, signer wrappers forward MuSig2 methods, and the cooperative-close harness is unignored. |
 | #70 | BOLT simple-taproot vector replay | Implemented in `OpenAgentsInc/rust-lightning` at `983c4385ff66105ab70d766d34f49c1bd547a81a`; fixture coverage now replays BOLT TLV payload shapes, nonce/partial-signature payloads, funding scripts, commitment output scripts and leaf hashes, close harness behavior, HTLC scripts, second-level outputs, and the multi-HTLC transaction value/trimming cases. |
 | #71 | Full Taproot Assets protocol support for LDK epic | Real Taproot Assets primitives and channel state are layered onto simple-taproot LDK channels. |
-| #72 | MS-SMT hash-sum tree | Inclusion, exclusion, split-commitment, conservation, and overflow fixtures pass. |
+| #72 | MS-SMT hash-sum tree | Implemented in `tap-ldk-core::mssmt`; Lightning Labs root/proof fixtures, inclusion/exclusion proofs, compressed proof round trips, conservation, and overflow rejection pass. |
 | #73 | `AssetCommitment` and `TapCommitment` layers | Asset and tap commitments replace bounded root placeholders. |
 | #74 | Virtual transaction and TAP VM validation | Asset transitions are validated semantically rather than by checksum/root placeholders. |
 | #75 | Full Taproot Asset channel state in simple-taproot LDK channels | Funding, commitments, HTLCs, close, monitor, and recovery state are integrated into the LDK state machine. |
@@ -360,8 +365,9 @@ Deliverables:
   - previous witnesses;
   - split commitments.
 - TLV serialization and strict decoding.
-- Real MS-SMT commitment implementation, including inclusion, exclusion, and
-  split-commitment behavior.
+- Real MS-SMT root/proof implementation is in place through #72, including
+  inclusion and exclusion proofs, compressed proof fixture replay, checked sums,
+  and bounded split-conservation roots.
 - `AssetCommitment` and `TapCommitment` construction and verification.
 - TAP VM validation for the demo asset transitions.
 - Proof file parser and semantic proof ancestry verifier.
@@ -796,8 +802,7 @@ The stronger demo adds:
 
 ## Immediate Next Steps
 
-1. Replace the bounded hash+sum and commitment placeholders through issues
-   #72 and #73.
+1. Replace the remaining bounded commitment placeholders through issue #73.
 2. Add virtual transaction and TAP VM validation through issue #74.
 3. Rewire asset-channel funding, commitment, HTLC, close, and recovery hooks
    onto the simple-taproot channel state machine through issue #75.

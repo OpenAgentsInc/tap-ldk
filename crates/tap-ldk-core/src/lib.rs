@@ -19,6 +19,7 @@ pub mod lightning_labs_rfq;
 pub mod live_litd_peer;
 pub mod live_peer;
 pub mod live_tapd_proof;
+pub mod mssmt;
 pub mod proof;
 pub mod regtest;
 pub mod rfq_invoice;

@@ -3,6 +3,8 @@ use std::{error::Error, fmt, str::FromStr};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
+use crate::mssmt::{MssmtError, MssmtLeaf, MssmtTree};
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Bytes32(pub [u8; 32]);
 
@@ -179,21 +181,22 @@ pub struct RootHashSum {
 
 pub fn derive_hash_sum_root(leaves: &[AssetLeaf]) -> Result<RootHashSum, AssetError> {
     let mut sorted = leaves.to_vec();
-    sorted.sort_by_key(|leaf| (leaf.asset_id, leaf.script_key));
+    sorted.sort_by_key(|leaf| (leaf.asset_id, leaf.script_key, leaf.amount.value()));
 
     let mut sum = AssetAmount::ZERO;
-    let mut hasher = Sha256::new();
-    hasher.update(b"tap-ldk:bounded-ms-smt-root:v0");
-
-    for leaf in sorted {
+    let mut mssmt_leaves = Vec::with_capacity(sorted.len());
+    for (index, leaf) in sorted.into_iter().enumerate() {
         sum = sum.checked_add(leaf.amount)?;
-        hasher.update(leaf.asset_id.0);
-        hasher.update(leaf.script_key.0);
-        hasher.update(leaf.amount.value().to_be_bytes());
+        mssmt_leaves.push((
+            synthetic_asset_leaf_key(&leaf, index),
+            MssmtLeaf::new(synthetic_asset_leaf_value(&leaf), leaf.amount.value()),
+        ));
     }
+    let tree = MssmtTree::from_leaves(mssmt_leaves).map_err(AssetError::Mssmt)?;
+    let root = tree.root();
 
     Ok(RootHashSum {
-        hash: Bytes32(hasher.finalize().into()),
+        hash: root.hash,
         sum,
     })
 }
@@ -256,6 +259,7 @@ pub enum AssetError {
         expected: Bytes32,
         actual: Bytes32,
     },
+    Mssmt(MssmtError),
 }
 
 impl fmt::Display for AssetError {
@@ -293,11 +297,30 @@ impl fmt::Display for AssetError {
                     actual.to_hex()
                 )
             }
+            Self::Mssmt(err) => write!(f, "MS-SMT asset commitment error: {err}"),
         }
     }
 }
 
 impl Error for AssetError {}
+
+fn synthetic_asset_leaf_key(leaf: &AssetLeaf, index: usize) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:synthetic-asset-mssmt-key:v1");
+    hasher.update(leaf.asset_id.0);
+    hasher.update(leaf.script_key.0);
+    hasher.update(leaf.amount.value().to_be_bytes());
+    hasher.update((index as u64).to_be_bytes());
+    Bytes32(hasher.finalize().into())
+}
+
+fn synthetic_asset_leaf_value(leaf: &AssetLeaf) -> Vec<u8> {
+    let mut value = Vec::with_capacity(32 + 33 + 8);
+    value.extend_from_slice(&leaf.asset_id.0);
+    value.extend_from_slice(&leaf.script_key.0);
+    value.extend_from_slice(&leaf.amount.value().to_be_bytes());
+    value
+}
 
 fn decode_hex(hex: &str) -> Result<Vec<u8>, AssetError> {
     if hex.len() % 2 != 0 {

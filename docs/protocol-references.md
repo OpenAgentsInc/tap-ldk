@@ -25,7 +25,8 @@ reference repos.
 ## Reference Rules
 
 - Use `projects/` and `stablecoins/` as source material only.
-- Do not vendor large chunks of reference code into `tap-ldk`.
+- Do not vendor large chunks of reference code into `tap-ldk`; imported test
+  vectors are allowed when they are listed in `fixtures/manifest.json`.
 - If a fork is required, create it under `OpenAgentsInc` and wire it
   explicitly from this repo.
 - Keep local reference commits fresh enough to explain interop behavior before
@@ -40,7 +41,9 @@ Import or reference fixture material in this order:
 1. BOLT simple taproot feature, channel-type, wire TLV, MuSig2, funding,
    commitment, close, HTLC, and reestablish vectors.
 2. TAP TLV encoding and strict-decoding vectors.
-3. MS-SMT hash+sum and split-commitment vectors.
+3. MS-SMT hash+sum and split-commitment vectors. Lightning Labs root/proof
+   vectors are imported at
+   `fixtures/lightning-labs/mssmt/testdata/mssmt_tree_proofs.json`.
 4. `AssetCommitment` and `TapCommitment` vectors.
 5. Proof file and anchor proof vectors, including semantic proof ancestry.
 6. Address and virtual PSBT vectors.

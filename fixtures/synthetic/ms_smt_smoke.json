@@ -15,7 +15,7 @@
   ],
   "expected": {
     "conserved": true,
-    "root_hash": "3ed3ea50146d815594b28dc6bbff67dadf078ee245c10a1a06faeb5e8ff9c3c2",
+    "root_hash": "49c314d285cd2aea33e503941946ea2d7f4a386582eecbbb6c2d6852e19aba8d",
     "root_sum": 1000000
   }
 }

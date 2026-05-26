@@ -22,15 +22,18 @@ Works today:
   update/reestablish nonce state, cooperative close, HTLC outputs, and
   second-level HTLC signing helpers, plus BOLT vector replay coverage for
   those surfaces.
+- #72 is implemented in `tap-ldk-core::mssmt`: native MS-SMT root calculation,
+  inclusion/exclusion proofs, compressed proof encoding, overflow checks, and
+  Lightning Labs fixture replay now back the bounded hash+sum helper.
 
 Open work:
 
 - #57 through #60 are the live Path B work: real Lightning Labs asset payment,
   reverse direction, observed balances, and proof ancestry validation.
 - #61 remains the parent BTC-only simple-taproot readiness epic.
-- #71 through #76 layer real Taproot Assets support on top. LND, `tapd`, and
-  `litd` remain interop peers, not wallet sidecars; #19 stays open until Path
-  B is actually complete.
+- #71 remains the full Taproot Assets epic; #73 through #76 are next. LND,
+  `tapd`, and `litd` remain interop peers, not wallet sidecars; #19 stays open
+  until Path B is actually complete.
 
 ## Development
 

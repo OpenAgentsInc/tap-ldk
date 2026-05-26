@@ -21,7 +21,7 @@
         "amount": 250000
       }
     ],
-    "expected_root_hash": "3ed3ea50146d815594b28dc6bbff67dadf078ee245c10a1a06faeb5e8ff9c3c2",
+    "expected_root_hash": "d2aace1281d8c2035233ba401599437e7b64bad44e2ffb7be941071e479affb9",
     "expected_root_sum": 1000000
   },
   "invalid_cases": [

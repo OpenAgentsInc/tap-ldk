@@ -87,8 +87,11 @@ node.
 Important modules:
 
 - `asset`: basic asset IDs, amounts, compressed keys, genesis data, split
-  conservation, same-asset input merging, and bounded MS-SMT-style root
-  summaries.
+  conservation, same-asset input merging, and bounded asset-leaf root summaries
+  backed by the native MS-SMT primitive.
+- `mssmt`: Taproot Assets-style Merkle Sum Sparse Merkle Tree primitives:
+  256-level roots, inclusion/exclusion proofs, Lightning Labs-compatible
+  compressed proof encoding, and overflow/malformed-proof rejection.
 - `tlv`: strict BigSize/TLV encode and decode. It rejects non-canonical
   integers, duplicate records, out-of-order records, truncation, and unknown
   even required types.
@@ -178,13 +181,21 @@ and balance conservation checks.
 - `Genesis` for deterministic demo asset ID derivation.
 - `AssetAmount` with checked add/subtract.
 - `AssetLeaf` for asset ownership leaves.
-- `derive_hash_sum_root` for deterministic hash+sum summaries.
+- `derive_hash_sum_root` for deterministic hash+sum summaries backed by the
+  native MS-SMT primitive.
 - `validate_split_conservation` for transfer/split checks.
 - `merge_same_asset_inputs` for funding multiple same-asset inputs.
 
-This is not a full Taproot Assets VM. It is a bounded native model sufficient
-for the current demo and tests. The full protocol still needs complete proof
-ancestry, virtual transaction, anchor, and script validation.
+`mssmt.rs` implements the protocol-shaped tree primitive separately from the
+bounded asset helper. It matches the Lightning Labs node hashing shape, bit
+order, inclusion/exclusion proof walk, and compressed proof format against
+imported `taproot-assets` vectors. The bounded helper still uses synthetic
+asset leaf values until #73 adds full `AssetCommitment` and `TapCommitment`
+layers.
+
+This is not a full Taproot Assets VM. The full protocol still needs complete
+asset commitment layering, proof ancestry, virtual transaction, anchor, and
+script validation.
 
 ## TLV Layer
 

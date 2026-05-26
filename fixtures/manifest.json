@@ -94,7 +94,19 @@
         "upstream": "https://github.com/Roasbeef/bips",
         "local_path": "../projects/lightninglabs/repos/bips/bip-tap-ms-smt.mediawiki",
         "commit": "bd3cdc153bea",
-        "notes": "Bounded smoke fixture for early Rust hash+sum and conservation tests; replace or extend with upstream vectors when published."
+        "notes": "Bounded smoke fixture for Rust hash+sum and conservation tests, now computed through the native MS-SMT implementation."
+      }
+    },
+    {
+      "id": "lightning-labs-mssmt-proofs",
+      "category": "ms_smt",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/mssmt/testdata/mssmt_tree_proofs.json",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/mssmt/testdata/mssmt_tree_proofs.json",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs MS-SMT root, inclusion proof, exclusion proof, and compressed-proof encoding vectors."
       }
     },
     {
