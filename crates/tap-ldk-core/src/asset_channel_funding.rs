@@ -26,11 +26,11 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{
-        AssetAmount, AssetError, AssetLeaf, Bytes32, CompressedKey, RootHashSum,
-        derive_hash_sum_root,
-    },
+    asset::{AssetAmount, AssetError, Bytes32, CompressedKey, RootHashSum},
     proof::{ProofError, ProofFile},
+    taproot_commitment::{
+        AssetVersion, TapAsset, TapCommitment, TapCommitmentVersion, TaprootCommitmentError,
+    },
     wallet::{RegtestIssueRequest, WalletError, WalletState},
 };
 
@@ -112,12 +112,19 @@ impl AssetChannelStore {
         let total_amount = local_balance
             .checked_add(remote_balance)
             .map_err(AssetChannelFundingError::Asset)?;
-        let funding_root = derive_hash_sum_root(&[AssetLeaf {
-            asset_id: request.asset_id,
-            script_key: request.funding_script_key,
-            amount: total_amount,
-        }])
-        .map_err(AssetChannelFundingError::Asset)?;
+        let funding_commitment = funding_tap_commitment(
+            request.asset_id,
+            &genesis_outpoint,
+            request.funding_script_key,
+            total_amount,
+        )?;
+        let funding_root = RootHashSum {
+            hash: funding_commitment.tree_root.hash,
+            sum: AssetAmount::new(funding_commitment.tree_root.sum),
+        };
+        let expected_output_commitment = funding_commitment
+            .tapscript_root(None)
+            .map_err(AssetChannelFundingError::Commitment)?;
 
         if let Some(expected) = request.expected_funding_root {
             if expected != funding_root {
@@ -155,6 +162,7 @@ impl AssetChannelStore {
             local_balance.value(),
             remote_balance.value(),
             input_proofs.len(),
+            expected_output_commitment,
             output_commitment_override,
         )?;
 
@@ -361,12 +369,16 @@ impl StoredAssetChannel {
                 total_amount: self.total_amount,
             });
         }
-        let expected_root = derive_hash_sum_root(&[AssetLeaf {
-            asset_id: self.asset_id,
-            script_key: self.funding_script_key,
-            amount: AssetAmount::new(self.total_amount),
-        }])
-        .map_err(AssetChannelFundingError::Asset)?;
+        let expected_commitment = funding_tap_commitment(
+            self.asset_id,
+            &self.genesis_outpoint,
+            self.funding_script_key,
+            AssetAmount::new(self.total_amount),
+        )?;
+        let expected_root = RootHashSum {
+            hash: expected_commitment.tree_root.hash,
+            sum: AssetAmount::new(expected_commitment.tree_root.sum),
+        };
         if self.funding_tap_asset_root != StoredRootHashSum::from(expected_root) {
             return Err(AssetChannelFundingError::FundingRootMismatch {
                 expected: StoredRootHashSum::from(expected_root),
@@ -544,6 +556,7 @@ pub enum AssetChannelFundingError {
     Wallet(WalletError),
     Proof(ProofError),
     Asset(AssetError),
+    Commitment(TaprootCommitmentError),
     UnsupportedVersion(u32),
     EmptyPeer,
     MissingFundingProofs,
@@ -587,6 +600,9 @@ impl fmt::Display for AssetChannelFundingError {
             Self::Wallet(err) => write!(f, "asset-channel funding wallet error: {err}"),
             Self::Proof(err) => write!(f, "asset-channel funding proof error: {err}"),
             Self::Asset(err) => write!(f, "asset-channel funding asset error: {err}"),
+            Self::Commitment(err) => {
+                write!(f, "asset-channel funding commitment error: {err}")
+            }
             Self::UnsupportedVersion(version) => {
                 write!(
                     f,
@@ -677,6 +693,7 @@ fn validate_with_ldk_funding_hook(
     local_balance: u64,
     remote_balance: u64,
     proof_count: usize,
+    expected_output_commitment: Bytes32,
     output_commitment_override: Option<Bytes32>,
 ) -> Result<(), AssetChannelFundingError> {
     let descriptor = taproot_asset::TaprootAssetChannelDescriptor::new(
@@ -688,11 +705,6 @@ fn validate_with_ldk_funding_hook(
     let local_peer_id = derive_peer_public_key(&request.local_peer)?;
     let remote_peer_id = derive_peer_public_key(&request.remote_peer)?;
     let genesis_id = derive_genesis_id(genesis_outpoint);
-    let expected_output_commitment = derive_output_commitment(
-        &request.funding_outpoint,
-        request.funding_script_key,
-        funding_root,
-    );
     let actual_output_commitment = output_commitment_override.unwrap_or(expected_output_commitment);
     let proof_count =
         u16::try_from(proof_count).map_err(|_| AssetChannelFundingError::AmountOverflow)?;
@@ -821,6 +833,27 @@ fn issue_openusd_proof(
     ProofFile::decode(&encoded).map_err(AssetChannelFundingError::Proof)
 }
 
+fn funding_tap_commitment(
+    asset_id: Bytes32,
+    genesis_outpoint: &str,
+    funding_script_key: CompressedKey,
+    total_amount: AssetAmount,
+) -> Result<TapCommitment, AssetChannelFundingError> {
+    TapCommitment::from_assets(
+        Some(TapCommitmentVersion::V2),
+        vec![TapAsset {
+            version: AssetVersion::V1,
+            asset_id,
+            asset_type: crate::asset::AssetType::Normal,
+            genesis_outpoint: genesis_outpoint.to_owned(),
+            amount: total_amount,
+            script_key: funding_script_key,
+            group_key: None,
+        }],
+    )
+    .map_err(AssetChannelFundingError::Commitment)
+}
+
 fn funding_proof_id(proof: &ProofFile) -> String {
     format!("{}:{}", proof.asset_id.to_hex(), proof.anchor_outpoint)
 }
@@ -855,22 +888,6 @@ fn derive_genesis_id(genesis_outpoint: &str) -> Bytes32 {
     digest_domain(
         b"tap-ldk:asset-channel-genesis-id:v1",
         &[genesis_outpoint.as_bytes()],
-    )
-}
-
-fn derive_output_commitment(
-    funding_outpoint: &str,
-    funding_script_key: CompressedKey,
-    funding_root: RootHashSum,
-) -> Bytes32 {
-    digest_domain(
-        b"tap-ldk:asset-channel-funding-output:v1",
-        &[
-            funding_outpoint.as_bytes(),
-            &funding_script_key.0,
-            &funding_root.hash.0,
-            &funding_root.sum.value().to_be_bytes(),
-        ],
     )
 }
 

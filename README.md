@@ -25,13 +25,16 @@ Works today:
 - #72 is implemented in `tap-ldk-core::mssmt`: native MS-SMT root calculation,
   inclusion/exclusion proofs, compressed proof encoding, overflow checks, and
   Lightning Labs fixture replay now back the bounded hash+sum helper.
+- #73 is implemented in `tap-ldk-core::taproot_commitment`: asset commitment
+  keys, inner `AssetCommitment`s, outer `TapCommitment`s, tap leaf script
+  parsing, output-root binding, and funding roots now use the MS-SMT path.
 
 Open work:
 
 - #57 through #60 are the live Path B work: real Lightning Labs asset payment,
   reverse direction, observed balances, and proof ancestry validation.
 - #61 remains the parent BTC-only simple-taproot readiness epic.
-- #71 remains the full Taproot Assets epic; #73 through #76 are next. LND,
+- #71 remains the full Taproot Assets epic; #74 through #76 are next. LND,
   `tapd`, and `litd` remain interop peers, not wallet sidecars; #19 stays open
   until Path B is actually complete.
 

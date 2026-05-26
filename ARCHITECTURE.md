@@ -92,6 +92,9 @@ Important modules:
 - `mssmt`: Taproot Assets-style Merkle Sum Sparse Merkle Tree primitives:
   256-level roots, inclusion/exclusion proofs, Lightning Labs-compatible
   compressed proof encoding, and overflow/malformed-proof rejection.
+- `taproot_commitment`: protocol-shaped asset commitment keys,
+  `AssetCommitment`, `TapCommitment`, Taproot Asset tap leaf scripts, and
+  BIP341 tap leaf/branch binding for output commitments.
 - `tlv`: strict BigSize/TLV encode and decode. It rejects non-canonical
   integers, duplicate records, out-of-order records, truncation, and unknown
   even required types.
@@ -189,13 +192,23 @@ and balance conservation checks.
 `mssmt.rs` implements the protocol-shaped tree primitive separately from the
 bounded asset helper. It matches the Lightning Labs node hashing shape, bit
 order, inclusion/exclusion proof walk, and compressed proof format against
-imported `taproot-assets` vectors. The bounded helper still uses synthetic
-asset leaf values until #73 adds full `AssetCommitment` and `TapCommitment`
-layers.
+imported `taproot-assets` vectors.
+
+`taproot_commitment.rs` builds on that tree with:
+
+- no-group and group-style asset commitment keys;
+- inner `AssetCommitment` trees;
+- outer `TapCommitment` trees;
+- Taproot Asset commitment script parsing for the upstream Lightning Labs
+  script fixture;
+- BIP341 tap leaf and branch hashing for output commitment binding.
+
+Asset-channel funding now derives its funding root and output commitment from a
+`TapCommitment` instead of the older bounded root placeholder. Full virtual
+transaction and TAP VM validation are still #74.
 
 This is not a full Taproot Assets VM. The full protocol still needs complete
-asset commitment layering, proof ancestry, virtual transaction, anchor, and
-script validation.
+proof ancestry, virtual transaction, anchor, and script validation.
 
 ## TLV Layer
 

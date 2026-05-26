@@ -479,12 +479,13 @@ redacted. Do not commit:
 Do not claim these guarantees until implementation and verification exist:
 
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
-  proof primitives, bounded synthetic asset identity/hash+sum conservation
-  helpers, and bounded proof-anchor import, export, and verification helpers
-  exist. Bounded Taproot Asset address encode/decode and virtual PSBT summary
-  validation exist for the first-demo fixture surface, but full
-  `AssetCommitment`, `TapCommitment`, TAP VM, virtual transaction signing, and
-  full-history proof validation are not implemented.
+  proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
+  construction, bounded synthetic asset identity/hash+sum conservation helpers,
+  and bounded proof-anchor import, export, and verification helpers exist.
+  Bounded Taproot Asset address encode/decode and virtual PSBT summary
+  validation exist for the first-demo fixture surface, but TAP VM, virtual
+  transaction signing, complete asset-leaf TLV semantics, and full-history proof
+  validation are not implemented.
 - Lightning Labs `TAPF` proof-file transport validation and exact raw proof
   preservation exist for imported fixtures. Full semantic verification of
   asset leaves, Taproot proofs, virtual transactions, and proof ancestry is not

@@ -151,18 +151,16 @@ offer, sign, revoke, fulfill, fail, timeout, force-close, and sweep.
 
 ## Taproot Assets Layers Still Needed Above Simple Taproot
 
-The current bounded implementation now has a native MS-SMT root/proof primitive
-and asset-state smoke coverage, but full Taproot Assets support still needs the
-remaining protocol layers:
+The current bounded implementation now has native MS-SMT root/proof primitives,
+protocol-shaped `AssetCommitment`/`TapCommitment` construction, and asset-state
+smoke coverage, but full Taproot Assets support still needs the remaining
+protocol layers:
 
 - strict TAP TLV parsing and canonical encoding;
-- `AssetCommitment`/`TapCommitment` use of the MS-SMT primitive;
+- virtual transaction construction and validation;
 - split commitments;
-- `AssetCommitment`;
-- `TapCommitment`;
 - asset leaf inclusion and exclusion proofs;
 - Taproot output commitment binding;
-- virtual transaction construction and validation;
 - TAP VM validation for state transitions;
 - proof file parsing plus semantic ancestry validation;
 - proof anchor import/export compatible with `tapd`;
@@ -196,8 +194,8 @@ The project should not claim full native Taproot Asset support for LDK until:
   TLVs, key aggregation, nonces, signatures, funding outputs, commitment
   outputs, close, and HTLC scripts;
 - normal non-taproot LDK channels continue to pass existing tests;
-- real `AssetCommitment` and `TapCommitment` fixtures pass on top of the
-  MS-SMT primitive;
+- virtual transaction and TAP VM fixtures pass on top of the MS-SMT and
+  TapCommitment primitives;
 - proof ancestry validation is semantic, not just checksum or root-field
   validation;
 - asset funding, commitment, HTLC, close, and recovery state are persisted

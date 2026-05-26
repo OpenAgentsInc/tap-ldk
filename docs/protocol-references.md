@@ -44,7 +44,9 @@ Import or reference fixture material in this order:
 3. MS-SMT hash+sum and split-commitment vectors. Lightning Labs root/proof
    vectors are imported at
    `fixtures/lightning-labs/mssmt/testdata/mssmt_tree_proofs.json`.
-4. `AssetCommitment` and `TapCommitment` vectors.
+4. `AssetCommitment` and `TapCommitment` vectors. The Lightning Labs tap
+   commitment script fixture is imported at
+   `fixtures/lightning-labs/commitment/testdata/tap-commitment-script.hex`.
 5. Proof file and anchor proof vectors, including semantic proof ancestry.
 6. Address and virtual PSBT vectors.
 7. LND/`tapd` asset-channel funding and payment traces.

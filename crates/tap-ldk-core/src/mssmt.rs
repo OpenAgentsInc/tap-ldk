@@ -100,6 +100,22 @@ impl MssmtTree {
         self.root
     }
 
+    pub fn root_children(&self) -> (MssmtNode, MssmtNode) {
+        let left_key = Bytes32::ZERO;
+        let mut right_key = [0; 32];
+        right_key[0] = 1;
+        (
+            self.levels[1]
+                .get(&left_key)
+                .copied()
+                .unwrap_or_else(|| empty_tree()[1]),
+            self.levels[1]
+                .get(&Bytes32(right_key))
+                .copied()
+                .unwrap_or_else(|| empty_tree()[1]),
+        )
+    }
+
     pub fn get(&self, key: Bytes32) -> Option<&MssmtLeaf> {
         self.leaves.get(&key)
     }

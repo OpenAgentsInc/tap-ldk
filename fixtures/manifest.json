@@ -110,6 +110,18 @@
       }
     },
     {
+      "id": "lightning-labs-tap-commitment-script",
+      "category": "tap_commitment",
+      "status": "imported",
+      "path": "fixtures/lightning-labs/commitment/testdata/tap-commitment-script.hex",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/commitment/commitment_test.go",
+        "commit": "743db21da57b5fdecf5daca9a925f0261ca94e40",
+        "notes": "Lightning Labs Taproot Asset commitment script fixture used to validate marker, root hash, and root sum parsing."
+      }
+    },
+    {
       "id": "synthetic-proof-anchor",
       "category": "proof",
       "status": "synthetic_regtest",
