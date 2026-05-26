@@ -8,29 +8,19 @@ Source reviewed:
 
 ## Did We Use This Already?
 
-No. The current `tap-ldk` repo and OpenAgentsInc `rust-lightning` fork do not
-show direct implementation or direct roadmap dependency on
-`bolt-simple-taproot.md`.
+Yes, now partially. The OpenAgentsInc `rust-lightning` fork is directly
+implementing the BTC-only BOLT simple taproot base before asset-channel state
+is layered on top. Issues #62 through #69 now cover negotiation, wire TLVs,
+MuSig2 signer state, P2TR funding, P2TR commitment outputs, commitment
+update/reestablish nonce state, cooperative close, and offered/accepted HTLC
+scripts plus second-level HTLC signing helpers.
 
-The existing docs mention that BLIP-TAP treats Taproot Asset channels as a
-variant of simple taproot channels, and the Lightning Labs counterparty docs
-mention `simple-taproot-overlay-chans`. Those references are directionally
-right, but they are not the same as implementing the BOLT simple taproot
-channel protocol inside LDK.
-
-The current fork work is a useful bounded hook layer:
-
-- experimental asset-channel feature and channel-type gates;
-- funding controller validation hooks;
-- monitor auxiliary blob persistence;
-- asset HTLC metadata/final-hop validation hooks;
-- cooperative close allocation validation;
-- proof ownership recovery validation.
-
-That work does not yet implement the BTC-only simple taproot channel state
-machine. It also does not yet implement full Taproot Assets protocol semantics
-such as the real MS-SMT, `AssetCommitment`, `TapCommitment`, TAP VM, virtual
-transaction validation, or semantic proof ancestry.
+The remaining BTC-only BOLT simple taproot work is #70: replay the draft's
+wire, signing, transaction, close, and HTLC vectors against the fork. Full
+Taproot Assets protocol semantics are still separate work: real MS-SMT,
+`AssetCommitment`, `TapCommitment`, TAP VM, virtual transaction validation,
+semantic proof ancestry, and asset-aware channel monitor recovery remain in
+#71 through #76.
 
 ## Why This Matters
 

@@ -131,6 +131,10 @@ state:
   scripts, tapscript roots, tap tweaks, and control-block reconstruction data,
   first landed in the OpenAgentsInc fork at
   `b0b952531329a31265f8de28752ee5334d9d9d4f`;
+- BOLT simple taproot offered/accepted HTLC P2TR outputs, second-level HTLC
+  P2TR outputs, BIP342 tapscript signing helpers, and per-path witness stack
+  construction, first landed in the OpenAgentsInc fork at
+  `6af69ad385b864d7666edebbbbb668dab485bdde`;
 - funding controller hook that can block funding before channel state advances,
   first landed in the OpenAgentsInc fork at
   `84032b87d05a157ee9ef247102767bc100d84ed6`;

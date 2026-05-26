@@ -110,6 +110,11 @@ These are the contracts we definitely want around the rust-lightning work.
 - BTC-level simple-taproot commitment outputs must preserve enough tapscript
   root, tap tweak, leaf script, and control-block data to reconstruct unilateral
   to-local, to-remote, and anchor script-path spends after restart.
+- BTC-level simple-taproot HTLC outputs must preserve BOLT-vector-matching
+  offered/accepted tapscript leaves, control blocks, second-level P2TR delay
+  outputs, and BIP342 `SIGHASH_SINGLE|ANYONECANPAY` witness shape for each
+  offered/accepted success and timeout path. Asset-level HTLC state must be
+  layered on top of that base without changing the BTC script semantics.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,

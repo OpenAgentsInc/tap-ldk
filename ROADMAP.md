@@ -27,14 +27,14 @@ Last updated: 2026-05-26
   not done until asset-channel funding/payment runs over that peer and records
   the receiver balance after settlement.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `26346a56af75eadf60763eb1e32a740656d4e384`. BOLT simple-taproot issues #62
-  through #68 are implemented: negotiation, TLVs, MuSig2 primitives, P2TR
+  `6af69ad385b864d7666edebbbbb668dab485bdde`. BOLT simple-taproot issues #62
+  through #69 are implemented: negotiation, TLVs, MuSig2 primitives, P2TR
   funding, P2TR commitment outputs/control-block data, and commitment
-  update/reestablish nonce state, and cooperative-close nonce/signature
-  handling.
+  update/reestablish nonce state, cooperative-close nonce/signature handling,
+  HTLC outputs, and second-level HTLC signing helpers.
 - Current open work is #57 through #60 for live Path B and proof validation,
-  #69 through #70 for the BTC-only simple-taproot base, and #71 through #76
-  for real Taproot Assets support. #19 remains the parent Path B epic.
+  #70 for BTC-only simple-taproot vector replay, and #71 through #76 for real
+  Taproot Assets support. #19 remains the parent Path B epic.
 
 ## Implementation Home
 
@@ -273,10 +273,10 @@ needed for full Taproot Asset support in LDK.
 | #63 | Simple-taproot wire TLVs and message validation | Implemented in `OpenAgentsInc/rust-lightning` at `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. |
 | #64 | MuSig2 signer and nonce state | Implemented in `OpenAgentsInc/rust-lightning` at `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; key aggregation, counter/JIT nonce generation, partial-signature verification, final Schnorr aggregation, persisted nonce-use rejection, and signer-facing `InMemorySigner` helpers are covered. Channel/reestablish call-site wiring continues in #67. |
 | #65 | Simple-taproot P2TR funding flow | Implemented in `OpenAgentsInc/rust-lightning` at `1602ac9e1e7454d39612e126c24a098e276d605a`; BIP86 P2TR funding script generation, BOLT funding vector coverage, `FundingGenerationReady` P2TR output scripts, wrong-script rejection, and P2TR monitor registration are covered. Full live channel activation still depends on #66 and #67. |
-| #66 | Simple-taproot commitment outputs and control blocks | Implemented in `OpenAgentsInc/rust-lightning` at `b0b952531329a31265f8de28752ee5334d9d9d4f`; P2TR to-local, to-remote, and anchor scripts match BOLT vectors; tap tweaks, tapscript roots, and control blocks are reconstructable; `CommitmentTransaction` emits those outputs for simple-taproot channels. Commitment signing/reestablish moved in #67, and HTLC scripts remain #69. |
+| #66 | Simple-taproot commitment outputs and control blocks | Implemented in `OpenAgentsInc/rust-lightning` at `b0b952531329a31265f8de28752ee5334d9d9d4f`; P2TR to-local, to-remote, and anchor scripts match BOLT vectors; tap tweaks, tapscript roots, and control blocks are reconstructable; `CommitmentTransaction` emits those outputs for simple-taproot channels. Commitment signing/reestablish moved in #67, and HTLC scripts landed in #69. |
 | #67 | Simple-taproot commitment update and reestablish state | Implemented in `OpenAgentsInc/rust-lightning` at `1176e837e5aacac7d1a3237c2bb00910989dbd93`; channel-ready, commitment-signed, revoke-and-ack, and channel-reestablish carry/persist next-local nonces; sent partial signatures are retained for retransmission; mismatched or missing simple-taproot nonces fail closed. |
-| #68 | Simple-taproot RBF cooperative close | Implemented in `OpenAgentsInc/rust-lightning` at `26346a56af75eadf60763eb1e32a740656d4e384`; shutdown carries closee nonces, `closing_complete`/`closing_sig` are handled under `simple_close`, close partials aggregate to a P2TR key-path close transaction, nonce state is persisted, and malformed/missing close nonces or signatures fail closed. The functional close harness is checked in but ignored until #69 fixes simple-taproot commitment output accounting during channel open. |
-| #69 | Simple-taproot HTLC scripts and second-level transactions | Open. Implement offered/accepted HTLC outputs, second-level success/timeout paths, anchor/output accounting, monitor balance safety, and un-ignore the #68 functional close harness. |
+| #68 | Simple-taproot RBF cooperative close | Implemented in `OpenAgentsInc/rust-lightning` at `26346a56af75eadf60763eb1e32a740656d4e384`; shutdown carries closee nonces, `closing_complete`/`closing_sig` are handled under `simple_close`, close partials aggregate to a P2TR key-path close transaction, nonce state is persisted, and malformed/missing close nonces or signatures fail closed. The functional close harness is unignored by #69. |
+| #69 | Simple-taproot HTLC scripts and second-level transactions | Implemented in `OpenAgentsInc/rust-lightning` at `6af69ad385b864d7666edebbbbb668dab485bdde`; offered/accepted HTLC P2TR outputs match BOLT vectors, second-level HTLC outputs use P2TR delay scripts, BIP342 `SIGHASH_SINGLE|ANYONECANPAY` signing helpers cover all four success/timeout witness shapes, simple-taproot anchor/output accounting is fixed, signer wrappers forward MuSig2 methods, and the cooperative-close harness is unignored. |
 | #70 | BOLT simple-taproot vector replay | Open. Replay wire, signing, transaction, close, and HTLC vectors in the fork. |
 | #71 | Full Taproot Assets protocol support for LDK epic | Real Taproot Assets primitives and channel state are layered onto simple-taproot LDK channels. |
 | #72 | MS-SMT hash-sum tree | Inclusion, exclusion, split-commitment, conservation, and overflow fixtures pass. |

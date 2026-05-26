@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `26346a56af75eadf60763eb1e32a740656d4e384`
+- Current `tap-ldk` revision: `6af69ad385b864d7666edebbbbb668dab485bdde`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "26346a56af75eadf60763eb1e32a740656d4e384"
+rev = "6af69ad385b864d7666edebbbbb668dab485bdde"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -115,7 +115,8 @@ leaf scripts, and control blocks for deterministic spend reconstruction; emits
 those outputs from `CommitmentTransaction` for simple-taproot channels; and
 keeps legacy commitment outputs unchanged when simple taproot is not enabled.
 This is still not complete live channel operation: MuSig2 commitment update
-and reestablish state moved in issue #67, and HTLC scripts remain issue #69.
+and reestablish state moved in issue #67, and HTLC scripts landed in issue
+#69.
 
 Revision `1176e837e5aacac7d1a3237c2bb00910989dbd93` adds the first
 simple-taproot commitment update and reestablish state wiring. It persists
@@ -132,9 +133,17 @@ cooperative close wiring. It persists closee nonce state and sent
 `closing_complete` partials, carries shutdown close nonces, handles
 `closing_complete` and `closing_sig` under `simple_close`, aggregates close
 partials into a P2TR key-path cooperative-close transaction, and fails closed
-on missing or mismatched close nonce/signature state. A functional close
-harness is checked in but ignored until issue #69 fixes simple-taproot
-commitment output accounting during channel open.
+on missing or mismatched close nonce/signature state.
+
+Revision `6af69ad385b864d7666edebbbbb668dab485bdde` adds simple-taproot HTLC
+script and second-level transaction support. It emits offered and accepted
+HTLC P2TR outputs from simple-taproot commitments, matches the BOLT HTLC and
+second-level output vectors, treats simple-taproot HTLC transactions as
+zero-fee second-level spends with sequence `1`, signs BIP342 tapscript spends
+with `SIGHASH_SINGLE|ANYONECANPAY`, builds separate witness stacks for each
+offered/accepted success and timeout path, forwards MuSig2 signer methods
+through test/dynamic signer wrappers, and unignores the cooperative close
+functional harness.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

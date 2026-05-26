@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `26346a56af75eadf60763eb1e32a740656d4e384`
+- current revision: `6af69ad385b864d7666edebbbbb668dab485bdde`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "26346a56af75eadf60763eb1e32a740656d4e384", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "6af69ad385b864d7666edebbbbb668dab485bdde", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -373,9 +373,14 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::prepare_asset_proof_ownership_recovery`
 - `lightning::ln::taproot_asset::validate_asset_proof_ownership_recovery`
 - `lightning::ln::simple_taproot::SimpleTaprootKeyAggContext`
+- `lightning::ln::simple_taproot::SimpleTaprootHtlcSpendInfo`
+- `lightning::ln::simple_taproot::SimpleTaprootHtlcSpendPath`
 - `lightning::ln::simple_taproot::SimpleTaprootNonceState`
 - `lightning::ln::simple_taproot::derive_simple_taproot_counter_nonce_seed`
 - `lightning::ln::simple_taproot::derive_simple_taproot_jit_nonce_seed`
+- `lightning::ln::simple_taproot::simple_taproot_htlc_spend_info`
+- `lightning::ln::simple_taproot::simple_taproot_second_level_htlc_spend_info`
+- `lightning::ln::simple_taproot::simple_taproot_sign_htlc_spend`
 - `lightning::sign::SimpleTaprootChannelSigner`
 - `ChannelMonitorUpdate::taproot_asset_aux_update`
 - `ChannelMonitorUpdate::require_taproot_asset_aux_blob`
@@ -386,9 +391,10 @@ Those gates cover BOLT simple taproot staging feature negotiation, explicit
 simple-taproot channel type handling, native simple-taproot lifecycle wire TLV
 codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, BIP86
 P2TR funding script handling, P2TR to-local/to-remote/anchor commitment output
-scripts, tap tweak and control-block reconstruction data, and fail-closed
-malformed/duplicate/unsupported TLV, wrong funding script, and nonce-reuse
-tests.
+scripts, HTLC P2TR output scripts, second-level HTLC output scripts,
+taproot-sighash signing helpers, tap tweak and control-block reconstruction
+data, and fail-closed malformed/duplicate/unsupported TLV, wrong funding
+script, and nonce-reuse tests.
 They also cover experimental Taproot Asset channel type handling layered on
 that base and the bounded funding-controller approval surface. They provide
 the first versioned channel monitor aux blob hook for asset commitment state,
@@ -441,7 +447,7 @@ a real live demo:
   P2TR to-local, to-remote, and anchor outputs with tapscript roots, tap
   tweaks, and control blocks that can be reconstructed after restart. Initial
   support landed in `b0b952531329a31265f8de28752ee5334d9d9d4f`; MuSig2
-  commitment signing/reestablish moved in #67 and HTLC scripts remain #69.
+  commitment signing/reestablish moved in #67 and HTLC scripts landed in #69.
 - BOLT simple taproot commitment update/reestablish state: channel-ready,
   commitment-signed, revoke-and-ack, and channel-reestablish paths must carry
   next-local nonces, preserve sent partial signatures for retransmission, and
@@ -451,10 +457,17 @@ a real live demo:
   `closing_complete`/`closing_sig` must validate and aggregate MuSig2 close
   partials, closee nonce rotation must be persisted, and malformed close state
   must fail closed. First support landed in
-  `26346a56af75eadf60763eb1e32a740656d4e384`; the functional close harness
-  remains ignored until #69 fixes simple-taproot commitment output accounting
-  during channel open. Force-close, HTLC second-level paths, and vector replay
-  remain #69 through #70.
+  `26346a56af75eadf60763eb1e32a740656d4e384`; #69 unignored the functional
+  close harness after fixing simple-taproot anchor/output accounting during
+  channel open. Vector replay remains #70.
+- BOLT simple taproot HTLC outputs and second-level spends: simple-taproot
+  commitments must emit BOLT-vector-matching offered/accepted HTLC P2TR
+  outputs, construct P2TR second-level HTLC outputs, use sequence `1` for
+  second-level spends, sign BIP342 `SIGHASH_SINGLE|ANYONECANPAY` tapscript
+  spends, and build the correct witness stack for each offered/accepted
+  success/timeout path. Initial support landed in
+  `6af69ad385b864d7666edebbbbb668dab485bdde`; full asset-aware HTLC recovery
+  and monitor sweep semantics remain in #75.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

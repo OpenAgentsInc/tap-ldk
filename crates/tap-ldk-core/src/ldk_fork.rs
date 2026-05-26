@@ -1,7 +1,7 @@
 pub const OPENAGENTS_RUST_LIGHTNING_FORK_URL: &str =
     "https://github.com/OpenAgentsInc/rust-lightning.git";
 pub const OPENAGENTS_RUST_LIGHTNING_BASE_REV: &str = "0c37f08a55c0f7738f2691dc3690166fd42f851d";
-pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "b0b952531329a31265f8de28752ee5334d9d9d4f";
+pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "6af69ad385b864d7666edebbbbb668dab485bdde";
 
 pub fn channel_type_features_type_name() -> &'static str {
     std::any::type_name::<lightning::types::features::ChannelTypeFeatures>()
@@ -43,6 +43,8 @@ mod tests {
 
     #[test]
     fn fork_dependency_builds_simple_taproot_p2tr_funding_script() {
+        use lightning::bitcoin::hashes::{Hash, sha256::Hash as Sha256};
+
         let secp_ctx = lightning::bitcoin::secp256k1::Secp256k1::new();
         let local_secret =
             lightning::bitcoin::secp256k1::SecretKey::from_slice(&[1_u8; 32]).unwrap();
@@ -80,5 +82,21 @@ mod tests {
         assert!(to_local.script_pubkey.is_p2tr());
         assert_eq!(to_local.delay.control_block.len(), 65);
         assert_eq!(to_local.revocation.control_block.len(), 65);
+
+        let payment_hash =
+            lightning::types::payment::PaymentHash(Sha256::hash(&[0_u8; 32]).to_byte_array());
+        let htlc = lightning::ln::simple_taproot::simple_taproot_htlc_spend_info(
+            &secp_ctx,
+            true,
+            &payment_hash,
+            500,
+            &local_pubkey,
+            &remote_pubkey,
+            &remote_pubkey,
+        )
+        .unwrap();
+        assert!(htlc.script_pubkey.is_p2tr());
+        assert_eq!(htlc.success.control_block.len(), 65);
+        assert_eq!(htlc.timeout.control_block.len(), 65);
     }
 }
