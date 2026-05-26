@@ -19,8 +19,10 @@ What works today:
 - The demo scripts write reviewable artifacts under `target/`, including
   balances, proof files, restart checks, close checks, and logs.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
-  feature/channel-type gate and bounded funding approval hook, and the native
-  `tap-ldk` funding store calls that hook before writing funded channel state.
+  feature/channel-type gate, bounded funding approval hook, and channel monitor
+  aux blob surface for asset commitment state. The native `tap-ldk` funding and
+  commitment stores call those fork hooks before writing funded channel state or
+  treating asset commitment state as restart-safe.
 
 What does not work yet:
 
@@ -36,12 +38,12 @@ What does not work yet:
 
 What is being worked on now:
 
-- Issues #48 and #49 have landed the first Rust Lightning fork gates for
-  asset-channel negotiation and bounded funding approval.
-- Issue #50 is next: move asset commitment monitor persistence into the forked
-  rust-lightning boundary so asset state is durable before the matching
-  Lightning commitment is treated as safe.
-- Issues #51 through #53 continue the Rust Lightning fork work with HTLC
+- Issues #48 through #50 have landed the first Rust Lightning fork gates for
+  asset-channel negotiation, bounded funding approval, and monitor aux blob
+  persistence tied to asset commitment numbers.
+- Issue #51 is next: add forked HTLC metadata support so accepted asset quotes
+  can be carried with Lightning HTLC state.
+- Issues #52 and #53 continue the Rust Lightning fork work with final-hop
   metadata, final-hop validation, close, and recovery hooks.
 - Issues #54 through #60 cover the live demo path: a running `tap-ldk` peer,
   Lightning Labs counterparty integration, live `tapd` proof binding, payments

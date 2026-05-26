@@ -32,15 +32,16 @@ The Lightning Labs path is not a live payment yet:
   funding and payment settlement.
 - It does not yet query real live balances from both nodes after settlement.
 
-The `rust-lightning` fork is wired but not yet patched with the full asset
-channel implementation:
+The `rust-lightning` fork is wired with the first asset-channel hooks, but not
+the full asset channel implementation:
 
-- `tap-ldk-core` depends on `OpenAgentsInc/rust-lightning` at the pinned base
+- `tap-ldk-core` depends on `OpenAgentsInc/rust-lightning` at a pinned fork
   revision.
 - The repo records which asset-channel hooks must live inside the fork.
-- The native code models and tests those boundaries.
-- The actual fork still needs the real feature, channel, funding, HTLC,
-  monitor, close, and recovery hooks implemented.
+- The fork now includes feature/channel-type gates, a bounded funding approval
+  hook, and a channel monitor aux blob surface for asset commitments.
+- The fork still needs HTLC metadata, final-hop validation, close, force-close,
+  sweep, and full live channel-manager integration.
 
 ## Repository Layout
 
@@ -274,12 +275,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `84032b87d05a157ee9ef247102767bc100d84ed6`
+- current revision: `4394c0e350dd5faf34ca37fc6bde5cc14497e3f9`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "84032b87d05a157ee9ef247102767bc100d84ed6", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "4394c0e350dd5faf34ca37fc6bde5cc14497e3f9", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -295,11 +296,16 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::validate_single_asset_channel_open`
 - `lightning::ln::taproot_asset::TaprootAssetFundingRequest`
 - `lightning::ln::taproot_asset::validate_asset_channel_funding`
+- `lightning::ln::taproot_asset::TaprootAssetMonitorAuxBlob`
+- `lightning::ln::taproot_asset::TaprootAssetMonitorAuxBlobExpectation`
+- `ChannelMonitorUpdate::taproot_asset_aux_update`
+- `ChannelMonitorUpdate::require_taproot_asset_aux_blob`
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
 - `ChannelTypeFeatures::taproot_asset_single_asset`
 
 Those gates cover feature negotiation, explicit channel type handling, and the
-bounded funding-controller approval surface. Monitor persistence, HTLC
+bounded funding-controller approval surface. They also provide the first
+versioned channel monitor aux blob hook for asset commitment state. HTLC
 metadata, close, and recovery hooks still have to be added to the fork.
 
 ## What Must Be Added To rust-lightning
@@ -320,7 +326,12 @@ a real live demo:
   funding output, and allocation checks pass. Initial fork support landed in
   `84032b87d05a157ee9ef247102767bc100d84ed6`.
 - Commitment blob: asset-channel state must be versioned with the Lightning
-  commitment number.
+  commitment number. Initial monitor aux blob support landed in
+  `4394c0e350dd5faf34ca37fc6bde5cc14497e3f9`; later issues still need to wire
+  that through live channel-manager call sites.
+- Monitor persistence: asset-channel state must be durable before the
+  corresponding Lightning commitment is treated as safe. Initial fork support
+  landed in `4394c0e350dd5faf34ca37fc6bde5cc14497e3f9`.
 - HTLC metadata modifier: asset metadata must only be attached after an
   accepted quote.
 - Final-hop validator: missing, stale, malformed, wrong-asset, or wrong-amount
@@ -329,9 +340,6 @@ a real live demo:
   allocation.
 - On-chain resolver/sweeper: force-close and sweep handling must preserve proof
   ownership.
-- Monitor persistence: asset-channel state must be durable before the
-  corresponding Lightning commitment is treated as safe.
-
 The following surfaces stay in `tap-ldk`:
 
 - proof parsing and proof storage;
@@ -500,10 +508,12 @@ Updates check:
 - no overflow;
 - total balance conservation;
 - separate BTC and asset signature domains;
-- monitor digest consistency.
+- monitor digest consistency;
+- matching LDK monitor aux blob digest and commitment number.
 
-The module models the asset-channel state that must eventually be stored with,
-and updated alongside, rust-lightning channel monitor state.
+The module now builds an LDK `ChannelMonitorUpdate` carrying the fork's asset
+monitor aux blob. Restart validation refuses missing or tampered aux blob
+digests before treating the asset commitment state as recovered.
 
 ## Native Asset Payment Flow
 

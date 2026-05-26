@@ -3,15 +3,27 @@ use std::{
     error::Error,
     fmt, fs,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
+use lightning::{
+    chain::channelmonitor::ChannelMonitorUpdate,
+    ln::{
+        taproot_asset::{
+            TaprootAssetMonitorAuxBlob, TaprootAssetMonitorAuxBlobError,
+            TaprootAssetMonitorAuxBlobExpectation,
+        },
+        types::ChannelId,
+    },
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{Bytes32, CompressedKey},
+    asset::{AssetError, Bytes32, CompressedKey},
     asset_channel_funding::{
-        AssetChannelFundingError, StoredAssetChannel, run_asset_channel_funding_smoke,
+        AssetChannelFundingError, StoredAssetChannel, StoredRootHashSum,
+        run_asset_channel_funding_smoke,
     },
 };
 
@@ -69,7 +81,7 @@ impl AssetCommitmentStore {
             ));
         }
 
-        let state = AssetCommitmentChannelState::from_funded_channel(channel);
+        let state = AssetCommitmentChannelState::from_funded_channel(channel)?;
         let mut next = self.clone();
         next.channels
             .insert(channel.channel_id.clone(), state.clone());
@@ -113,6 +125,7 @@ impl AssetCommitmentStore {
                 asset_signature: request.asset_signature,
             },
         );
+        let funding_root = next_state.monitor_blob.funding_root();
         next_state.monitor_blob = AssetCommitmentMonitorBlob::new(
             &next_state.channel_id,
             next_state.asset_id,
@@ -120,7 +133,10 @@ impl AssetCommitmentStore {
             next_snapshot.local_balance,
             next_snapshot.remote_balance,
             next_snapshot.state_digest,
-        );
+            &funding_root,
+            request.asset_nonce,
+            request.asset_signature,
+        )?;
 
         let mut next = self.clone();
         next.channels
@@ -191,7 +207,7 @@ pub struct AssetCommitmentChannelState {
 }
 
 impl AssetCommitmentChannelState {
-    fn from_funded_channel(channel: &StoredAssetChannel) -> Self {
+    fn from_funded_channel(channel: &StoredAssetChannel) -> Result<Self, AssetCommitmentError> {
         let state_digest = commitment_state_digest(
             &channel.channel_id,
             channel.asset_id,
@@ -206,8 +222,23 @@ impl AssetCommitmentChannelState {
             channel.local_balance,
             channel.remote_balance,
             state_digest,
-        );
-        Self {
+            &channel.funding_tap_asset_root,
+            monitor_context_digest(
+                b"tap-ldk:asset-commitment-funding-nonce:v1",
+                &channel.channel_id,
+                channel.asset_id,
+                channel.monitor.commitment_number,
+                state_digest,
+            ),
+            monitor_context_digest(
+                b"tap-ldk:asset-commitment-funding-signature:v1",
+                &channel.channel_id,
+                channel.asset_id,
+                channel.monitor.commitment_number,
+                state_digest,
+            ),
+        )?;
+        Ok(Self {
             channel_id: channel.channel_id.clone(),
             asset_id: channel.asset_id,
             total_amount: channel.total_amount,
@@ -219,7 +250,7 @@ impl AssetCommitmentChannelState {
             used_asset_nonces: BTreeMap::new(),
             asset_signing_key: channel.funding_script_key,
             monitor_blob,
-        }
+        })
     }
 
     fn validate_update(
@@ -355,12 +386,17 @@ impl AssetCommitmentChannelState {
                     self.local_balance,
                     self.remote_balance,
                     latest_digest,
+                    self.monitor_blob.proof_root_hash,
+                    self.monitor_blob.proof_root_sum,
+                    self.monitor_blob.nonce_digest,
+                    self.monitor_blob.signature_digest,
                 )
         {
             return Err(AssetCommitmentError::MonitorDigestMismatch(
                 self.channel_id.clone(),
             ));
         }
+        self.validate_ldk_monitor_aux_blob(latest_digest)?;
 
         let mut nonces = BTreeSet::new();
         for (nonce, commitment_number) in &self.used_asset_nonces {
@@ -416,6 +452,43 @@ impl AssetCommitmentChannelState {
 
         Ok(())
     }
+
+    fn validate_ldk_monitor_aux_blob(
+        &self,
+        latest_digest: Bytes32,
+    ) -> Result<(), AssetCommitmentError> {
+        let ldk_update = self.build_ldk_monitor_update()?;
+        let expected = TaprootAssetMonitorAuxBlobExpectation {
+            channel_id: parse_channel_id(&self.channel_id)?,
+            asset_id: self.asset_id.0,
+            commitment_number: self.latest_commitment_number,
+            local_balance: self.local_balance,
+            remote_balance: self.remote_balance,
+            state_digest: latest_digest.0,
+            proof_root_hash: self.monitor_blob.proof_root_hash.0,
+            proof_root_sum: self.monitor_blob.proof_root_sum,
+        };
+        ldk_update
+            .require_taproot_asset_aux_blob(&expected)
+            .map_err(AssetCommitmentError::LdkMonitorAux)?;
+        Ok(())
+    }
+
+    pub fn build_ldk_monitor_update(&self) -> Result<ChannelMonitorUpdate, AssetCommitmentError> {
+        let channel_id = parse_channel_id(&self.channel_id)?;
+        let blob = self.monitor_blob.to_ldk_aux_blob(
+            channel_id,
+            self.asset_id,
+            self.local_balance,
+            self.remote_balance,
+        )?;
+        ChannelMonitorUpdate::taproot_asset_aux_update(
+            self.latest_commitment_number,
+            channel_id,
+            blob,
+        )
+        .map_err(AssetCommitmentError::LdkMonitorAux)
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -436,6 +509,11 @@ pub struct AssetCommitmentMonitorBlob {
     pub commitment_number: u64,
     pub persisted: bool,
     pub state_digest: Bytes32,
+    pub proof_root_hash: Bytes32,
+    pub proof_root_sum: u64,
+    pub nonce_digest: Bytes32,
+    pub signature_digest: Bytes32,
+    pub ldk_aux_blob_digest: Option<Bytes32>,
     pub blob_digest: Bytes32,
 }
 
@@ -447,12 +525,20 @@ impl AssetCommitmentMonitorBlob {
         local_balance: u64,
         remote_balance: u64,
         state_digest: Bytes32,
-    ) -> Self {
-        Self {
+        funding_root: &StoredRootHashSum,
+        nonce_digest: Bytes32,
+        signature_digest: Bytes32,
+    ) -> Result<Self, AssetCommitmentError> {
+        let mut blob = Self {
             schema_version: ASSET_COMMITMENT_STORE_SCHEMA_VERSION,
             commitment_number,
             persisted: true,
             state_digest,
+            proof_root_hash: funding_root.hash,
+            proof_root_sum: funding_root.sum,
+            nonce_digest,
+            signature_digest,
+            ldk_aux_blob_digest: None,
             blob_digest: Self::digest_for(
                 channel_id,
                 asset_id,
@@ -460,8 +546,71 @@ impl AssetCommitmentMonitorBlob {
                 local_balance,
                 remote_balance,
                 state_digest,
+                funding_root.hash,
+                funding_root.sum,
+                nonce_digest,
+                signature_digest,
             ),
+        };
+        let ldk_blob = blob.build_ldk_aux_blob(
+            parse_channel_id(channel_id)?,
+            asset_id,
+            local_balance,
+            remote_balance,
+        )?;
+        blob.ldk_aux_blob_digest = Some(Bytes32(ldk_blob.blob_digest));
+        Ok(blob)
+    }
+
+    fn funding_root(&self) -> StoredRootHashSum {
+        StoredRootHashSum {
+            hash: self.proof_root_hash,
+            sum: self.proof_root_sum,
         }
+    }
+
+    fn to_ldk_aux_blob(
+        &self,
+        channel_id: ChannelId,
+        asset_id: Bytes32,
+        local_balance: u64,
+        remote_balance: u64,
+    ) -> Result<TaprootAssetMonitorAuxBlob, AssetCommitmentError> {
+        let ldk_blob =
+            self.build_ldk_aux_blob(channel_id, asset_id, local_balance, remote_balance)?;
+        let expected = self
+            .ldk_aux_blob_digest
+            .ok_or(AssetCommitmentError::LdkMonitorAux(
+                TaprootAssetMonitorAuxBlobError::MissingAssetBlob,
+            ))?;
+        if expected.0 != ldk_blob.blob_digest {
+            return Err(AssetCommitmentError::LdkMonitorAux(
+                TaprootAssetMonitorAuxBlobError::BlobDigestMismatch,
+            ));
+        }
+        Ok(ldk_blob)
+    }
+
+    fn build_ldk_aux_blob(
+        &self,
+        channel_id: ChannelId,
+        asset_id: Bytes32,
+        local_balance: u64,
+        remote_balance: u64,
+    ) -> Result<TaprootAssetMonitorAuxBlob, AssetCommitmentError> {
+        TaprootAssetMonitorAuxBlob::new(
+            channel_id,
+            asset_id.0,
+            self.commitment_number,
+            local_balance,
+            remote_balance,
+            self.state_digest.0,
+            self.proof_root_hash.0,
+            self.proof_root_sum,
+            self.nonce_digest.0,
+            self.signature_digest.0,
+        )
+        .map_err(AssetCommitmentError::LdkMonitorAux)
     }
 
     fn digest_for(
@@ -471,6 +620,10 @@ impl AssetCommitmentMonitorBlob {
         local_balance: u64,
         remote_balance: u64,
         state_digest: Bytes32,
+        proof_root_hash: Bytes32,
+        proof_root_sum: u64,
+        nonce_digest: Bytes32,
+        signature_digest: Bytes32,
     ) -> Bytes32 {
         let mut hasher = Sha256::new();
         hasher.update(b"tap-ldk:asset-commitment-monitor:v1");
@@ -481,6 +634,10 @@ impl AssetCommitmentMonitorBlob {
         hasher.update(local_balance.to_be_bytes());
         hasher.update(remote_balance.to_be_bytes());
         hasher.update(state_digest.0);
+        hasher.update(proof_root_hash.0);
+        hasher.update(proof_root_sum.to_be_bytes());
+        hasher.update(nonce_digest.0);
+        hasher.update(signature_digest.0);
         Bytes32(hasher.finalize().into())
     }
 }
@@ -518,6 +675,7 @@ pub struct AssetCommitmentSmokeReport {
     pub total_amount: u64,
     pub revoked_commitments: Vec<u64>,
     pub asset_and_btc_signatures_are_separate: bool,
+    pub ldk_monitor_aux_blob_persisted: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -659,6 +817,7 @@ pub fn run_asset_commitment_smoke()
             total_amount: state.total_amount,
             revoked_commitments: state.revoked_commitment_numbers.keys().copied().collect(),
             asset_and_btc_signatures_are_separate: update.asset_signature != btc_signature,
+            ldk_monitor_aux_blob_persisted: state.monitor_blob.ldk_aux_blob_digest.is_some(),
         },
     ))
 }
@@ -692,6 +851,8 @@ pub enum AssetCommitmentError {
     RevokedLatestCommitment(u64),
     MonitorNotPersisted(String),
     MonitorDigestMismatch(String),
+    MalformedChannelId(AssetError),
+    LdkMonitorAux(TaprootAssetMonitorAuxBlobError),
     StorageInvariant(String),
 }
 
@@ -750,6 +911,12 @@ impl fmt::Display for AssetCommitmentError {
                     "asset commitment monitor digest mismatch for {channel_id}"
                 )
             }
+            Self::MalformedChannelId(err) => {
+                write!(f, "asset commitment channel id could not map to LDK: {err}")
+            }
+            Self::LdkMonitorAux(err) => {
+                write!(f, "LDK asset monitor aux blob rejected commitment: {err:?}")
+            }
             Self::StorageInvariant(message) => {
                 write!(f, "asset commitment storage invariant failed: {message}")
             }
@@ -758,6 +925,28 @@ impl fmt::Display for AssetCommitmentError {
 }
 
 impl Error for AssetCommitmentError {}
+
+fn parse_channel_id(channel_id: &str) -> Result<ChannelId, AssetCommitmentError> {
+    let bytes = Bytes32::from_str(channel_id).map_err(AssetCommitmentError::MalformedChannelId)?;
+    Ok(ChannelId::from_bytes(bytes.0))
+}
+
+fn monitor_context_digest(
+    domain: &[u8],
+    channel_id: &str,
+    asset_id: Bytes32,
+    commitment_number: u64,
+    state_digest: Bytes32,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update((channel_id.len() as u64).to_be_bytes());
+    hasher.update(channel_id.as_bytes());
+    hasher.update(asset_id.0);
+    hasher.update(commitment_number.to_be_bytes());
+    hasher.update(state_digest.0);
+    Bytes32(hasher.finalize().into())
+}
 
 fn commitment_state_digest(
     channel_id: &str,
@@ -921,6 +1110,7 @@ mod tests {
         assert_eq!(loaded_state.local_balance, 575);
         assert_eq!(loaded_state.remote_balance, 425);
         assert!(loaded_state.revoked_commitment_numbers.contains_key(&0));
+        assert_ldk_monitor_aux_blob_matches(&loaded_state);
         fs::remove_file(path).ok();
     }
 
@@ -986,6 +1176,43 @@ mod tests {
         assert!(matches!(
             store.validate(),
             Err(AssetCommitmentError::MonitorNotPersisted(id)) if id == channel_id
+        ));
+    }
+
+    #[test]
+    fn missing_or_tampered_ldk_monitor_aux_blob_fails_closed() {
+        let (mut store, state) = initialized_store();
+        let update =
+            build_commitment_update(&state, 125, 0, Bytes32([15; 32])).expect("update builds");
+        store.apply_update(update).expect("update applies");
+        let channel_id = state.channel_id.clone();
+
+        let mut missing = store.clone();
+        missing
+            .channels
+            .get_mut(&channel_id)
+            .expect("state exists")
+            .monitor_blob
+            .ldk_aux_blob_digest = None;
+        assert!(matches!(
+            missing.validate(),
+            Err(AssetCommitmentError::LdkMonitorAux(
+                TaprootAssetMonitorAuxBlobError::MissingAssetBlob
+            ))
+        ));
+
+        let mut tampered = store;
+        tampered
+            .channels
+            .get_mut(&channel_id)
+            .expect("state exists")
+            .monitor_blob
+            .ldk_aux_blob_digest = Some(Bytes32([1; 32]));
+        assert!(matches!(
+            tampered.validate(),
+            Err(AssetCommitmentError::LdkMonitorAux(
+                TaprootAssetMonitorAuxBlobError::BlobDigestMismatch
+            ))
         ));
     }
 
@@ -1072,6 +1299,30 @@ mod tests {
         assert_eq!(report.total_amount, 1_000);
         assert_eq!(report.revoked_commitments, vec![0]);
         assert!(report.asset_and_btc_signatures_are_separate);
+        assert!(report.ldk_monitor_aux_blob_persisted);
+    }
+
+    fn assert_ldk_monitor_aux_blob_matches(state: &AssetCommitmentChannelState) {
+        let update = state
+            .build_ldk_monitor_update()
+            .expect("LDK monitor update builds");
+        let expected = TaprootAssetMonitorAuxBlobExpectation {
+            channel_id: parse_channel_id(&state.channel_id).expect("valid channel id"),
+            asset_id: state.asset_id.0,
+            commitment_number: state.latest_commitment_number,
+            local_balance: state.local_balance,
+            remote_balance: state.remote_balance,
+            state_digest: state.monitor_blob.state_digest.0,
+            proof_root_hash: state.monitor_blob.proof_root_hash.0,
+            proof_root_sum: state.monitor_blob.proof_root_sum,
+        };
+        let blob = update
+            .require_taproot_asset_aux_blob(&expected)
+            .expect("LDK monitor aux blob matches commitment");
+        assert_eq!(
+            state.monitor_blob.ldk_aux_blob_digest,
+            Some(Bytes32(blob.blob_digest))
+        );
     }
 
     fn temp_store_path(name: &str) -> PathBuf {

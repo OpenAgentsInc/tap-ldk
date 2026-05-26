@@ -391,8 +391,8 @@ Current implementation note:
 - `tap-ldk-core::asset_channel_funding` implements bounded native funding for
   one asset ID per channel, same-asset multi-input merge, funding root
   derivation, spent-proof replay protection, initial balance persistence, and a
-  persisted monitor blob at commitment number `0`. The next milestone wires
-  commitment updates and signing context on top of this funded state.
+  persisted monitor blob at commitment number `0`. Commitment updates and
+  signing context now build on top of this funded state in Milestone 6.
 
 ## Milestone 6: Commitments And HTLC State
 
@@ -423,7 +423,8 @@ Current implementation note:
   balance transitions, previous-state revocation, asset nonce reuse checks,
   deterministic asset virtual transaction/witness/signature contexts, BTC-vs-
   asset signing-domain separation, and restart validation through a persisted
-  commitment monitor blob.
+  commitment monitor blob plus the OpenAgentsInc rust-lightning fork's asset
+  monitor aux blob surface.
 - `tap-ldk-core::asset_htlc` implements asset HTLC custom-record codecs,
   final-hop validation against quote-bound invoices, quote-derived BTC msat
   enforcement, BTC-only pass-through behavior, and bounded add/settle/fail
