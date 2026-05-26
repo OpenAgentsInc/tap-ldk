@@ -119,6 +119,11 @@ state:
   signatures, with malformed, duplicate, missing, and unsupported TLV
   rejection tests, first landed in the OpenAgentsInc fork at
   `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`;
+- BOLT simple taproot MuSig2 signer and nonce state, including BIP-327 key
+  aggregation, counter/JIT nonce derivation, partial signature verification,
+  final Schnorr aggregation, serializable nonce-use state, and `InMemorySigner`
+  helper methods, first landed in the OpenAgentsInc fork at
+  `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`;
 - funding controller hook that can block funding before channel state advances,
   first landed in the OpenAgentsInc fork at
   `84032b87d05a157ee9ef247102767bc100d84ed6`;

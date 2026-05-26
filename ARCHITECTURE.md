@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`
+- current revision: `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -372,6 +372,11 @@ The current fork integration exposes the first real asset-channel gate:
 - `lightning::ln::taproot_asset::validate_cooperative_close_asset_allocation`
 - `lightning::ln::taproot_asset::prepare_asset_proof_ownership_recovery`
 - `lightning::ln::taproot_asset::validate_asset_proof_ownership_recovery`
+- `lightning::ln::simple_taproot::SimpleTaprootKeyAggContext`
+- `lightning::ln::simple_taproot::SimpleTaprootNonceState`
+- `lightning::ln::simple_taproot::derive_simple_taproot_counter_nonce_seed`
+- `lightning::ln::simple_taproot::derive_simple_taproot_jit_nonce_seed`
+- `lightning::sign::SimpleTaprootChannelSigner`
 - `ChannelMonitorUpdate::taproot_asset_aux_update`
 - `ChannelMonitorUpdate::require_taproot_asset_aux_blob`
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
@@ -379,11 +384,12 @@ The current fork integration exposes the first real asset-channel gate:
 
 Those gates cover BOLT simple taproot staging feature negotiation, explicit
 simple-taproot channel type handling, native simple-taproot lifecycle wire TLV
-codecs and fail-closed malformed/duplicate/unsupported TLV tests,
-experimental Taproot Asset channel type handling layered on that base, and the
-bounded funding-controller approval surface. They also provide the first
-versioned channel monitor aux blob hook for asset commitment state and the
-first HTLC metadata/final-hop validation and cooperative close allocation
+codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, and
+fail-closed malformed/duplicate/unsupported TLV and nonce-reuse tests.
+They also cover experimental Taproot Asset channel type handling layered on
+that base and the bounded funding-controller approval surface. They provide
+the first versioned channel monitor aux blob hook for asset commitment state,
+the first HTLC metadata/final-hop validation and cooperative close allocation
 hooks, plus the first proof-ownership recovery hook for force-close,
 second-level HTLC, and final sweep paths.
 
@@ -406,6 +412,12 @@ a real live demo:
   MuSig2 nonce and partial-signature TLVs without changing legacy messages.
   Initial TLV codec and message validation support landed in
   `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`.
+- BOLT simple taproot MuSig2 signer state: simple-taproot funding keys must
+  aggregate with BIP-327 sorting, public nonces and partial signatures must
+  verify, final Schnorr signatures must aggregate, and nonce-use state must
+  survive serialization while rejecting reuse. Initial feature-gated support
+  landed in `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; issue #67 still
+  needs to wire this state through live channel updates and reestablish.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

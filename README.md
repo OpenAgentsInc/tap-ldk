@@ -25,9 +25,10 @@ What works today:
   observations, but still refuses completion until the Lightning Labs receiver
   balance is observed after settlement.
 - The OpenAgentsInc `rust-lightning` fork is pinned at
-  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. It includes asset-channel
+  `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`. It includes asset-channel
   feature gates and hooks, BOLT simple-taproot staging negotiation, lifecycle
-  wire TLV codecs, and fail-closed validation tests.
+  wire TLV codecs, and feature-gated MuSig2 signer/nonce-state helpers with
+  fail-closed validation tests.
 
 What does not work yet:
 
@@ -38,8 +39,8 @@ What does not work yet:
   needs the Taproot Assets/Lit aux-controller overlay path or an equivalent
   integration.
 - BTC-only BOLT simple-taproot channels do not yet open, pay, reestablish,
-  close, or force-close end to end. MuSig2 signer state, P2TR funding,
-  commitments, close, HTLCs, and vector replay remain open.
+  close, or force-close end to end. P2TR funding, commitments, close, HTLCs,
+  channel/reestablish wiring, and vector replay remain open.
 - Full semantic Taproot Assets proof ancestry validation and live on-chain
   force-close/sweeper integration are not implemented yet.
 - LND, `tapd`, and `litd` are only test counterparties for interoperability.
@@ -49,9 +50,9 @@ What is being worked on now:
 
 - Issues #57 through #60 remain open for live Path B payments, observed
   Lightning Labs balances, and full proof ancestry validation.
-- Issues #62 and #63 are implemented and pinned. Issue #64 is next: MuSig2
-  signer state and nonce persistence for simple-taproot channels.
-- Issues #64 through #70 complete the BTC-only BOLT simple-taproot base.
+- Issues #62 through #64 are implemented and pinned. Issue #65 is next: P2TR
+  funding flow for BTC-only simple-taproot channels.
+- Issues #65 through #70 complete the BTC-only BOLT simple-taproot base.
   Issues #71 through #76 then layer real Taproot Assets support on top:
   MS-SMT, asset commitments, virtual transactions, TAP VM validation, LDK
   channel integration, and Lightning Labs `tapd`/`litd` vectors.

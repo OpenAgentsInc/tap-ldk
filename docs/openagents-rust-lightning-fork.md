@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`
+- Current `tap-ldk` revision: `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb"
+rev = "6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -86,6 +86,14 @@ types; wires those optional TLVs into the open/accept, funding,
 channel-ready, commitment, revoke/reestablish, shutdown, and RBF cooperative
 close messages; and adds roundtrip plus malformed, duplicate, missing, and
 unsupported TLV tests.
+
+Revision `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941` adds the first
+feature-gated simple-taproot MuSig2 signer state. It wires the `musig2` Rust
+crate behind `simple_taproot_musig2`, adds BIP-327 key sorting and aggregation,
+counter/JIT nonce derivation, public nonce validation, partial-signature
+generation and verification, final Schnorr aggregation, serializable nonce-use
+state, nonce-reuse rejection tests, and `InMemorySigner` helper methods through
+`SimpleTaprootChannelSigner`.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

@@ -18,7 +18,7 @@ reference repos.
 | Taproot Assets reference implementation | https://github.com/lightninglabs/taproot-assets | `../projects/lightninglabs/repos/taproot-assets` | `743db21da57b` |
 | LND reference implementation | https://github.com/lightningnetwork/lnd | `../projects/lightninglabs/repos/lnd` | `9f03672bdaba` |
 | Rust Lightning / LDK | https://github.com/lightningdevkit/rust-lightning | `../projects/ldk/repos/rust-lightning` | `0c37f08a55c0` |
-| OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb` |
+| OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `6e6b6c7b0407` |
 | LDK Node crate | https://github.com/lightningdevkit/ldk-node | crates.io `ldk-node` | `0.7.0` |
 | Polar regtest reference | https://github.com/jamaljsr/polar | `../projects/repos/polar` | `ee3ae493d613` |
 

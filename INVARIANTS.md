@@ -90,6 +90,10 @@ These are the contracts we definitely want around the rust-lightning work.
   simple-taproot flow requires a nonce or partial signature, the payload must be
   fixed-width, canonical for its TLV type, and fail closed when malformed,
   duplicated, missing, or unsupported.
+- BTC-level simple-taproot MuSig2 signing must use sorted aggregate funding
+  keys, domain-separated counter/JIT nonce derivation, persisted nonce-use
+  state, and duplicate-use rejection. Asset-level signing must not reuse that
+  BTC-level nonce material.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,
