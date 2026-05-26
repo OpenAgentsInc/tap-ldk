@@ -86,6 +86,10 @@ These are the contracts we definitely want around the rust-lightning work.
   base channel type was also negotiated.
 - A peer that requires simple taproot when the local node has not enabled that
   support must fail closed.
+- Simple-taproot wire TLVs must remain optional for legacy channels, but once a
+  simple-taproot flow requires a nonce or partial signature, the payload must be
+  fixed-width, canonical for its TLV type, and fail closed when malformed,
+  duplicated, missing, or unsupported.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,

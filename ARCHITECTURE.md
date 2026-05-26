@@ -334,12 +334,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `90054d8fc512eb9506955f27806b496e33d2b346`
+- current revision: `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "90054d8fc512eb9506955f27806b496e33d2b346", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -378,12 +378,14 @@ The current fork integration exposes the first real asset-channel gate:
 - `ChannelTypeFeatures::taproot_asset_single_asset`
 
 Those gates cover BOLT simple taproot staging feature negotiation, explicit
-simple-taproot channel type handling, experimental Taproot Asset channel type
-handling layered on that base, and the bounded funding-controller approval
-surface. They also provide the first versioned channel monitor aux blob hook
-for asset commitment state and the first HTLC metadata/final-hop validation
-and cooperative close allocation hooks, plus the first proof-ownership
-recovery hook for force-close, second-level HTLC, and final sweep paths.
+simple-taproot channel type handling, native simple-taproot lifecycle wire TLV
+codecs and fail-closed malformed/duplicate/unsupported TLV tests,
+experimental Taproot Asset channel type handling layered on that base, and the
+bounded funding-controller approval surface. They also provide the first
+versioned channel monitor aux blob hook for asset commitment state and the
+first HTLC metadata/final-hop validation and cooperative close allocation
+hooks, plus the first proof-ownership recovery hook for force-close,
+second-level HTLC, and final sweep paths.
 
 ## What Must Be Added To rust-lightning
 
@@ -400,6 +402,10 @@ a real live demo:
   its own feature bits and explicit channel type before the asset overlay can
   claim a real channel. Initial staging-bit support landed in
   `90054d8fc512eb9506955f27806b496e33d2b346`.
+- BOLT simple taproot wire messages: native lifecycle messages must carry the
+  MuSig2 nonce and partial-signature TLVs without changing legacy messages.
+  Initial TLV codec and message validation support landed in
+  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

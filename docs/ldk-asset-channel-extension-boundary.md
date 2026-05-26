@@ -115,6 +115,10 @@ state:
 - BOLT simple taproot final/staging feature bits and explicit staging channel
   type acceptance/rejection, first landed in the OpenAgentsInc fork at
   `90054d8fc512eb9506955f27806b496e33d2b346`;
+- BOLT simple taproot lifecycle wire TLVs for MuSig2 nonces and partial
+  signatures, with malformed, duplicate, missing, and unsupported TLV
+  rejection tests, first landed in the OpenAgentsInc fork at
+  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`;
 - funding controller hook that can block funding before channel state advances,
   first landed in the OpenAgentsInc fork at
   `84032b87d05a157ee9ef247102767bc100d84ed6`;
