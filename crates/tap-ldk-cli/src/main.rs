@@ -21,6 +21,7 @@ use tap_ldk_core::{
         run_lightning_labs_incoming_payment_smoke, run_lightning_labs_outgoing_payment_smoke,
     },
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
+    live_peer::run_live_peer_smoke,
     proof::{ProofFile, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
@@ -95,6 +96,18 @@ fn main() {
                 state.bob.restart_count,
                 state.asset_channel_features_enabled
             );
+        }
+        [command, report_path, asset_id] if command == "live-peer-smoke" => {
+            let asset_id = parse_asset_id_or_exit(asset_id);
+            let report = match run_live_peer_smoke(asset_id) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live peer smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            save_json_or_exit(report_path, &report, "live peer smoke report");
+            print_json_or_exit(&report, "live peer smoke report");
         }
         [command, asset_id] if command == "asset-negotiation-smoke" => {
             let asset_id = parse_asset_id_or_exit(asset_id);
@@ -707,6 +720,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk lightning-labs-counterparty-config");
     println!("  tap-ldk ldk-baseline-plan <base-dir>");
     println!("  tap-ldk ldk-baseline-smoke <state.json>");
+    println!("  tap-ldk live-peer-smoke <report.json> <asset-id>");
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");
     println!("  tap-ldk rfq-store-init <store.json>");

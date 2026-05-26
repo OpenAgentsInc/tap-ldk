@@ -128,6 +128,8 @@ echo "path-b-lightning-labs-demo: artifacts=$ARTIFACT_DIR"
 write_versions
 run_json counterparty-config "$ARTIFACT_DIR/lightning-labs-counterparty-config.json" \
   cargo run -q -p tap-ldk-cli -- lightning-labs-counterparty-config
+run_json live-tap-ldk-peer "$ARTIFACT_DIR/live-tap-ldk-peer.json" \
+  cargo run -q -p tap-ldk-cli -- live-peer-smoke "$ARTIFACT_DIR/live-tap-ldk-peer-saved.json" "$ASSET_ID"
 run_log counterparty-status ./scripts/lightning-labs-counterparty.sh status || true
 try_counterparty
 
@@ -158,6 +160,7 @@ Independent counterparty:
 - status/gap: $DEPENDENCY_GAP
 
 Fixture-backed checks:
+- live tap-ldk peer smoke: $ARTIFACT_DIR/live-tap-ldk-peer.json
 - blob fixtures: $ARTIFACT_DIR/lightning-labs-blob-fixtures.json
 - proof fixtures: $ARTIFACT_DIR/lightning-labs-proof-fixtures.json
 - funding interop: $ARTIFACT_DIR/lightning-labs-funding-interop-report.json
@@ -169,6 +172,8 @@ Fixture-backed checks:
 Visible mocked/experimental pieces:
 - issuer identity and price oracle remain bounded demo fixtures
 - proof courier is local fixture/import-export plumbing
+- live tap-ldk peer smoke is local tap-ldk to tap-ldk until the Lightning Labs
+  daemon-backed peer session is wired
 - LND/tapd are independent compatibility peers, not tap-ldk runtime sidecars
 - live daemon settlement remains a documented gap until observed balances replace expected deltas
 SUMMARY_TEXT

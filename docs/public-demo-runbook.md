@@ -68,7 +68,8 @@ Path A native-to-native demo artifacts: ...
 - native payment settles 125 OPENUSD to bob
 - recovery smoke checks funding/RFQ/HTLC/commitment/settlement/close-prep restart boundaries
 - cooperative close exports final proofs at alice=575 bob=425
-- force-close status is machine-visible ... and remains deferred
+- force-close proof-ownership recovery is machine-visible, while live on-chain
+  sweeper integration remains pending
 ```
 
 Key artifacts:
@@ -93,8 +94,8 @@ Mocked or bounded pieces:
 - Price oracle is fixed at `100` millisats per `OPENUSD` unit.
 - Proof courier is a local file handoff.
 - UI is the headless CLI smoke.
-- Force-close support remains deferred and is reported as
-  `force_close_supported=false`.
+- Live on-chain sweeper integration remains pending. The bounded recovery
+  smoke refuses BTC-only sweep state as asset recovery.
 
 ## Path B: Lightning Labs Interop
 
@@ -163,6 +164,8 @@ Mocked or bounded pieces:
 - Issuer identity and price oracle remain bounded demo fixtures.
 - Proof courier is local fixture/import-export plumbing.
 - Manual/local discovery is used for the first interop target.
+- Live `tap-ldk` peer smoke is local `tap-ldk` to `tap-ldk`; it is not yet a
+  Lightning Labs daemon-backed P2P session.
 - Live LND/`tapd` settlement and observed balance comparison remain open.
 
 ## Full Smoke Wrapper
@@ -204,6 +207,7 @@ Before presenting demo results publicly, run:
 ```bash
 cargo fmt --check
 cargo test
+cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 ./scripts/path-a-native-demo.sh
 ./scripts/path-b-lightning-labs-demo.sh
 ./scripts/full-demo-smoke.sh

@@ -18,6 +18,10 @@ What works today:
   both payment directions as stored demo artifacts.
 - The demo scripts write reviewable artifacts under `target/`, including
   balances, proof files, restart checks, close checks, and logs.
+- `tap-ldk` now has a first live peer smoke. It starts a localhost peer
+  listener, connects a second peer over TCP, negotiates the experimental
+  single-asset channel capability through the OpenAgentsInc rust-lightning
+  fork, and round-trips an encoded native RFQ custom message.
 - The OpenAgentsInc `rust-lightning` fork now has the first asset-channel
   feature/channel-type gate, bounded funding approval hook, and channel monitor
   aux blob surface for asset commitment state. It also has the first HTLC
@@ -35,6 +39,8 @@ What does not work yet:
 - The current Lightning Labs path still stops at fixture-backed checks. It does
   not yet perform live asset-channel funding, exchange live RFQ/payment
   messages, or compare real balances from both sides.
+- The new live peer smoke is localhost `tap-ldk` to `tap-ldk`. It is not yet a
+  Lightning Labs daemon-backed P2P session.
 - Live on-chain force-close and sweeper integration is not implemented yet. The
   bounded recovery smoke now proves that `tap-ldk` refuses to call an asset
   recovered when only BTC sweep state exists, but it is not a live chain spend.
@@ -43,17 +49,16 @@ What does not work yet:
 
 What is being worked on now:
 
-- Issues #48 through #53 have landed the first Rust Lightning fork gates for
+- Issues #48 through #54 have landed the first Rust Lightning fork gates for
   asset-channel negotiation, bounded funding approval, monitor aux blob
   persistence tied to asset commitment numbers, and HTLC metadata/final-hop
   validation, plus cooperative close allocation export and force-close/sweep
-  proof-ownership recovery.
-- Issue #54 is next: bring up the first running `tap-ldk` peer for live demo
-  work.
-- Issues #54 through #60 cover the live demo path: a running `tap-ldk` peer,
-  Lightning Labs counterparty integration, live `tapd` proof binding, payments
-  in both directions, observed live balance checks, and full proof ancestry
-  validation.
+  proof-ownership recovery, plus the first live localhost `tap-ldk` peer smoke.
+- Issue #55 is next: harden the Lightning Labs counterparty bootstrap so the
+  live peer can talk to an independent LND/`tapd` side.
+- Issues #55 through #60 cover the remaining live demo path: Lightning Labs
+  counterparty integration, live `tapd` proof binding, payments in both
+  directions, observed live balance checks, and full proof ancestry validation.
 - Issue #19 remains the parent Path B epic and should stay open until those
   implementation issues are actually done.
 
@@ -69,6 +74,7 @@ cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
 cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json
+cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- asset-negotiation-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- asset-peer-message-smoke 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
 cargo run -p tap-ldk-cli -- rfq-request target/rfq-quotes.json alice 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 250000 200 1111111111111111111111111111111111111111111111111111111111111111 path-a-demo-1 100
@@ -107,6 +113,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Polar Regtest Topology](docs/polar-regtest-topology.md)
 - [Headless Bitcoin Regtest Harness](docs/headless-regtest-harness.md)
 - [Baseline LDK Node](docs/baseline-ldk-node.md)
+- [Live tap-ldk Peer Smoke](docs/live-tap-ldk-peer.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Funding Interop](docs/lightning-labs-funding-interop.md)

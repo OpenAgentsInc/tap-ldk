@@ -2,9 +2,9 @@
 
 Path B is the native `tap-ldk` to independent Lightning Labs interop demo. The
 current harness captures version info, counterparty config/status, blob
-fixtures, TAPF proof fixtures, funding interop, RFQ/invoice compatibility, both
-payment directions, and the consolidated interop check report into an ignored
-artifact directory.
+fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
+interop, RFQ/invoice compatibility, both payment directions, and the
+consolidated interop check report into an ignored artifact directory.
 
 ```bash
 ./scripts/path-b-lightning-labs-demo.sh
@@ -24,3 +24,9 @@ The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement
 and observed balance replacement are still required before Track B is a settled
 interop success.
+
+The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
+connects a second peer, negotiates the asset-channel capability through the
+OpenAgentsInc rust-lightning fork, and sends an encoded native RFQ custom
+message over the socket. It is not yet a Lightning Labs daemon-backed P2P
+session.

@@ -16,6 +16,7 @@ pub mod lightning_labs_funding;
 pub mod lightning_labs_interop_checks;
 pub mod lightning_labs_payment;
 pub mod lightning_labs_rfq;
+pub mod live_peer;
 pub mod proof;
 pub mod regtest;
 pub mod rfq_invoice;

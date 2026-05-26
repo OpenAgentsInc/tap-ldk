@@ -21,6 +21,9 @@ The native demo works as a bounded local smoke:
 - It can move asset balance through a quote-bound HTLC/payment flow.
 - It can restart and recover the same channel/payment state.
 - It can cooperatively close and export final proof artifacts for both sides.
+- It can start a localhost `tap-ldk` peer listener, connect a second local
+  peer over TCP, negotiate the experimental single-asset capability through the
+  rust-lightning fork, and round-trip an encoded native RFQ custom message.
 
 The Lightning Labs path is not a live payment yet:
 
@@ -31,6 +34,8 @@ The Lightning Labs path is not a live payment yet:
 - It does not yet drive a healthy live LND/`tapd` counterparty through asset
   funding and payment settlement.
 - It does not yet query real live balances from both nodes after settlement.
+- It does not yet complete a Lightning wire session against the Lightning Labs
+  daemon stack. The live peer smoke is currently local `tap-ldk` to `tap-ldk`.
 
 The `rust-lightning` fork is wired with the first asset-channel hooks, but not
 the full asset channel implementation:
@@ -105,6 +110,8 @@ Important modules:
 - `asset_recovery`: restart checkpoint model for funding, quote, HTLC,
   commitment, settlement, and close-prep boundaries.
 - `asset_close`: cooperative close and final proof export.
+- `live_peer`: localhost live peer smoke for asset-channel negotiation and
+  native custom-message movement.
 - `lightning_labs_blob`: fixture-backed Lightning Labs funding, HTLC, and
   commitment blob decoding.
 - `lightning_labs_funding`: fixture-backed funding interop report and store.
@@ -138,6 +145,7 @@ Examples:
 - `asset-htlc-smoke`
 - `asset-payment-smoke`
 - `asset-recovery-smoke`
+- `live-peer-smoke`
 - `asset-close-smoke`
 - `lightning-labs-blob-fixture-smoke`
 - `lightning-labs-proof-fixture-smoke`
@@ -270,6 +278,38 @@ weaken normal Lightning behavior.
 The baseline is not the full live LDK node runtime. It is the current local
 smoke and policy check that BTC-only behavior remains separate from
 asset-channel experiments.
+
+## Live tap-ldk Peer
+
+`live_peer.rs` is the first live process surface. It starts a real localhost
+TCP listener, connects a client, frames JSON control messages over the socket,
+and sends an encoded native asset peer message as the payload. The peer does
+not just trust a fixture: it calls the OpenAgentsInc rust-lightning fork
+negotiation surface before it accepts an asset-channel custom message.
+
+The current smoke proves:
+
+- the server process starts and accepts a local connection;
+- the client can connect over TCP;
+- the asset-channel feature bits and channel type are negotiated through the
+  fork-backed `asset_channel_negotiation` path;
+- an encoded `AssetPeerMessage::RfqRequest` crosses the live socket;
+- the receiver decodes the payload and checks it is allowed only after asset
+  negotiation succeeds.
+
+Command:
+
+```bash
+cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93
+```
+
+Current boundary:
+
+- this is not yet a Lightning Labs daemon-backed session;
+- it does not yet use a full rust-lightning `PeerManager` socket loop;
+- it does not yet send Lightning wire custom messages to LND;
+- it is the runnable `tap-ldk` peer process that the next Path B issues should
+  connect to the counterparty harness.
 
 ## rust-lightning Fork Wiring
 
@@ -971,7 +1011,9 @@ It proves that the repo currently has native Rust code for:
 - settling a demo asset payment;
 - restarting through key boundaries;
 - cooperatively closing;
-- exporting final proof artifacts.
+- exporting final proof artifacts;
+- starting a local live `tap-ldk` peer and round-tripping an asset custom
+  message after fork-backed negotiation.
 
 It does not prove:
 
@@ -994,7 +1036,7 @@ Missing pieces:
 4. Live proof binding from `tapd` into `tap-ldk`.
 5. Real asset-channel funding between `tap-ldk` and the Lightning Labs
    counterparty.
-6. Real custom-message exchange through LDK/rust-lightning.
+6. Real Lightning wire custom-message exchange through LDK/rust-lightning.
 7. Real RFQ exchange with Lightning Labs peer/session semantics.
 8. Real payment from `tap-ldk` to Lightning Labs.
 9. Real payment from Lightning Labs to `tap-ldk`.
