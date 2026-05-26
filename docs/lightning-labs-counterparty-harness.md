@@ -64,8 +64,11 @@ live Lightning Labs counterparty:
 - mine enough blocks for spendable regtest funds;
 - start LND and wait for TLS material;
 - initialize or unlock the LND wallet through the wallet-unlocker REST API;
+- mine a fresh regtest block so LND does not treat an old persisted regtest
+  tip as stale while reporting `synced_to_chain=false`;
 - wait for LND admin macaroon and chain sync;
 - fund the LND wallet and mine confirmations;
+- mine one fresh block after the funding step before the final sync check;
 - start `tapd` only after LND credentials exist;
 - wait for `tapd` TLS, macaroon, and `getinfo`.
 

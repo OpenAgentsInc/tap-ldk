@@ -481,10 +481,12 @@ start() {
   wait_until_container_condition "litd macaroon" "$LITD_CONTAINER" test -f "$STATE_DIR/lit/regtest/lit.macaroon"
   wait_until_container_condition "litd taproot-assets macaroon" "$LITD_CONTAINER" test -f "$STATE_DIR/tapd/data/regtest/admin.macaroon"
   wait_until_container_condition "litd subservers" "$LITD_CONTAINER" litd_status_ready
+  mine_blocks 1
   wait_until_container_condition "litd LND chain sync" "$LITD_CONTAINER" litd_synced
   wait_until_container_condition "litd taproot-assets RPC" "$LITD_CONTAINER" taproot_assets_ready
   wait_until_container_condition "litd asset-channel RPC" "$LITD_CONTAINER" asset_channel_rpc_ready
   fund_litd_wallet
+  mine_blocks 1
   wait_until_container_condition "litd LND chain sync after funding" "$LITD_CONTAINER" litd_synced
 
   ready_report

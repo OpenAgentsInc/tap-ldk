@@ -530,8 +530,10 @@ start() {
   wait_until_container_condition "LND TLS certificate" "$LND_CONTAINER" wait_for_host_file "$STATE_DIR/lnd/tls.cert"
   wait_until_container_condition "LND wallet initialized and unlocked" "$LND_CONTAINER" lnd_wallet_ready_step
   wait_until_container_condition "LND admin macaroon" "$LND_CONTAINER" wait_for_host_file "$STATE_DIR/lnd/data/chain/bitcoin/regtest/admin.macaroon"
+  mine_blocks 1
   wait_until_container_condition "LND chain sync" "$LND_CONTAINER" lnd_synced
   fund_lnd_wallet
+  mine_blocks 1
   wait_until_container_condition "LND chain sync after funding" "$LND_CONTAINER" lnd_synced
 
   start_tapd

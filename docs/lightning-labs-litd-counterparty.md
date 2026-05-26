@@ -24,3 +24,7 @@ that identity and P2P address to run a native LDK peer preflight against `litd`.
 It does not mark a `tap-ldk` to Lightning Labs payment complete; that still
 requires running asset-channel funding/payment over the connected litd peer and
 recording the post-settlement receiver balance.
+
+The harness mines a fresh regtest block before the LND sync checks, and again
+after the wallet-funding step, so a persisted regtest chain with an old tip
+does not leave litd reporting `synced_to_chain=false`.
