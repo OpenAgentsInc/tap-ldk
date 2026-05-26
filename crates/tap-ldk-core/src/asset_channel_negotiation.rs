@@ -1,11 +1,16 @@
 use std::{error::Error, fmt};
 
+use lightning::{
+    ln::taproot_asset::{self, TaprootAssetChannelDescriptor, TaprootAssetChannelNegotiationError},
+    types::features::{ChannelTypeFeatures, InitFeatures},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::asset::Bytes32;
 
-pub const ASSET_CHANNEL_PROTOCOL_VERSION: u16 = 1;
-pub const ASSET_CHANNEL_REQUIRED_FEATURE_BIT: u16 = 54_032;
+pub const ASSET_CHANNEL_PROTOCOL_VERSION: u16 =
+    taproot_asset::SUPPORTED_TAPROOT_ASSET_CHANNEL_PROTOCOL_VERSION;
+pub const ASSET_CHANNEL_REQUIRED_FEATURE_BIT: u16 = 150;
 pub const ASSET_CHANNEL_OPTIONAL_FEATURE_BIT: u16 = ASSET_CHANNEL_REQUIRED_FEATURE_BIT + 1;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
@@ -35,7 +40,7 @@ impl AssetChannelFeatureSet {
     pub const fn require() -> Self {
         Self {
             required: true,
-            optional: true,
+            optional: false,
             protocol_version: ASSET_CHANNEL_PROTOCOL_VERSION,
         }
     }
@@ -48,11 +53,22 @@ impl AssetChannelFeatureSet {
         let mut bits = Vec::new();
         if self.required {
             bits.push(ASSET_CHANNEL_REQUIRED_FEATURE_BIT);
-        }
-        if self.optional {
+        } else if self.optional {
             bits.push(ASSET_CHANNEL_OPTIONAL_FEATURE_BIT);
         }
         bits
+    }
+
+    pub fn to_ldk_init_features(self) -> InitFeatures {
+        let mut features = InitFeatures::empty();
+        features.set_static_remote_key_optional();
+        features.set_channel_type_optional();
+        if self.required {
+            features.set_taproot_asset_channel_required();
+        } else if self.optional {
+            features.set_taproot_asset_channel_optional();
+        }
+        features
     }
 }
 
@@ -113,12 +129,24 @@ pub fn negotiate_channel(input: NegotiationInput) -> Result<NegotiationOutcome, 
             if asset_id == Bytes32::ZERO {
                 return Err(NegotiationError::MissingAssetId);
             }
-            if !input.local.supports_asset_channels() {
-                return Err(NegotiationError::LocalFeatureMissing);
-            }
-            if !input.remote.supports_asset_channels() {
-                return Err(NegotiationError::RemoteFeatureMissing);
-            }
+            let local_features = input.local.to_ldk_init_features();
+            let remote_features = input.remote.to_ldk_init_features();
+            let descriptor =
+                TaprootAssetChannelDescriptor::new(asset_id.0, ASSET_CHANNEL_PROTOCOL_VERSION)
+                    .map_err(map_ldk_negotiation_error)?;
+            let fork_negotiation = taproot_asset::negotiate_single_asset_channel(
+                &local_features,
+                &remote_features,
+                descriptor,
+            )
+            .map_err(map_ldk_negotiation_error)?;
+            taproot_asset::validate_single_asset_channel_open(
+                &local_features,
+                &remote_features,
+                &fork_negotiation.channel_type,
+                descriptor,
+            )
+            .map_err(map_ldk_negotiation_error)?;
 
             Ok(NegotiationOutcome {
                 channel_type: NegotiatedChannelType::SingleAsset {
@@ -142,6 +170,19 @@ pub fn require_asset_message_allowed(
     Ok(())
 }
 
+pub fn fork_rejects_implicit_asset_upgrade(asset_id: Bytes32) -> Result<bool, NegotiationError> {
+    let features = AssetChannelFeatureSet::require().to_ldk_init_features();
+    let descriptor = TaprootAssetChannelDescriptor::new(asset_id.0, ASSET_CHANNEL_PROTOCOL_VERSION)
+        .map_err(map_ldk_negotiation_error)?;
+    Ok(taproot_asset::validate_single_asset_channel_open(
+        &features,
+        &features,
+        &ChannelTypeFeatures::only_static_remote_key(),
+        descriptor,
+    )
+    .is_err())
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum NegotiationError {
     UnsupportedLocalProtocolVersion(u16),
@@ -150,6 +191,9 @@ pub enum NegotiationError {
     RemoteFeatureMissing,
     MissingAssetId,
     PrematureAssetMessage,
+    MissingAssetChannelType,
+    MalformedAssetChannelType,
+    UnsupportedAssetChannelType,
 }
 
 impl fmt::Display for NegotiationError {
@@ -176,6 +220,14 @@ impl fmt::Display for NegotiationError {
                     "asset-channel message sent before successful negotiation"
                 )
             }
+            Self::MissingAssetChannelType => {
+                write!(
+                    f,
+                    "asset channel request requires explicit asset channel type"
+                )
+            }
+            Self::MalformedAssetChannelType => write!(f, "asset channel type is malformed"),
+            Self::UnsupportedAssetChannelType => write!(f, "asset channel type is unsupported"),
         }
     }
 }
@@ -187,6 +239,7 @@ pub struct NegotiationSmokeReport {
     pub btc_only_channel: NegotiatedChannelType,
     pub asset_channel: NegotiatedChannelType,
     pub premature_asset_message_rejected: bool,
+    pub fork_implicit_asset_upgrade_rejected: bool,
 }
 
 pub fn run_negotiation_smoke(
@@ -205,12 +258,38 @@ pub fn run_negotiation_smoke(
     let premature_asset_message_rejected =
         require_asset_message_allowed(&btc_only.channel_type).is_err();
     require_asset_message_allowed(&asset.channel_type)?;
+    let fork_implicit_asset_upgrade_rejected = fork_rejects_implicit_asset_upgrade(asset_id)?;
 
     Ok(NegotiationSmokeReport {
         btc_only_channel: btc_only.channel_type,
         asset_channel: asset.channel_type,
         premature_asset_message_rejected,
+        fork_implicit_asset_upgrade_rejected,
     })
+}
+
+fn map_ldk_negotiation_error(err: TaprootAssetChannelNegotiationError) -> NegotiationError {
+    match err {
+        TaprootAssetChannelNegotiationError::MissingLocalSupport => {
+            NegotiationError::LocalFeatureMissing
+        }
+        TaprootAssetChannelNegotiationError::MissingRemoteSupport => {
+            NegotiationError::RemoteFeatureMissing
+        }
+        TaprootAssetChannelNegotiationError::MissingAssetChannelType => {
+            NegotiationError::MissingAssetChannelType
+        }
+        TaprootAssetChannelNegotiationError::MalformedChannelType => {
+            NegotiationError::MalformedAssetChannelType
+        }
+        TaprootAssetChannelNegotiationError::UnsupportedChannelType => {
+            NegotiationError::UnsupportedAssetChannelType
+        }
+        TaprootAssetChannelNegotiationError::MalformedAssetId => NegotiationError::MissingAssetId,
+        TaprootAssetChannelNegotiationError::UnsupportedProtocolVersion => {
+            NegotiationError::UnsupportedLocalProtocolVersion(ASSET_CHANNEL_PROTOCOL_VERSION)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -255,10 +334,7 @@ mod tests {
         );
         assert_eq!(
             outcome.local_feature_bits,
-            vec![
-                ASSET_CHANNEL_REQUIRED_FEATURE_BIT,
-                ASSET_CHANNEL_OPTIONAL_FEATURE_BIT
-            ]
+            vec![ASSET_CHANNEL_REQUIRED_FEATURE_BIT]
         );
         assert_eq!(
             outcome.remote_feature_bits,
@@ -315,5 +391,6 @@ mod tests {
         assert_eq!(report.btc_only_channel, NegotiatedChannelType::BtcOnly);
         assert!(report.asset_channel.is_asset_channel());
         assert!(report.premature_asset_message_rejected);
+        assert!(report.fork_implicit_asset_upgrade_rejected);
     }
 }

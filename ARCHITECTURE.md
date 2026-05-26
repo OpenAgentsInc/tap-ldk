@@ -274,11 +274,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
+- current revision: `99ddb8b7033b3b5d056005c00ba650e716ed37da`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d", package = "lightning" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "99ddb8b7033b3b5d056005c00ba650e716ed37da", package = "lightning" }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -287,11 +288,17 @@ rust-lightning feature types are available:
 - `lightning::types::features::ChannelTypeFeatures`
 - `lightning::types::features::InitFeatures`
 
-That is the current fork integration. It proves `tap-ldk` can build against
-the OpenAgentsInc fork and gives us a pinned place to land LDK changes.
+The current fork integration exposes the first real asset-channel gate:
 
-It does not mean the fork already implements Taproot Assets channels. The
-actual asset-channel hooks still have to be added to the fork.
+- `lightning::ln::taproot_asset::TaprootAssetChannelDescriptor`
+- `lightning::ln::taproot_asset::negotiate_single_asset_channel`
+- `lightning::ln::taproot_asset::validate_single_asset_channel_open`
+- `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
+- `ChannelTypeFeatures::taproot_asset_single_asset`
+
+That gate covers feature negotiation and explicit channel type handling. The
+funding controller, monitor persistence, HTLC metadata, close, and recovery
+hooks still have to be added to the fork.
 
 ## What Must Be Added To rust-lightning
 
@@ -302,8 +309,11 @@ The following surfaces must move into the OpenAgentsInc rust-lightning fork for
 a real live demo:
 
 - Feature negotiation: asset-channel behavior must be behind explicit feature
-  bits or negotiated channel flags.
+  bits or negotiated channel flags. Initial fork support landed in
+  `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
 - Channel type: normal BTC channels must not become asset channels implicitly.
+  Initial fork support landed in
+  `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
 - Funding controller: funding must be blocked until asset ID, proof root,
   funding output, and allocation checks pass.
 - Commitment blob: asset-channel state must be versioned with the Lightning

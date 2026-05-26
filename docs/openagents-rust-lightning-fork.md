@@ -7,6 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
+- Current `tap-ldk` revision: `99ddb8b7033b3b5d056005c00ba650e716ed37da`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -15,10 +16,9 @@ commitment, HTLC, monitor persistence, close, and on-chain recovery logic.
 ## Current Wiring
 
 `tap-ldk-core` has a direct git dependency on the forked `lightning` crate at
-the pinned base revision. The dependency is intentionally narrow for this
-phase: it proves CI can fetch and build against the OpenAgentsInc fork without
-patching every transitive LDK crate before the fork contains asset-channel
-changes.
+the pinned current revision. The dependency is intentionally narrow for this
+phase: it proves CI can fetch and build against the OpenAgentsInc fork while
+keeping fork touchpoints explicit.
 
 Workspace metadata records the same fork in `Cargo.toml`:
 
@@ -27,13 +27,19 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
+rev = "99ddb8b7033b3b5d056005c00ba650e716ed37da"
 ```
 
-When the forked asset-channel code lands, the dependency strategy should move
-from a direct touchpoint dependency to explicit `[patch.crates-io]` entries for
-the LDK crates affected by the fork. Do that only in the issue that introduces
-the forked code, so normal BTC behavior remains easy to compare against
-upstream.
+Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` adds the first forked
+asset-channel gate: an experimental Taproot Asset channel feature bit, config
+opt-in, explicit single-asset channel type, and a public descriptor API that
+binds asset ID plus protocol version before later funding hooks run.
+
+As broader forked code lands, the dependency strategy may need to move from a
+direct touchpoint dependency to explicit `[patch.crates-io]` entries for the
+LDK crates affected by the fork. Do that only when the fork changes require
+patching transitive LDK crates, so normal BTC behavior remains easy to compare
+against upstream.
 
 ## Sync Process
 
