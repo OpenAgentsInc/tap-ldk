@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `99fee582d4061af4b0a030353b0a409ee542e064`
+- Current `tap-ldk` revision: `0d6ac878453bcc108f315d69aae0bda625c1f871`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "99fee582d4061af4b0a030353b0a409ee542e064"
+rev = "0d6ac878453bcc108f315d69aae0bda625c1f871"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -172,8 +172,15 @@ Lightning Labs uses zero CSV for Taproot Asset allocation/script-key
 derivation, but uses the negotiated channel CSV delay for the actual Bitcoin
 commitment to-local aux output. This revision preserves that split and adds the
 matching script-vector regression coverage.
-`tap-ldk` pins this revision and exercises it with
+`tap-ldk` exercises this lifecycle with
 `simple-taproot-asset-channel-smoke`.
+
+Revision `0d6ac878453bcc108f315d69aae0bda625c1f871` adds strict decoding for
+the live Lightning Labs Taproot Asset HTLC blob and an HTLC aux-leaf output
+hook. That lets Rust Lightning reject malformed live asset HTLC payloads and
+carry asset-derived aux leaves into HTLC output construction. The remaining
+#81 work is still dynamic derivation of the per-commitment HTLC and change aux
+leaves from asset-channel state.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

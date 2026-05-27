@@ -41,7 +41,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Funding message names | `tapchannelmsg/wire_msgs_test.go` | Track `TxAssetInputProof`, `TxAssetOutputProof`, `AssetFundingCreated`, and `AssetFundingAccepted` equivalents. | Required |
 | Funding blob shape | `tapchannelmsg/testdata/funding-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `docs/lightning-labs-blob-fixtures.md`; `docs/lightning-labs-funding-interop.md` | Fixture-backed decoder maps decimal display, optional group key, funded asset outputs, proof digests, and raw digest. Funding interop smoke reconciles the funding total with commitment local/remote balances and persists the documented live-funding gap. | Partially implemented |
 | Commitment blob shape | `tapchannelmsg/testdata/commitment-blob.hexdump`; `tapchannelmsg/records.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps local/remote/outgoing/incoming asset output sections, aux leaves, optional STXO, and raw digest. Full commitment-number integration remains required. | Partially implemented |
-| HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps asset balances when present, RFQ id, available RFQ ids, noop flag, and visible optional odd records. Full send/receive enforcement remains required. | Partially implemented |
+| HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps asset balances when present, RFQ id, available RFQ ids, noop flag, and visible optional odd records. Rust Lightning also decodes the live `litd` asset-id/amount HTLC payload and rejects malformed blobs at `update_add_htlc`. Full per-commitment asset-state application remains required. | Partially implemented |
 | Asset signatures | `tapchannelmsg/records.go`; `tapchannel/aux_leaf_signer_test.go` | Maintain asset-level signing/nonce context separate from BTC-level signatures. | Required |
 | Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go`; `docs/tapd-proof-import-export.md` | Fixture-backed `TAPF`/`TAPP` decoder validates version/checksum/TLV transport, stores raw proof files across restart, and exports raw proof bytes for Lightning Labs verification tooling. Full semantic proof ancestry remains required. | Partially implemented |
 | Address encoding | `../projects/lightninglabs/repos/bips/bip-tap-addr.mediawiki`; `address/address.go`; `address/encoding.go` | Native address encode/decode already passes imported TAP BIP vectors; still needs wallet integration. | Partially implemented |
@@ -106,7 +106,8 @@ Close the remaining issues in this order:
   full proof ancestry, proof-chain virtual transactions, or on-chain anchor
   semantics.
 - `tap-ldk` parses fixture-backed Lightning Labs funding/HTLC/commitment blob
-  field maps, but does not yet apply them to live interop channel state.
+  field maps. The fork validates the live HTLC blob at `update_add_htlc`, but
+  does not yet apply the full blob set to live interop channel state.
 - `tap-ldk` implements bounded Lightning Labs RFQ request/accept/reject payload
   compatibility, but does not yet run the live daemon RFQ session or verify the
   Lightning Labs accept signature.
