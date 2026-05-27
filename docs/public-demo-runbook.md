@@ -25,8 +25,11 @@ Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
 for the asset-channel path, connects the fork-backed OpenAgentsInc `ldk-node`
 runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
 balance. Live asset-channel config/API exposure and remote feature observation
-are in place; settlement and post-settlement observed balance replacement are
-still open gaps.
+are in place. The current live blocker is the initial funding commitment:
+Rust Lightning rejects `litd`'s 0-HTLC simple-taproot partial signature until
+its Taproot Asset commitment output construction and sorting match Lightning
+Labs. Settlement and post-settlement observed balance replacement remain open
+gaps after that.
 
 ## Prerequisites
 

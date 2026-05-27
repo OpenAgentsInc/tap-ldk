@@ -19,7 +19,8 @@ OpenAgentsInc `rust-lightning` revision,
 `5bd5992ac7f7625f254e5df67eec66d085fe7c7d`, so later issue verification does
 not fail against the older proof-ownership-only fork revision.
 
-Path B is live-funded but not live-settled. The current #57/#81 gate reaches:
+Path B reaches live funding but is not live-funded or live-settled. The current
+#57/#81 gate reaches:
 
 - live `tapd` proof binding;
 - ordered native asset-payment session readiness;
@@ -29,20 +30,16 @@ Path B is live-funded but not live-settled. The current #57/#81 gate reaches:
   `litd` node, with opt-in simple-taproot plus Taproot Asset negotiation
   enabled, remote taproot feature observation, and provenance reporting
   `OpenAgentsInc/rust-lightning@5bd5992ac7f7625f254e5df67eec66d085fe7c7d`;
-- integrated `litd` asset issuance, asset-channel funding, active-channel
-  observation, and first asset HTLC delivery into Rust Lightning.
+- integrated `litd` asset issuance and live asset-channel funding.
 
-The gate still stops at `live_asset_channel_payment_settlement`. The current
-live blocker is not peer readiness: Rust Lightning now strictly decodes the
-live Taproot Asset HTLC blob and can carry HTLC aux leaves into output
-construction, but it still verifies the `litd` commitment signature against a
-transaction with static/plain simple-taproot HTLC and change outputs. The
-latest fork persists and re-emits the live asset HTLC blob, so the remaining
-gap is deriving the dynamic outputs from that asset state. `litd` signs
-dynamically updated Taproot Asset HTLC and change outputs. This issue set must
-remain open until Rust Lightning derives those dynamic aux
-leaves/output scripts and both directions observe post-settlement balances
-from real live Lightning Labs funding/payment.
+The gate still stops at `live_asset_channel_funding`. The current live blocker
+is not peer readiness: Rust Lightning rejects the peer's initial 0-HTLC
+simple-taproot commitment partial signature. The next required step is matching
+Lightning Labs' Taproot Asset commitment output construction and sorting for
+that initial funding commitment. Dynamic HTLC/change outputs are still needed
+after funding verifies, and this issue set must remain open until both
+directions observe post-settlement balances from real live Lightning Labs
+funding/payment.
 
 ## Closure Sequence
 
@@ -52,7 +49,7 @@ from real live Lightning Labs funding/payment.
 | Done | #78 Pin forked `ldk-node` to forked `rust-lightning` | `OpenAgentsInc/ldk-node` is pinned to `OpenAgentsInc/rust-lightning@5bd5992ac7f7625f254e5df67eec66d085fe7c7d`; `tap-ldk` consumes the OpenAgentsInc fork line and reports provenance. | Closed. |
 | Done | #79 Expose simple-taproot/Taproot Asset config | Implemented in `OpenAgentsInc/ldk-node@0faa999235050a17b198e6bbfa63c2f19aac4cc6`; BTC-only defaults remain unchanged, Taproot Asset negotiation fails closed without simple taproot, and `tap-ldk` live preflight reports both opt-in flags. | Closed. |
 | Done | #80 Wire asset messages and payment APIs | Implemented in `OpenAgentsInc/ldk-node@da05c714be061706806bc8757ee74b4709d5a8ef`, with litd-compatible Init feature cleanup and peer taproot feature reporting through `b750d91c92541529010259518eb1cc773dc5b5b8`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, Lightning Labs aux Init feature bits, and remote feature reporting. The fork advertises the Lightning Labs aux feature vector for no-op HTLCs and STXO; native STXO commitment semantics remain part of #81's dynamic-output work. | Closed. |
-| 1 | #81 Fork-backed Lightning Labs settlement | Current live gate reaches active `litd` asset-channel funding and first asset HTLC. Rust Lightning validates, persists, and re-emits the live HTLC asset blob and has an HTLC aux-leaf output hook, then still fails commitment signature verification because it does not yet derive the dynamic Taproot Asset HTLC/change outputs `litd` signs. | Rust Lightning carries asset HTLC blobs into per-commitment asset state, derives dynamic aux leaves/output scripts, verifies `litd` signatures, and `tap-ldk` settles a live payment with observed balances. |
+| 1 | #81 Fork-backed Lightning Labs settlement | Current live gate connects to `litd`, observes both taproot feature sets, issues an asset, and reaches live asset-channel funding. It fails when Rust Lightning rejects the peer's initial 0-HTLC simple-taproot commitment partial signature because local Taproot Asset commitment output construction/sorting does not match Lightning Labs. | Rust Lightning matches Lightning Labs' initial funding commitment output construction/sorting, then carries asset HTLC blobs into per-commitment asset state, derives dynamic aux leaves/output scripts, verifies `litd` signatures, and `tap-ldk` settles a live payment with observed balances. |
 | 2 | #57 Live `tap-ldk` pays Lightning Labs | Harness, proof binding, live current-balance query, integrated `litd`, and fork-backed `ldk-node` peer/API preflight are in place with opt-in asset-channel negotiation enabled. | Run asset-channel funding/payment over the fork-backed connected independent `litd` peer, settle the payment, record post-settlement Lightning Labs receiver balance, record `tap-ldk` sender state, and keep wrong-quote/wrong-asset/wrong-amount failures covered. |
 | 3 | #58 Live Lightning Labs pays `tap-ldk` | Receiver-side fixtures, buy-direction RFQ artifacts, quote-bound receive invoice, final-hop metadata, expected balance deltas, and negative checks exist. | Drive a Lightning Labs sender through the live path, have `tap-ldk` receive and validate the asset HTLC metadata through the LDK/fork boundary, persist the received balance and proof reference, restart `tap-ldk`, and compare observed balances on both sides. |
 | 4 | #59 Observed live balance reporting | Reports distinguish fixture-backed expected balances from live gates, and `live_daemon_gaps_remaining` remains true. | Make Path B completion impossible unless #57 and #58 both have observed post-settlement balances, compatible asset IDs, compatible payment state, and non-secret proof/payment references. Update README, ROADMAP, ARCHITECTURE, and public runbook after the reports pass. |

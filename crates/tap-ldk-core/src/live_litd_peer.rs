@@ -268,7 +268,7 @@ fn build_report(
     let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
         "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
     } else {
-        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live harness reaches asset-channel funding and first HTLC delivery; #81 still needs Rust Lightning to derive dynamic Taproot Asset commitment output scripts before payment settlement can verify and record post-settlement balances."
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live harness reaches asset-channel funding; #81 currently stops during initial 0-HTLC commitment partial-signature verification until Rust Lightning matches Lightning Labs' Taproot Asset commitment output construction and sorting. Payment settlement and post-settlement balances come after that funding path verifies."
     };
 
     LiveLitdPeerPreflightReport {

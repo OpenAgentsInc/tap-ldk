@@ -31,11 +31,10 @@ integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises the Lightning
 Labs Taproot Assets aux Init vector for no-op HTLCs and STXO. The live
 outgoing-payment harness now moves past
-readiness into integrated `litd` issuance, active asset-channel funding, and
-first asset HTLC delivery. Issue #81 still remains open because Rust Lightning
-validates, persists, and re-emits the live asset HTLC blob and has an HTLC
-aux-leaf output hook, but must still derive the same dynamic Taproot Asset
-HTLC/change commitment outputs that `litd` signs before the path can record
-payment settlement and post-settlement balances. The next gap is output
-derivation rather than blob loss. The current #57 report treats this as a
-readiness gate, not as live settlement.
+readiness into integrated `litd` issuance and live asset-channel funding.
+Issue #81 still remains open because Rust Lightning rejects the peer's initial
+0-HTLC simple-taproot commitment partial signature. The next gap is matching
+Lightning Labs' Taproot Asset commitment output construction and sorting for
+that funding commitment, then continuing into HTLC/payment settlement and
+post-settlement balances. The current #57 report treats this as a readiness
+gate, not as live settlement.

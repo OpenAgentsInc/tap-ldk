@@ -48,10 +48,11 @@ reach live proof binding, native asset-payment session readiness, integrated
 `litd` readiness, fork-backed `ldk-node` to `litd` peer connection, and a
 pre-settlement Lightning Labs current-balance observation. It also records
 whether `litd` advertised the taproot features needed for asset channels. It
-still stops at `live_asset_channel_payment_settlement` because Rust Lightning
-has to derive the dynamic Taproot Asset HTLC/change outputs that `litd` signs.
-The live asset-channel negotiation, funding, and first HTLC delivery are now
-reached over the fork-backed connected `litd` peer.
+still stops at `live_asset_channel_funding` because Rust Lightning rejects the
+peer's initial 0-HTLC simple-taproot commitment partial signature. The live
+asset-channel negotiation and funding attempt are now reached over the
+fork-backed connected `litd` peer; HTLC/payment settlement comes after the
+funding commitment output construction and sorting match Lightning Labs.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement

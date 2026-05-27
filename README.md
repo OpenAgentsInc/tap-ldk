@@ -13,11 +13,12 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
 checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
 `ldk-node` runtime pinned to OpenAgentsInc `rust-lightning`. The live harness
-connects to `litd`, opens an active asset channel, and reaches the first asset
-HTLC. Rust Lightning now validates, persists, and re-emits the live asset HTLC
-blob, and can carry aux leaves into HTLC output construction. The remaining
-#81 work is deriving the dynamic Taproot Asset HTLC/change outputs that `litd`
-signs, then rerunning live settlement and recording balances.
+connects to `litd`, observes both taproot feature sets, issues an asset, and
+reaches live asset-channel funding. The current #81 blocker is earlier than
+settlement: `litd` cancels funding after Rust Lightning rejects the peer's
+initial 0-HTLC simple-taproot commitment partial signature. The next work is
+matching Lightning Labs' Taproot Asset commitment output construction and
+sorting, then continuing into HTLC/payment settlement and balance recording.
 
 Current closure order: #81, then #57, #58, #59, #60, and the epics
 #61, #71, and #19. Path B must not be marked done until both payment directions
