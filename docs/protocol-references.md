@@ -20,7 +20,7 @@ reference repos.
 | Rust Lightning / LDK | https://github.com/lightningdevkit/rust-lightning | `../projects/ldk/repos/rust-lightning` | `0c37f08a55c0` |
 | OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `5bd5992ac7f7` |
 | LDK Node upstream | https://github.com/lightningdevkit/ldk-node | `../projects/ldk/repos/ldk-node` | reference |
-| OpenAgentsInc ldk-node fork | https://github.com/OpenAgentsInc/ldk-node | owned fork | `cbf7db4df9a4` |
+| OpenAgentsInc ldk-node fork | https://github.com/OpenAgentsInc/ldk-node | owned fork | `66a6a4e5f8ab` |
 | Polar regtest reference | https://github.com/jamaljsr/polar | `../projects/repos/polar` | `ee3ae493d613` |
 
 ## Reference Rules
