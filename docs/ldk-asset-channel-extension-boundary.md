@@ -153,6 +153,9 @@ state:
 - force-close, second-level HTLC, final sweep, and proof ownership recovery
   hook, first landed in the OpenAgentsInc fork at
   `0f442683da45af47daff313fefcfaef1ac7b82d7`;
+- Taproot Asset simple-taproot commitment output sorting by base no-aux script,
+  first landed in the OpenAgentsInc fork at
+  `a7cb50c64ba589e1171526f04f199d09cac35812`;
 - live channel-manager, resolver, and sweeper call-site exercises for the
   bounded hooks above.
 

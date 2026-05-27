@@ -27,9 +27,9 @@ runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
 balance. Live asset-channel config/API exposure and remote feature observation
 are in place. The current live blocker is the initial funding commitment:
 Rust Lightning rejects `litd`'s 0-HTLC simple-taproot partial signature until
-its Taproot Asset commitment output construction and sorting match Lightning
-Labs. Settlement and post-settlement observed balance replacement remain open
-gaps after that.
+its per-output Taproot Asset aux leaf/root binding produces the same final
+Taproot scripts as Lightning Labs. Settlement and post-settlement observed
+balance replacement remain open gaps after that.
 
 ## Prerequisites
 

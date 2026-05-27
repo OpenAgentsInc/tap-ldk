@@ -25,16 +25,17 @@ artifact as `native-ldk-litd-peer-preflight.json`.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@5bd5992ac7f7625f254e5df67eec66d085fe7c7d` and
-`OpenAgentsInc/ldk-node@b750d91c92541529010259518eb1cc773dc5b5b8`, the
+`OpenAgentsInc/rust-lightning@a7cb50c64ba589e1171526f04f199d09cac35812` and
+`OpenAgentsInc/ldk-node@686a7b3602f980b2d9b4d52cc6d46200806a2fda`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises the Lightning
 Labs Taproot Assets aux Init vector for no-op HTLCs and STXO. The live
 outgoing-payment harness now moves past
 readiness into integrated `litd` issuance and live asset-channel funding.
 Issue #81 still remains open because Rust Lightning rejects the peer's initial
-0-HTLC simple-taproot commitment partial signature. The next gap is matching
-Lightning Labs' Taproot Asset commitment output construction and sorting for
-that funding commitment, then continuing into HTLC/payment settlement and
-post-settlement balances. The current #57 report treats this as a readiness
-gate, not as live settlement.
+0-HTLC simple-taproot commitment partial signature. Output order and value now
+match `litd`; the remaining mismatch is one final Taproot script on the
+initial commitment output. The next gap is binding the correct per-output
+Taproot Asset aux leaf/root for that funding commitment, then continuing into
+HTLC/payment settlement and post-settlement balances. The current #57 report
+treats this as a readiness gate, not as live settlement.

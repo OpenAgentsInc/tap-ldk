@@ -52,7 +52,8 @@ still stops at `live_asset_channel_funding` because Rust Lightning rejects the
 peer's initial 0-HTLC simple-taproot commitment partial signature. The live
 asset-channel negotiation and funding attempt are now reached over the
 fork-backed connected `litd` peer; HTLC/payment settlement comes after the
-funding commitment output construction and sorting match Lightning Labs.
+funding commitment's per-output Taproot Asset aux leaf/root binding matches
+Lightning Labs.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement

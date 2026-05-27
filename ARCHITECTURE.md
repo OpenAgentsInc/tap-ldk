@@ -367,9 +367,9 @@ Current boundary:
   asset custom-message, channel-open, and payment APIs;
 - the live outgoing-payment script now drives integrated `litd` asset issuance
   and real asset-channel funding against the fork-backed peer. #81 remains
-  open until Rust Lightning matches Lightning Labs' Taproot Asset commitment
-  output construction and sorting for the initial funding commitment, then
-  payment settlement and post-settlement balances are observed end to end;
+  open until Rust Lightning binds the correct per-output Taproot Asset aux
+  leaf/root for the initial funding commitment, then payment settlement and
+  post-settlement balances are observed end to end;
 - it does not yet send Lightning wire custom messages to LND;
 - it is the runnable `tap-ldk` peer process and ordered native payment-session
   exchange that must be moved onto the connected counterparty peer.
@@ -381,12 +381,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `5bd5992ac7f7625f254e5df67eec66d085fe7c7d`
+- current revision: `a7cb50c64ba589e1171526f04f199d09cac35812`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "5bd5992ac7f7625f254e5df67eec66d085fe7c7d", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "a7cb50c64ba589e1171526f04f199d09cac35812", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -555,6 +555,12 @@ a real live demo:
   actual Bitcoin commitment to-local aux output uses the negotiated channel CSV
   delay. That matches the live `litd` commitment script vector instead of the
   earlier zero-CSV commitment-output attempt.
+- Taproot Asset commitment output sorting: Taproot Asset aux leaves change the
+  final P2TR script, but Lightning Labs sorts commitment outputs by the base
+  simple-taproot script before the asset aux leaf is merged. Revision
+  `a7cb50c64ba589e1171526f04f199d09cac35812` carries a separate base-script
+  sort key for simple-taproot asset outputs so the live funding commitment can
+  match `litd` ordering without changing the final output scripts.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
@@ -1061,9 +1067,9 @@ When Docker is reachable, the live outgoing-payment gate also runs the
 standalone proof-binding/current-balance path, starts integrated `litd`, and
 runs the fork-backed `ldk-node` to `litd` path. It now reaches live
 asset-channel funding. It still blocks at `live_asset_channel_funding` because
-Rust Lightning reconstructs a commitment transaction whose Taproot Asset output
-construction/sorting does not match the initial 0-HTLC commitment transaction
-`litd` signs.
+Rust Lightning reconstructs a commitment transaction with matching output
+order/value but one mismatched final Taproot script on the initial 0-HTLC
+commitment transaction `litd` signs.
 
 Artifacts land in:
 
@@ -1241,8 +1247,8 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. Lightning Labs-compatible Taproot Asset commitment output construction and
-   sorting in Rust Lightning for the initial funding commitment.
+1. Lightning Labs-compatible per-output Taproot Asset aux leaf/root binding in
+   Rust Lightning for the initial funding commitment.
 2. Dynamic Taproot Asset commitment output construction in Rust Lightning for
    later asset HTLC and change outputs.
 3. Real Lightning wire custom-message exchange through LDK/rust-lightning over

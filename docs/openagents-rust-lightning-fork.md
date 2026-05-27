@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `5bd5992ac7f7625f254e5df67eec66d085fe7c7d`
+- Current `tap-ldk` revision: `a7cb50c64ba589e1171526f04f199d09cac35812`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "5bd5992ac7f7625f254e5df67eec66d085fe7c7d"
+rev = "a7cb50c64ba589e1171526f04f199d09cac35812"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -188,6 +188,15 @@ serialization, writes optional blob vectors under channel TLVs `95`, `97`, and
 `99`, and re-emits the stored blob on outbound `update_add_htlc`. This closes
 the blob-loss gap but does not yet derive the dynamic Taproot Asset HTLC and
 change output scripts that `litd` signs.
+
+Revision `a7cb50c64ba589e1171526f04f199d09cac35812` sorts Taproot Asset
+simple-taproot commitment outputs by the base no-aux P2TR script while keeping
+the final aux-leaf P2TR script in the transaction. This matches the Lightning
+Labs allocation/custom-commit sort rule for the initial funding commitment.
+The live rerun after this revision confirms output order/value now match
+`litd`; #81 remains open because the second commitment output still has a final
+Taproot script mismatch, so the fork must bind the correct per-output Taproot
+Asset aux leaf/root before funding can acknowledge.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

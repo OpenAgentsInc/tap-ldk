@@ -16,9 +16,11 @@ checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
 connects to `litd`, observes both taproot feature sets, issues an asset, and
 reaches live asset-channel funding. The current #81 blocker is earlier than
 settlement: `litd` cancels funding after Rust Lightning rejects the peer's
-initial 0-HTLC simple-taproot commitment partial signature. The next work is
-matching Lightning Labs' Taproot Asset commitment output construction and
-sorting, then continuing into HTLC/payment settlement and balance recording.
+initial 0-HTLC simple-taproot commitment partial signature. Output order and
+value now match `litd`; the remaining mismatch is one final Taproot script on
+the initial commitment output, so the next work is binding the correct
+per-output Taproot Asset aux leaf/root before continuing into HTLC/payment
+settlement and balance recording.
 
 Current closure order: #81, then #57, #58, #59, #60, and the epics
 #61, #71, and #19. Path B must not be marked done until both payment directions

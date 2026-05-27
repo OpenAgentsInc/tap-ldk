@@ -268,7 +268,7 @@ fn build_report(
     let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
         "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
     } else {
-        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live harness reaches asset-channel funding; #81 currently stops during initial 0-HTLC commitment partial-signature verification until Rust Lightning matches Lightning Labs' Taproot Asset commitment output construction and sorting. Payment settlement and post-settlement balances come after that funding path verifies."
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live harness reaches asset-channel funding; #81 currently stops during initial 0-HTLC commitment partial-signature verification. Output order and value now match litd; the remaining mismatch is one final Taproot script on the initial commitment output, so Rust Lightning still needs the correct per-output Taproot Asset aux leaf/root binding. Payment settlement and post-settlement balances come after that funding path verifies."
     };
 
     LiveLitdPeerPreflightReport {
@@ -589,7 +589,7 @@ mod tests {
         assert!(provenance.uses_openagents_rust_lightning_fork);
         assert_eq!(
             provenance.rust_lightning_fork_rev,
-            "5bd5992ac7f7625f254e5df67eec66d085fe7c7d"
+            "a7cb50c64ba589e1171526f04f199d09cac35812"
         );
         assert_eq!(
             provenance.ldk_node_fork_url,
