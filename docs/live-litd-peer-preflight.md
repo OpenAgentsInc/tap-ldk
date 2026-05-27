@@ -25,14 +25,15 @@ artifact as `native-ldk-litd-peer-preflight.json`.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@0d6ac878453bcc108f315d69aae0bda625c1f871` and
-`OpenAgentsInc/ldk-node@3a13713c45aff5506f2ae16883469626555b7e19`, the
+`OpenAgentsInc/rust-lightning@5bd5992ac7f7625f254e5df67eec66d085fe7c7d` and
+`OpenAgentsInc/ldk-node@cbf7db4df9a46a82279aa21e5cb514a508a3db93`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support. The live outgoing-payment harness now moves past
 readiness into integrated `litd` issuance, active asset-channel funding, and
 first asset HTLC delivery. Issue #81 still remains open because Rust Lightning
-validates the live asset HTLC blob and has an HTLC aux-leaf output hook, but
-must still derive the same dynamic Taproot Asset HTLC/change commitment outputs
-that `litd` signs before the path can record payment settlement and
-post-settlement balances. The current #57 report treats this as a readiness
-gate, not as live settlement.
+validates, persists, and re-emits the live asset HTLC blob and has an HTLC
+aux-leaf output hook, but must still derive the same dynamic Taproot Asset
+HTLC/change commitment outputs that `litd` signs before the path can record
+payment settlement and post-settlement balances. The next gap is output
+derivation rather than blob loss. The current #57 report treats this as a
+readiness gate, not as live settlement.

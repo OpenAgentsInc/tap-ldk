@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `0d6ac878453bcc108f315d69aae0bda625c1f871`
+- Current `tap-ldk` revision: `5bd5992ac7f7625f254e5df67eec66d085fe7c7d`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "0d6ac878453bcc108f315d69aae0bda625c1f871"
+rev = "5bd5992ac7f7625f254e5df67eec66d085fe7c7d"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -181,6 +181,13 @@ hook. That lets Rust Lightning reject malformed live asset HTLC payloads and
 carry asset-derived aux leaves into HTLC output construction. The remaining
 #81 work is still dynamic derivation of the per-commitment HTLC and change aux
 leaves from asset-channel state.
+
+Revision `5bd5992ac7f7625f254e5df67eec66d085fe7c7d` persists the live Taproot
+Asset HTLC blob through inbound/outbound HTLC state and holding-cell
+serialization, writes optional blob vectors under channel TLVs `95`, `97`, and
+`99`, and re-emits the stored blob on outbound `update_add_htlc`. This closes
+the blob-loss gap but does not yet derive the dynamic Taproot Asset HTLC and
+change output scripts that `litd` signs.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

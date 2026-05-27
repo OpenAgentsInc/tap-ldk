@@ -381,12 +381,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `0d6ac878453bcc108f315d69aae0bda625c1f871`
+- current revision: `5bd5992ac7f7625f254e5df67eec66d085fe7c7d`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "0d6ac878453bcc108f315d69aae0bda625c1f871", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "5bd5992ac7f7625f254e5df67eec66d085fe7c7d", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -456,10 +456,11 @@ bounded `TaprootAssetChannelState` lifecycle state that requires explicit
 simple-taproot asset-channel negotiation, proof-backed funding, monitor aux
 blob persistence before commitment advancement, HTLC metadata validation,
 cooperative close allocation validation, and proof-ownership recovery checks.
-It now also strictly decodes the live Lightning Labs Taproot Asset HTLC blob
-and carries optional asset aux leaves into simple-taproot HTLC output
-construction; live #81 still has to derive those leaves dynamically from
-per-commitment asset state.
+It now also strictly decodes the live Lightning Labs Taproot Asset HTLC blob,
+persists that blob through inbound/outbound HTLC state and holding-cell
+serialization, re-emits it on outbound `update_add_htlc`, and carries optional
+asset aux leaves into simple-taproot HTLC output construction; live #81 still
+has to derive those leaves dynamically from per-commitment asset state.
 
 Rust Lightning uses `bitcoin::secp256k1`, the rust-bitcoin wrapper around
 libsecp256k1. The fork does not call raw libsecp APIs directly. The #63 TLV
@@ -515,7 +516,8 @@ a real live demo:
   JIT signing nonce, while next-local nonces remain future verification state.
   First support landed in `1176e837e5aacac7d1a3237c2bb00910989dbd93`; LND
   JIT nonce compatibility landed in
-  `0d6ac878453bcc108f315d69aae0bda625c1f871`.
+  `0d6ac878453bcc108f315d69aae0bda625c1f871`, and live asset HTLC blob
+  persistence landed in `5bd5992ac7f7625f254e5df67eec66d085fe7c7d`.
 - BOLT simple taproot cooperative close: shutdown must carry closee nonces,
   `closing_complete`/`closing_sig` must validate and aggregate MuSig2 close
   partials, closee nonce rotation must be persisted, and malformed close state

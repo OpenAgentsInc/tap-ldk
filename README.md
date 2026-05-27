@@ -4,7 +4,7 @@ This is an experimental effort to explore native Taproot Assets support in Rust 
 
 ## Status
 
-Last updated: 2026-05-26
+Last updated: 2026-05-27
 
 Path A works as a bounded native demo: issue demo `OPENUSD`, exchange proofs,
 open a single-asset channel, pay, restart, close, export proofs, and exercise
@@ -14,10 +14,10 @@ Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
 checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
 `ldk-node` runtime pinned to OpenAgentsInc `rust-lightning`. The live harness
 connects to `litd`, opens an active asset channel, and reaches the first asset
-HTLC. Rust Lightning now validates the live asset HTLC blob and can carry aux
-leaves into HTLC output construction. The remaining #81 work is deriving the
-dynamic Taproot Asset HTLC/change outputs that `litd` signs, then rerunning
-live settlement and recording balances.
+HTLC. Rust Lightning now validates, persists, and re-emits the live asset HTLC
+blob, and can carry aux leaves into HTLC output construction. The remaining
+#81 work is deriving the dynamic Taproot Asset HTLC/change outputs that `litd`
+signs, then rerunning live settlement and recording balances.
 
 Current closure order: #81, then #57, #58, #59, #60, and the epics
 #61, #71, and #19. Path B must not be marked done until both payment directions
