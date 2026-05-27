@@ -26,16 +26,16 @@ This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
 `OpenAgentsInc/rust-lightning@a7cb50c64ba589e1171526f04f199d09cac35812` and
-`OpenAgentsInc/ldk-node@686a7b3602f980b2d9b4d52cc6d46200806a2fda`, the
+`OpenAgentsInc/ldk-node@248bef4b1e94c784be57c40163f9d23d49df1b16`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
-Taproot Asset channel support, and the native peer advertises the Lightning
-Labs Taproot Assets aux Init vector for no-op HTLCs and STXO. The live
+Taproot Asset channel support, and the native peer advertises Lightning Labs
+no-op HTLC aux support without advertising unimplemented STXO support. The live
 outgoing-payment harness now moves past
-readiness into integrated `litd` issuance and live asset-channel funding.
-Issue #81 still remains open because Rust Lightning rejects the peer's initial
-0-HTLC simple-taproot commitment partial signature. Output order and value now
-match `litd`; the remaining mismatch is one final Taproot script on the
-initial commitment output. The next gap is binding the correct per-output
-Taproot Asset aux leaf/root for that funding commitment, then continuing into
-HTLC/payment settlement and post-settlement balances. The current #57 report
-treats this as a readiness gate, not as live settlement.
+readiness into integrated `litd` issuance, live asset-channel funding,
+channel confirmation, and a keysend-usable local asset balance on `litd`.
+Issue #81 still remains open because the live asset keysend stays `IN_FLIGHT`
+after Rust Lightning closes on a later payment-time simple-taproot commitment
+partial-signature check. The next gap is deriving the dynamic Taproot Asset
+commitment output scripts and aux leaves for payment-time channel states, then
+recording post-settlement balances. The current #57 report treats this as a
+readiness and partial-live gate, not as live settlement.

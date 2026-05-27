@@ -193,10 +193,13 @@ Revision `a7cb50c64ba589e1171526f04f199d09cac35812` sorts Taproot Asset
 simple-taproot commitment outputs by the base no-aux P2TR script while keeping
 the final aux-leaf P2TR script in the transaction. This matches the Lightning
 Labs allocation/custom-commit sort rule for the initial funding commitment.
-The live rerun after this revision confirms output order/value now match
-`litd`; #81 remains open because the second commitment output still has a final
-Taproot script mismatch, so the fork must bind the correct per-output Taproot
-Asset aux leaf/root before funding can acknowledge.
+With `ldk-node@248bef4b1e94c784be57c40163f9d23d49df1b16`, the live rerun
+confirms that `litd` `fundchannel` completes, the channel confirms, and `litd`
+reports a keysend-usable local asset balance. #81 remains open because the
+live asset keysend stays `IN_FLIGHT` after Rust Lightning closes on a later
+simple-taproot commitment partial-signature check. The fork must now derive the
+dynamic Taproot Asset commitment output scripts and aux leaves for payment-time
+channel states before settlement and balance recording can complete.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

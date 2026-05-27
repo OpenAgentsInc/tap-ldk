@@ -58,9 +58,10 @@ records the Lightning Labs receiver balance after settlement.
 
 ## Next Step
 
-Finish #81 first: run the asset-channel funding/payment flow over the
-connected independent Lightning Labs `litd` peer through the fork-backed
-`ldk-node` asset APIs. Then replace the
-expected receiver balance with an observed post-settlement daemon balance,
-implement #58, and let #59 turn both observed balances into the Path B
+Finish #81 first: carry the live asset keysend over the connected independent
+Lightning Labs `litd` peer through payment-time Taproot Asset commitment
+updates in the fork-backed `ldk-node`/`rust-lightning` path. Live funding now
+completes; settlement and native receiver-balance persistence do not. Then
+replace the expected receiver balance with an observed post-settlement daemon
+balance, implement #58, and let #59 turn both observed balances into the Path B
 completion gate.

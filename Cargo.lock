@@ -1069,7 +1069,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 [[package]]
 name = "ldk-node"
 version = "0.8.0+git"
-source = "git+https://github.com/OpenAgentsInc/ldk-node.git?rev=686a7b3602f980b2d9b4d52cc6d46200806a2fda#686a7b3602f980b2d9b4d52cc6d46200806a2fda"
+source = "git+https://github.com/OpenAgentsInc/ldk-node.git?rev=248bef4b1e94c784be57c40163f9d23d49df1b16#248bef4b1e94c784be57c40163f9d23d49df1b16"
 dependencies = [
  "async-trait",
  "base64 0.22.1",

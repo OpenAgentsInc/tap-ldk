@@ -22,7 +22,7 @@ strategy = "Direct git dependency for fork touchpoints now; patch crates once as
 url = "https://github.com/OpenAgentsInc/ldk-node.git"
 upstream = "https://github.com/lightningdevkit/ldk-node.git"
 base_version = "0.7.0"
-rev = "686a7b3602f980b2d9b4d52cc6d46200806a2fda"
+rev = "248bef4b1e94c784be57c40163f9d23d49df1b16"
 tracking_issues = [77, 78, 79, 80, 81]
 strategy = "Fork ldk-node for the live demo runtime so it can use the OpenAgentsInc rust-lightning simple-taproot and Taproot Asset channel surfaces."
 

@@ -262,9 +262,9 @@ write_report() {
       native_ldk_litd_peer_preflight_gap: ($native_ldk_litd_peer_preflight_gap | if length > 0 then . else null end),
       issue_57_acceptance_met: false,
       next_required_work: [
-        "replace the loopback native payment-session message exchange with the connected independent Lightning Labs litd peer",
-        "drive the fork-backed ldk-node Taproot Asset channel-open API over the connected independent litd peer instead of the current synthetic API preflight",
-        "send the asset payment through the live litd asset-channel settlement path",
+        "carry the live asset keysend through Rust Lightning commitment-update verification instead of closing on the peer partial signature",
+        "derive the dynamic Taproot Asset commitment output scripts and aux leaves for payment-time channel states",
+        "persist and verify the native receiver-side asset balance after the live payment settles",
         "record the post-settlement Lightning Labs receiver balance and compare it to the expected delta"
       ]
     }' >"$REPORT_PATH"
@@ -458,13 +458,13 @@ litd_asset_payment_status="$(jq -r '.status // empty' "$LITD_ASSET_PAYMENT_REPOR
 litd_asset_payment_wire_status="$(jq -r '.payment_status // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
 litd_asset_payment_error="$(jq -r '.payment_error // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
 
-final_reason="The live tapd proof can be bound, the native outgoing RFQ/HTLC artifacts are ready, integrated litd minted a real asset, the fork-backed native LDK node stayed connected to litd, litd completed fundchannel, and the harness now attempted a real litd asset keysend. #81 still needs the payment to settle and the native receiver asset-balance check to pass."
+final_reason="The live tapd proof can be bound, the native outgoing RFQ/HTLC artifacts are ready, integrated litd minted a real asset, the fork-backed native LDK node stayed connected to litd, litd completed fundchannel, the asset channel became usable for keysend, and the harness now attempted a real litd asset keysend. #81 still needs the payment commitment update to verify, the payment to settle, and the native receiver asset-balance check to pass."
 if [ "$litd_asset_payment_status" = "completed" ]; then
   final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel. #81 still needs native tap-ldk to expose and verify the receiver-side asset balance durably before this can be closed."
 elif [ -n "$litd_asset_payment_wire_status" ]; then
-  final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is $litd_asset_payment_wire_status. #81 still needs the remaining payment-settlement and native receiver-balance work."
+  final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is $litd_asset_payment_wire_status. The LDK log shows the live channel reached confirmation and channel_ready before closing on a later simple-taproot commitment partial-signature check, so #81 now needs payment-time Taproot Asset commitment output construction and native receiver-balance persistence."
 elif [ -n "$litd_asset_payment_error" ]; then
-  final_reason="The integrated litd asset keysend was attempted after live fundchannel but returned a payment error: $litd_asset_payment_error. #81 still needs the remaining payment-settlement and native receiver-balance work."
+  final_reason="The integrated litd asset keysend was attempted after live fundchannel but returned a payment error: $litd_asset_payment_error. #81 still needs payment-time Taproot Asset commitment output construction, settlement, and native receiver-balance persistence."
 fi
 if [ "$(jq -r '.litd_peer_supports_taproot_asset_channel // false' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)" != "true" ]; then
   final_reason="The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, current tapd balance observation, an integrated litd counterparty with asset-channel RPCs ready, a fork-backed ldk-node connection to litd, remote taproot feature observation, and fork-backed Taproot Asset message/channel/payment APIs. The connected litd peer did not advertise the Taproot Asset channel feature, so #81 still needs compatible feature negotiation before live asset-channel funding/payment and the post-settlement receiver-balance check."
