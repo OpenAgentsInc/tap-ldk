@@ -52,8 +52,10 @@ now completes live asset-channel funding, confirms the channel, and sees
 `litd` report a keysend-usable local asset balance. It still stops at
 `live_asset_channel_payment_settlement` because the live asset keysend remains
 `IN_FLIGHT` after Rust Lightning closes on a later payment-time simple-taproot
-commitment partial-signature check. The next work is dynamic Taproot Asset
-commitment output construction for payment-time channel states, then
+commitment partial-signature check. The current fork pin attempts a
+full-channel HTLC aux-leaf path and the live harness now defaults to that
+amount, but the latest live run still fails verification. The next work is
+exact Lightning Labs payment-time allocation/commitment construction and
 post-settlement balance observation.
 
 The current consolidated report can pass fixture-backed checks while still

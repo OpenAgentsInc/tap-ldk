@@ -35,7 +35,7 @@ LITD_ASSET_DECIMAL_DISPLAY="${TAP_LDK_LL_LITD_ASSET_DECIMAL_DISPLAY:-2}"
 LITD_ASSET_TAG="${TAP_LDK_LL_LITD_ASSET_TAG:-OPENUSD-LITD-$(date +%s)}"
 LITD_ASSET_CHANNEL_AMOUNT="${TAP_LDK_LL_LITD_ASSET_CHANNEL_AMOUNT:-}"
 LITD_FEE_RATE_SAT_PER_VBYTE="${TAP_LDK_LL_FEE_RATE_SAT_PER_VBYTE:-1}"
-LITD_ASSET_PAYMENT_AMOUNT="${TAP_LDK_LL_LITD_ASSET_PAYMENT_AMOUNT:-1}"
+LITD_ASSET_PAYMENT_AMOUNT="${TAP_LDK_LL_LITD_ASSET_PAYMENT_AMOUNT:-}"
 LITD_ASSET_PAYMENT_TIMEOUT="${TAP_LDK_LL_LITD_ASSET_PAYMENT_TIMEOUT:-15s}"
 LITD_ASSET_CHANNEL_POST_ACTIVE_SETTLE_SECONDS="${TAP_LDK_LL_LITD_ASSET_CHANNEL_POST_ACTIVE_SETTLE_SECONDS:-3}"
 NATIVE_LDK_HOLD_PID=""
@@ -263,7 +263,8 @@ write_report() {
       issue_57_acceptance_met: false,
       next_required_work: [
         "carry the live asset keysend through Rust Lightning commitment-update verification instead of closing on the peer partial signature",
-        "derive the dynamic Taproot Asset commitment output scripts and aux leaves for payment-time channel states",
+        "replace the bounded full-channel aux-leaf approximation with exact Lightning Labs Taproot Asset allocation and commitment construction",
+        "add partial-split/change-output Taproot Asset commitment support after the bounded full-channel path settles",
         "persist and verify the native receiver-side asset balance after the live payment settles",
         "record the post-settlement Lightning Labs receiver balance and compare it to the expected delta"
       ]
@@ -364,6 +365,9 @@ fi
 
 if [ -z "$LITD_ASSET_CHANNEL_AMOUNT" ]; then
   LITD_ASSET_CHANNEL_AMOUNT="$native_asset_amount"
+fi
+if [ -z "$LITD_ASSET_PAYMENT_AMOUNT" ]; then
+  LITD_ASSET_PAYMENT_AMOUNT="$LITD_ASSET_CHANNEL_AMOUNT"
 fi
 
 rm -f "$LITD_PEER_PREFLIGHT_REPORT"

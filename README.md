@@ -18,11 +18,13 @@ completes `litd` asset-channel funding. The channel reaches `channel_ready`
 and becomes usable for asset keysend. The fork now advertises only the
 Lightning Labs no-op HTLC aux feature, not unimplemented STXO support. The
 fork now preserves and decodes Lightning Labs `commitment_signed` asset-signature
-blobs and decodes Lightning Labs commitment aux-leaf scripts. The current #81
-blocker is payment settlement: the keysend stays in flight because Rust
-Lightning still needs to apply payment-time Taproot Asset commitment output
-construction to the live channel state, verify the asset signatures, persist the
-native receiver balance, and record observed balances.
+blobs, decodes Lightning Labs commitment aux-leaf scripts, stores the
+proof-derived channel template, and attempts the first full-channel HTLC
+aux-leaf path. The current live run still fails settlement: `litd` leaves the
+keysend `IN_FLIGHT` after Rust Lightning closes on a payment-time
+partial-signature mismatch. The active #81 work is matching Lightning Labs'
+payment-time Taproot Asset allocation/commitment construction exactly, then
+persisting native receiver state and recording observed balances.
 
 Current closure order: #81, then #57, #58, #59, #60, and the epics
 #61, #71, and #19. Path B must not be marked done until both payment directions

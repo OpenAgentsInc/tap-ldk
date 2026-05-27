@@ -44,7 +44,10 @@ The Lightning Labs path is not a live payment yet:
   live `litd` asset-channel funding, `channel_ready`, and a keysend-usable
   `litd` asset-channel balance. It still lacks post-settlement balance
   observation because Rust Lightning closes on a later payment-time
-  simple-taproot commitment partial-signature check.
+  simple-taproot commitment partial-signature check. The current fork pin now
+  attempts the first full-channel HTLC aux-leaf path, and the live harness
+  defaults to that full-channel payment amount, but the latest run still fails
+  signature verification.
 - It now uses fork-backed `ldk-node`, so the live peer path reaches the
   OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset channel
   hooks.
@@ -368,9 +371,9 @@ Current boundary:
   asset custom-message, channel-open, and payment APIs;
 - the live outgoing-payment script now drives integrated `litd` asset issuance
   and real asset-channel funding against the fork-backed peer. #81 remains
-  open until Rust Lightning derives the payment-time Taproot Asset commitment
-  output scripts/aux leaves, verifies the peer's commitment update signatures,
-  and observes post-settlement balances end to end;
+  open until Rust Lightning matches Lightning Labs payment-time Taproot Asset
+  allocation/commitment construction, verifies the peer's commitment update
+  signatures, and observes post-settlement balances end to end;
 - it does not yet send Lightning wire custom messages to LND;
 - it is the runnable `tap-ldk` peer process and ordered native payment-session
   exchange that must be moved onto the connected counterparty peer.
@@ -382,12 +385,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `343b86d6031f51f65e67584c97792971ec4260d9`
+- current revision: `15710fb516e800b2d3cb4e5d9d3525a4e573b24e`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "343b86d6031f51f65e67584c97792971ec4260d9", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "15710fb516e800b2d3cb4e5d9d3525a4e573b24e", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -562,7 +565,7 @@ a real live demo:
   `a7cb50c64ba589e1171526f04f199d09cac35812` carries a separate base-script
   sort key for simple-taproot asset outputs so the live funding commitment can
   match `litd` ordering without changing the final output scripts. Revision
-  `343b86d6031f51f65e67584c97792971ec4260d9` adds preservation and strict
+  `15710fb516e800b2d3cb4e5d9d3525a4e573b24e` adds preservation and strict
   decoding of Lightning Labs `commitment_signed` TLV 65537 asset-signature
   blobs plus Lightning Labs commitment aux-leaf scripts, including HTLC-count
   validation for Taproot Asset channels.
@@ -1075,7 +1078,10 @@ asset-channel funding, confirms the channel, and sees `litd` report the
 channel usable for asset keysend. It now blocks at
 `live_asset_channel_payment_settlement`: the live asset keysend remains
 `IN_FLIGHT` after Rust Lightning closes on a later payment-time
-simple-taproot commitment partial-signature check.
+  simple-taproot commitment partial-signature check. The current fork pin now
+  derives a first full-channel HTLC aux leaf, but the latest live run still
+  fails verification, so #81 needs exact Lightning Labs payment-time allocation
+  and Taproot Asset commitment construction before balances can be recorded.
 
 Artifacts land in:
 

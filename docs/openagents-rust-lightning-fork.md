@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e`
+- Current `tap-ldk` revision: `15710fb516e800b2d3cb4e5d9d3525a4e573b24e`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e"
+rev = "15710fb516e800b2d3cb4e5d9d3525a4e573b24e"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -179,32 +179,35 @@ Revision `0d6ac878453bcc108f315d69aae0bda625c1f871` adds strict decoding for
 the live Lightning Labs Taproot Asset HTLC blob and an HTLC aux-leaf output
 hook. That lets Rust Lightning reject malformed live asset HTLC payloads and
 carry asset-derived aux leaves into HTLC output construction. The remaining
-#81 work is still dynamic derivation of the per-commitment HTLC and change aux
-leaves from asset-channel state.
+#81 work is exact Lightning Labs-compatible per-commitment HTLC and change aux
+leaf construction from asset-channel state.
 
 Revision `5bd5992ac7f7625f254e5df67eec66d085fe7c7d` persists the live Taproot
 Asset HTLC blob through inbound/outbound HTLC state and holding-cell
 serialization, writes optional blob vectors under channel TLVs `95`, `97`, and
 `99`, and re-emits the stored blob on outbound `update_add_htlc`. This closes
-the blob-loss gap but does not yet derive the dynamic Taproot Asset HTLC and
-change output scripts that `litd` signs.
+the blob-loss gap but does not yet derive the Lightning Labs-compatible
+Taproot Asset HTLC and change output scripts that `litd` signs.
 
 Revision `a7cb50c64ba589e1171526f04f199d09cac35812` sorts Taproot Asset
 simple-taproot commitment outputs by the base no-aux P2TR script while keeping
 the final aux-leaf P2TR script in the transaction. This matches the Lightning
 Labs allocation/custom-commit sort rule for the initial funding commitment.
-Revision `ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e` preserves and decodes
+Revision `15710fb516e800b2d3cb4e5d9d3525a4e573b24e` preserves and decodes
 Lightning Labs `commitment_signed` TLV 65537 asset-signature blobs and
 requires Taproot Asset channels with non-dust HTLCs to carry one decoded
-signature group per HTLC.
+signature group per HTLC. The same revision persists a proof-derived
+single-asset channel template in `ChannelTransactionParameters` and derives the
+first full-channel HTLC aux leaf for payment-time commitment outputs.
 
-With `ldk-node@001ec96071ec5943dce42ac2dead8ec2f103f640`, the live rerun
+With `ldk-node@9fdb7cff9f47c5cc3b0003a68d9387c62e56147f`, the latest live run
 confirms that `litd` `fundchannel` completes, the channel confirms, and `litd`
-reports a keysend-usable local asset balance. #81 remains open because the
-live asset keysend stays `IN_FLIGHT` after Rust Lightning closes on a later
-simple-taproot commitment partial-signature check. The fork must now derive the
-dynamic Taproot Asset commitment output scripts and aux leaves for payment-time
-channel states before settlement and balance recording can complete.
+reports a keysend-usable local asset balance. The live asset keysend still
+stays `IN_FLIGHT` after Rust Lightning closes on a payment-time
+partial-signature mismatch, so #81 remains open until the fork matches
+Lightning Labs' payment-time allocation/commitment construction and records
+observed balances. Partial split/change-output support remains later #71/#60
+work after the bounded live path settles.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

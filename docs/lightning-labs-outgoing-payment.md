@@ -61,7 +61,8 @@ records the Lightning Labs receiver balance after settlement.
 Finish #81 first: carry the live asset keysend over the connected independent
 Lightning Labs `litd` peer through payment-time Taproot Asset commitment
 updates in the fork-backed `ldk-node`/`rust-lightning` path. Live funding now
-completes; settlement and native receiver-balance persistence do not. Then
-replace the expected receiver balance with an observed post-settlement daemon
-balance, implement #58, and let #59 turn both observed balances into the Path B
-completion gate.
+completes, and the current fork pin attempts the first full-channel HTLC
+aux-leaf path, but the latest live run still closes on a payment-time
+partial-signature mismatch and leaves the `litd` payment `IN_FLIGHT`. The next
+work is exact Lightning Labs allocation/commitment construction, then observed
+post-settlement daemon balances, #58, and the #59 Path B completion gate.
