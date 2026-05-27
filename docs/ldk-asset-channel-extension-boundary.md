@@ -159,7 +159,7 @@ state:
 - live `commitment_signed` TLV 65537 asset-signature blob preservation,
   decoding, and HTLC-count validation, first landed in the OpenAgentsInc fork
   at
-  `e0cca0c569e491d6fff98eb3430f7c839d6d0eef`;
+  `d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf`;
 - live channel-manager, resolver, and sweeper call-site exercises for the
   bounded hooks above.
 

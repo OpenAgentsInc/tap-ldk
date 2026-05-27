@@ -11,8 +11,8 @@ path = "src/lib.rs"
 
 [dependencies]
 bech32 = "0.9"
-ldk-node = { git = "https://github.com/OpenAgentsInc/ldk-node.git", rev = "35e1bae84c25a3f2bd1da1b4937233a90e673f24" }
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "e0cca0c569e491d6fff98eb3430f7c839d6d0eef", package = "lightning", features = ["simple_taproot_musig2"] }
+ldk-node = { git = "https://github.com/OpenAgentsInc/ldk-node.git", rev = "b846b4cc0c0581534e4be377cf19e3a57707aa11" }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf", package = "lightning", features = ["simple_taproot_musig2"] }
 ripemd = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

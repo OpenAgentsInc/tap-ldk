@@ -386,12 +386,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `e0cca0c569e491d6fff98eb3430f7c839d6d0eef`
+- current revision: `d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "e0cca0c569e491d6fff98eb3430f7c839d6d0eef", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -566,7 +566,7 @@ a real live demo:
   `a7cb50c64ba589e1171526f04f199d09cac35812` carries a separate base-script
   sort key for simple-taproot asset outputs so the live funding commitment can
   match `litd` ordering without changing the final output scripts. Revision
-  `e0cca0c569e491d6fff98eb3430f7c839d6d0eef` adds preservation and strict
+  `d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf` adds preservation and strict
   decoding of Lightning Labs `commitment_signed` TLV 65537 asset-signature
   blobs plus Lightning Labs commitment aux-leaf scripts, including HTLC-count
   validation for Taproot Asset channels.
