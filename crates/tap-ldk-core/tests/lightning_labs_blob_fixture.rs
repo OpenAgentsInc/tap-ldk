@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use lightning::ln::taproot_asset::decode_taproot_asset_commitment_aux_leaves;
 use tap_ldk_core::{
     asset::Bytes32,
     lightning_labs_blob::{
@@ -84,6 +85,33 @@ fn lightning_labs_blob_fixtures_decode_to_native_field_maps() {
             .script_len,
         73
     );
+}
+
+#[test]
+fn rust_lightning_decodes_lightning_labs_commitment_aux_leaf_fixture() {
+    let commitment = extract_hexdump_bytes(&fixture("commitment-blob.hexdump"))
+        .expect("commitment fixture extracts");
+    let aux_leaves = decode_taproot_asset_commitment_aux_leaves(&commitment)
+        .expect("rust-lightning aux leaves decode");
+
+    assert_eq!(
+        aux_leaves
+            .local_aux_leaf_script
+            .as_ref()
+            .expect("local aux leaf")
+            .len(),
+        73
+    );
+    assert_eq!(
+        aux_leaves
+            .remote_aux_leaf_script
+            .as_ref()
+            .expect("remote aux leaf")
+            .len(),
+        73
+    );
+    assert!(aux_leaves.outgoing_htlc_aux_leaves.is_empty());
+    assert!(aux_leaves.incoming_htlc_aux_leaves.is_empty());
 }
 
 #[test]
