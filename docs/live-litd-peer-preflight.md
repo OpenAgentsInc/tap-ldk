@@ -25,10 +25,13 @@ artifact as `native-ldk-litd-peer-preflight.json`.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@76ac064ca815609130012afb289014aa97b4fa76` and
-`OpenAgentsInc/ldk-node@4754d17f819e607462c5353ea3bf8158dd064686`, the
+`OpenAgentsInc/rust-lightning@99fee582d4061af4b0a030353b0a409ee542e064` and
+`OpenAgentsInc/ldk-node@9f8481ef688dd2241f0575c341d9fce87bfc6c5c`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
-Taproot Asset channel support. Issue #81 must still replace this
-pre-settlement gate with live asset-channel funding/payment and a
-post-settlement balance check. The current #57 report treats this as a
-readiness gate, not as live settlement.
+Taproot Asset channel support. The live outgoing-payment harness now moves past
+readiness into integrated `litd` issuance, active asset-channel funding, and
+first asset HTLC delivery. Issue #81 still remains open because Rust Lightning
+must construct the same dynamic Taproot Asset HTLC/change commitment outputs
+that `litd` signs before the path can record payment settlement and
+post-settlement balances. The current #57 report treats this as a readiness
+gate, not as live settlement.

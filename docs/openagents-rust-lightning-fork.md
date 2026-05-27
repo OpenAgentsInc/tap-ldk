@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `76ac064ca815609130012afb289014aa97b4fa76`
+- Current `tap-ldk` revision: `99fee582d4061af4b0a030353b0a409ee542e064`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "76ac064ca815609130012afb289014aa97b4fa76"
+rev = "99fee582d4061af4b0a030353b0a409ee542e064"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -123,9 +123,12 @@ simple-taproot commitment update and reestablish state wiring. It persists
 counterparty next-local nonces, consumed nonce uses, and sent commitment
 partial signatures; emits next-local nonces in `channel_ready`,
 `revoke_and_ack`, and `channel_reestablish`; verifies peer
-`commitment_signed` partial signatures against the stored nonce; reuses sent
-partials for retransmission; and fails closed when required simple-taproot
-nonce/signature state is missing or mismatched. This does not complete
+`commitment_signed` partial signatures with the included JIT signing nonce;
+reuses sent partials for retransmission; and fails closed when required
+simple-taproot nonce/signature state is missing or cryptographically invalid.
+Revision `99fee582d4061af4b0a030353b0a409ee542e064` corrects the LND staging
+interop semantics: the advertised next-local nonce is future verification
+state, not the commitment-signed signing nonce. This does not complete
 cooperative close, force-close, HTLC second-level scripts, or vector replay.
 
 Revision `26346a56af75eadf60763eb1e32a740656d4e384` adds simple-taproot
@@ -155,7 +158,7 @@ from the script-vector section for some multi-HTLC output keys, so exact script
 assertions stay on the unambiguous script vectors while transaction coverage
 checks output count, values, ordering, P2TR shape, and trimming.
 
-Revision `76ac064ca815609130012afb289014aa97b4fa76` adds
+Revision `99fee582d4061af4b0a030353b0a409ee542e064` adds
 `TaprootAssetChannelState`, the bounded rust-lightning-side lifecycle state
 for a single-asset channel layered on simple taproot. It ties explicit
 simple-taproot asset-channel negotiation, proof-backed funding, monitor aux
@@ -164,7 +167,11 @@ cooperative close allocation, and proof-ownership recovery to one state object.
 It also aligns the experimental Taproot Asset overlay negotiation with
 Lightning Labs `taproot-overlay-chans` feature bits and adds outgoing Init
 custom TLV support so `ldk-node` can advertise the Taproot Assets aux feature
-record used by `litd`.
+record used by `litd`. The live `litd` funding trace also showed that
+Lightning Labs uses zero CSV for Taproot Asset allocation/script-key
+derivation, but uses the negotiated channel CSV delay for the actual Bitcoin
+commitment to-local aux output. This revision preserves that split and adds the
+matching script-vector regression coverage.
 `tap-ldk` pins this revision and exercises it with
 `simple-taproot-asset-channel-smoke`.
 

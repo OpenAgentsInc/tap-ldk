@@ -35,13 +35,15 @@ The Lightning Labs path is not a live payment yet:
   binding to the native outgoing RFQ/invoice/HTLC artifact and keeps the result
   blocked until a Lightning Labs receiver balance is actually observed.
 - It can start integrated Lightning Labs `litd`, confirm the asset-channel RPC
-  surface is reachable, then start an upstream `ldk-node 0.7.0` node and
+  surface is reachable, then start the fork-backed `ldk-node` runtime and
   connect it to the `litd` Lightning P2P address.
-- The current #57 gate reaches `proof_binding_status=bound`,
+- The current #57/#81 gate reaches `proof_binding_status=bound`,
   `native_asset_payment_session_ready=true`,
   `integrated_litd_counterparty_ready=true`,
-  `native_litd_peer_connected=true`, and a pre-settlement Lightning Labs
-  current-balance observation.
+  `native_litd_peer_connected=true`, active `litd` asset-channel funding, and
+  first asset HTLC delivery. It still lacks post-settlement balance
+  observation because Rust Lightning must derive dynamic Taproot Asset
+  commitment outputs before the `litd` signature verifies.
 - It does not yet use fork-backed `ldk-node`, so the live peer path cannot
   reach the OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset
   channel hooks.
@@ -359,9 +361,15 @@ Current boundary:
 
 - the ordered asset-payment message exchange is not yet a Lightning Labs
   daemon-backed session;
-- the new `live-litd-peer-preflight` command uses upstream `ldk-node` to
-  connect to integrated `litd`, but does not yet run the asset-payment
-  messages over that peer and cannot reach forked asset-channel hooks;
+- the `live-litd-peer-preflight` command uses the OpenAgentsInc `ldk-node`
+  fork to connect to integrated `litd`, prove fork provenance, observe remote
+  simple-taproot and Taproot Asset channel support, and reach the fork-backed
+  asset custom-message, channel-open, and payment APIs;
+- the live outgoing-payment script now drives integrated `litd` asset issuance
+  and real asset-channel funding against the fork-backed peer, then reaches
+  the first asset HTLC. #81 remains open until Rust Lightning builds the
+  dynamic Taproot Asset HTLC/change commitment outputs that `litd` signs, then
+  payment settlement and post-settlement balances are observed end to end;
 - it does not yet send Lightning wire custom messages to LND;
 - it is the runnable `tap-ldk` peer process and ordered native payment-session
   exchange that must be moved onto the connected counterparty peer.
@@ -373,12 +381,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `cbc508b8ae972fd1134b0c5f1dc1792139276268`
+- current revision: `99fee582d4061af4b0a030353b0a409ee542e064`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "cbc508b8ae972fd1134b0c5f1dc1792139276268", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "99fee582d4061af4b0a030353b0a409ee542e064", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -496,8 +504,12 @@ a real live demo:
 - BOLT simple taproot commitment update/reestablish state: channel-ready,
   commitment-signed, revoke-and-ack, and channel-reestablish paths must carry
   next-local nonces, preserve sent partial signatures for retransmission, and
-  fail closed on missing or mismatched simple-taproot nonce state. First
-  support landed in `1176e837e5aacac7d1a3237c2bb00910989dbd93`.
+  fail closed on missing or cryptographically invalid simple-taproot nonce
+  state. The live LND staging path treats the `commitment_signed` nonce as a
+  JIT signing nonce, while next-local nonces remain future verification state.
+  First support landed in `1176e837e5aacac7d1a3237c2bb00910989dbd93`; LND
+  JIT nonce compatibility landed in
+  `99fee582d4061af4b0a030353b0a409ee542e064`.
 - BOLT simple taproot cooperative close: shutdown must carry closee nonces,
   `closing_complete`/`closing_sig` must validate and aggregate MuSig2 close
   partials, closee nonce rotation must be persisted, and malformed close state
@@ -528,8 +540,13 @@ a real live demo:
   cooperative close, monitor aux persistence, and proof-ownership recovery must
   be tied to one simple-taproot asset-channel state object instead of loose
   helper calls. Initial support landed in
-  `cbc508b8ae972fd1134b0c5f1dc1792139276268`; `tap-ldk` drives it through
-  `simple-taproot-asset-channel-smoke`.
+  `99fee582d4061af4b0a030353b0a409ee542e064`; `tap-ldk` drives it through
+  `simple-taproot-asset-channel-smoke`. The same revision also pins the live
+  Lightning Labs CSV finding: the Taproot Asset allocation/script-key
+  derivation keeps Lightning Labs' zero-CSV `AuxChanState` behavior, while the
+  actual Bitcoin commitment to-local aux output uses the negotiated channel CSV
+  delay. That matches the live `litd` commitment script vector instead of the
+  earlier zero-CSV commitment-output attempt.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
@@ -1034,10 +1051,11 @@ It:
 
 When Docker is reachable, the live outgoing-payment gate also runs the
 standalone proof-binding/current-balance path, starts integrated `litd`, and
-runs the upstream `ldk-node` to `litd` peer preflight. It still blocks at
-`live_asset_channel_payment_settlement` because the live runtime is not yet
-fork-backed `ldk-node` and the asset-channel funding/payment flow has not
-moved onto that connected peer.
+runs the fork-backed `ldk-node` to `litd` path. It now opens an active asset
+channel and reaches first HTLC delivery. It still blocks at
+`live_asset_channel_payment_settlement` because Rust Lightning reconstructs a
+static/plain simple-taproot commitment transaction while `litd` signs one with
+dynamic Taproot Asset HTLC and change outputs.
 
 Artifacts land in:
 
@@ -1215,17 +1233,14 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. `OpenAgentsInc/ldk-node` forked and pinned to `OpenAgentsInc/rust-lightning`.
-2. Forked `ldk-node` config and APIs for simple-taproot/Taproot Asset
-   channels.
-3. Real asset-channel funding between `tap-ldk` and the Lightning Labs
-   counterparty.
-4. Real Lightning wire custom-message exchange through LDK/rust-lightning over
-   the connected independent `litd` peer.
-5. Real RFQ exchange with Lightning Labs peer/session semantics.
-6. Real payment from `tap-ldk` to Lightning Labs.
-7. Real payment from Lightning Labs to `tap-ldk`.
-8. Observed post-settlement balance checks from both live sides.
+1. Dynamic Taproot Asset commitment output construction in Rust Lightning for
+   asset HTLC and change outputs.
+2. Real Lightning wire custom-message exchange through LDK/rust-lightning over
+   the connected independent `litd` peer beyond the first HTLC.
+3. Real RFQ exchange with Lightning Labs peer/session semantics.
+4. Real payment from `tap-ldk` to Lightning Labs.
+5. Real payment from Lightning Labs to `tap-ldk`.
+6. Observed post-settlement balance checks from both live sides.
 9. Full semantic proof ancestry validation.
 10. Live force-close and sweep recovery.
 

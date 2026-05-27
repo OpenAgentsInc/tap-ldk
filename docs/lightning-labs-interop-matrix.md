@@ -112,9 +112,10 @@ Close the remaining issues in this order:
   Lightning Labs accept signature.
 - `tap-ldk` builds sender-side artifacts for the `tap-ldk` pays Lightning Labs
   direction and reaches the connected integrated `litd` peer through
-  fork-backed `ldk-node`, but does not yet run asset-channel funding/payment
-  over that peer or observe the post-settlement Lightning Labs receiver
-  balance.
+  fork-backed `ldk-node`. It now runs asset-channel funding and reaches first
+  HTLC delivery; the remaining blocker is dynamic Taproot Asset commitment
+  output construction in Rust Lightning before post-settlement Lightning Labs
+  receiver balance observation.
 - `tap-ldk` builds receiver-side artifacts for the Lightning Labs pays
   `tap-ldk` direction, but does not yet drive a live LND/`tapd` sender or
   observe a durable `tap-ldk` receiver balance.

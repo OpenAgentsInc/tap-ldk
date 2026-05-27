@@ -1,4 +1,5 @@
 use std::{
+    env,
     error::Error,
     fmt, fs,
     path::{Path, PathBuf},
@@ -16,7 +17,8 @@ use ldk_node::{
     config::ExperimentalChannelConfig,
     entropy::NodeEntropy,
     lightning::{chain::transaction::OutPoint as LdkOutPoint, ln::msgs::SocketAddress},
-    provenance::runtime_provenance,
+    logger::LogLevel,
+    provenance::{RuntimeProvenance, runtime_provenance},
     taproot_asset::{
         TaprootAssetChannelOpenRequest, TaprootAssetMessageKind, TaprootAssetMonitorAuxRequest,
         TaprootAssetPaymentDirection, TaprootAssetPaymentMetadata, TaprootAssetPaymentRequest,
@@ -161,11 +163,6 @@ pub fn run_live_litd_peer_preflight(
     let litd_peer_supports_taproot_asset_channel = matched_peer
         .map(|peer| peer.supports_taproot_asset_channel)
         .unwrap_or(false);
-    let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
-        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
-    } else {
-        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. #81 still needs to drive those APIs through live Lightning Labs asset-channel funding/payment settlement."
-    };
 
     let stop_result = node.stop();
     if let Err(err) = stop_result {
@@ -177,8 +174,105 @@ pub fn run_live_litd_peer_preflight(
         return Err(LiveLitdPeerError::PeerNotConnected);
     }
 
-    Ok(LiveLitdPeerPreflightReport {
-        status: "connected".to_owned(),
+    Ok(build_report(
+        &request,
+        provenance,
+        experimental_channel_config,
+        asset_runtime_probe,
+        native_node_id,
+        peer_connected,
+        peer_persisted,
+        litd_peer_supports_simple_taproot_staging,
+        litd_peer_supports_taproot_asset_channel,
+        peer_details.len(),
+        "connected",
+    ))
+}
+
+pub fn run_live_litd_peer_hold(
+    request: LiveLitdPeerPreflightRequest,
+    report_path: impl AsRef<Path>,
+    hold_seconds: u64,
+) -> Result<LiveLitdPeerPreflightReport, LiveLitdPeerError> {
+    let request = request.validate()?;
+    let provenance = runtime_provenance();
+    let node = build_node(&request)?;
+    let experimental_channel_config = node.experimental_channel_config();
+    let asset_runtime_probe = run_asset_runtime_probe(&node)?;
+    node.start()
+        .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
+
+    let native_node_id = node.node_id();
+    node.connect(
+        request.litd_node_id,
+        request.litd_p2p_address.clone(),
+        false,
+    )
+    .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
+    thread::sleep(Duration::from_millis(500));
+
+    let peer_details = node.list_peers();
+    let matched_peer = peer_details
+        .iter()
+        .find(|peer| peer.node_id == request.litd_node_id);
+    let peer_connected = matched_peer.map(|peer| peer.is_connected).unwrap_or(false);
+    let peer_persisted = matched_peer.map(|peer| peer.is_persisted).unwrap_or(false);
+    let litd_peer_supports_simple_taproot_staging = matched_peer
+        .map(|peer| peer.supports_simple_taproot_staging)
+        .unwrap_or(false);
+    let litd_peer_supports_taproot_asset_channel = matched_peer
+        .map(|peer| peer.supports_taproot_asset_channel)
+        .unwrap_or(false);
+
+    if !peer_connected {
+        let _ = node.stop();
+        return Err(LiveLitdPeerError::PeerNotConnected);
+    }
+
+    let report = build_report(
+        &request,
+        provenance,
+        experimental_channel_config,
+        asset_runtime_probe,
+        native_node_id,
+        peer_connected,
+        peer_persisted,
+        litd_peer_supports_simple_taproot_staging,
+        litd_peer_supports_taproot_asset_channel,
+        peer_details.len(),
+        "holding",
+    );
+    write_report(report_path, &report)?;
+
+    thread::sleep(Duration::from_secs(hold_seconds));
+
+    node.stop()
+        .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
+    Ok(report)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_report(
+    request: &ValidatedLiveLitdPeerPreflightRequest,
+    provenance: RuntimeProvenance,
+    experimental_channel_config: ExperimentalChannelConfig,
+    asset_runtime_probe: LiveLitdAssetRuntimeProbe,
+    native_node_id: PublicKey,
+    peer_connected: bool,
+    peer_persisted: bool,
+    litd_peer_supports_simple_taproot_staging: bool,
+    litd_peer_supports_taproot_asset_channel: bool,
+    known_peer_count: usize,
+    status: &str,
+) -> LiveLitdPeerPreflightReport {
+    let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
+    } else {
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live harness reaches asset-channel funding and first HTLC delivery; #81 still needs Rust Lightning to derive dynamic Taproot Asset commitment output scripts before payment settlement can verify and record post-settlement balances."
+    };
+
+    LiveLitdPeerPreflightReport {
+        status: status.to_owned(),
         network: "regtest".to_owned(),
         storage_dir_path: request.storage_dir_path.display().to_string(),
         live_node_runtime: format!(
@@ -209,10 +303,22 @@ pub fn run_live_litd_peer_preflight(
         peer_persisted,
         litd_peer_supports_simple_taproot_staging,
         litd_peer_supports_taproot_asset_channel,
-        known_peer_count: peer_details.len(),
+        known_peer_count,
         asset_channel_settlement_ready: false,
         remaining_asset_channel_gap: remaining_asset_channel_gap.to_owned(),
-    })
+    }
+}
+
+fn write_report(
+    report_path: impl AsRef<Path>,
+    report: &LiveLitdPeerPreflightReport,
+) -> Result<(), LiveLitdPeerError> {
+    if let Some(parent) = report_path.as_ref().parent() {
+        fs::create_dir_all(parent).map_err(|err| LiveLitdPeerError::Report(err.to_string()))?;
+    }
+    let json = serde_json::to_vec_pretty(report)
+        .map_err(|err| LiveLitdPeerError::Report(err.to_string()))?;
+    fs::write(report_path, json).map_err(|err| LiveLitdPeerError::Report(err.to_string()))
 }
 
 fn build_node(request: &ValidatedLiveLitdPeerPreflightRequest) -> Result<Node, LiveLitdPeerError> {
@@ -220,6 +326,7 @@ fn build_node(request: &ValidatedLiveLitdPeerPreflightRequest) -> Result<Node, L
     builder.set_network(Network::Regtest);
     builder.set_experimental_channel_config(live_litd_experimental_channel_config());
     builder.set_storage_dir_path(request.storage_dir_path.display().to_string());
+    builder.set_filesystem_logger(None, Some(live_litd_log_level()));
     builder.set_chain_source_bitcoind_rpc(
         request.bitcoind_rpc_host.clone(),
         request.bitcoind_rpc_port,
@@ -233,6 +340,22 @@ fn build_node(request: &ValidatedLiveLitdPeerPreflightRequest) -> Result<Node, L
     builder
         .build(node_entropy)
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))
+}
+
+fn live_litd_log_level() -> LogLevel {
+    match env::var("TAP_LDK_LIVE_LITD_LDK_LOG_LEVEL")
+        .unwrap_or_else(|_| "debug".to_owned())
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "gossip" => LogLevel::Gossip,
+        "trace" => LogLevel::Trace,
+        "debug" => LogLevel::Debug,
+        "info" => LogLevel::Info,
+        "warn" => LogLevel::Warn,
+        "error" => LogLevel::Error,
+        _ => LogLevel::Debug,
+    }
 }
 
 fn live_litd_experimental_channel_config() -> ExperimentalChannelConfig {
@@ -400,6 +523,7 @@ pub enum LiveLitdPeerError {
     InvalidSocketAddress(String),
     Node(String),
     AssetRuntime(String),
+    Report(String),
     PeerNotConnected,
 }
 
@@ -415,6 +539,7 @@ impl fmt::Display for LiveLitdPeerError {
             }
             Self::Node(err) => write!(f, "live litd peer node error: {err}"),
             Self::AssetRuntime(err) => write!(f, "live litd peer asset runtime error: {err}"),
+            Self::Report(err) => write!(f, "live litd peer report error: {err}"),
             Self::PeerNotConnected => write!(f, "native LDK node did not connect to litd peer"),
         }
     }
@@ -464,7 +589,7 @@ mod tests {
         assert!(provenance.uses_openagents_rust_lightning_fork);
         assert_eq!(
             provenance.rust_lightning_fork_rev,
-            "76ac064ca815609130012afb289014aa97b4fa76"
+            "99fee582d4061af4b0a030353b0a409ee542e064"
         );
         assert_eq!(
             provenance.ldk_node_fork_url,

@@ -21,7 +21,9 @@ use tap_ldk_core::{
         run_lightning_labs_incoming_payment_smoke, run_lightning_labs_outgoing_payment_smoke,
     },
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
-    live_litd_peer::{LiveLitdPeerPreflightRequest, run_live_litd_peer_preflight},
+    live_litd_peer::{
+        LiveLitdPeerPreflightRequest, run_live_litd_peer_hold, run_live_litd_peer_preflight,
+    },
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
     proof::{ProofFile, VerificationScope},
@@ -146,6 +148,27 @@ fn main() {
             };
             save_json_or_exit(report_path, &report, "live litd peer preflight report");
             print_json_or_exit(&report, "live litd peer preflight report");
+        }
+        [
+            command,
+            report_path,
+            storage_dir,
+            litd_node_id,
+            litd_address,
+            hold_seconds,
+        ] if command == "live-litd-peer-hold" => {
+            let mut request =
+                LiveLitdPeerPreflightRequest::new(storage_dir, litd_node_id, litd_address);
+            apply_regtest_env_to_live_litd_request(&mut request);
+            let hold_seconds = parse_u64_or_exit(hold_seconds, "hold seconds");
+            let report = match run_live_litd_peer_hold(request, report_path, hold_seconds) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live litd peer hold: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "live litd peer hold report");
         }
         [command, asset_id] if command == "asset-negotiation-smoke" => {
             let asset_id = parse_asset_id_or_exit(asset_id);
@@ -814,6 +837,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk live-asset-payment-session-smoke <report.json> <asset-id> <asset-amount>");
     println!(
         "  tap-ldk live-litd-peer-preflight <report.json> <storage-dir> <litd-node-id> <litd-address>"
+    );
+    println!(
+        "  tap-ldk live-litd-peer-hold <report.json> <storage-dir> <litd-node-id> <litd-address> <hold-seconds>"
     );
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");

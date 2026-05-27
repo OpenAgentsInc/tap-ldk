@@ -96,9 +96,11 @@ These are the contracts we definitely want around the rust-lightning work.
   BTC-level nonce material.
 - BTC-level simple-taproot channel update state must persist counterparty
   next-local nonces, consumed nonce uses, and sent partial signatures across
-  restart/reestablish. Advertised local-commitment nonces and consumed
-  counterparty-commitment signing nonces must stay domain-separated, and
-  missing or mismatched nonce state must fail closed.
+  restart/reestablish. Advertised future local-commitment nonces and
+  commitment-signed JIT signing nonces are different protocol roles; both must
+  stay domain-separated, the advertised nonce state must exist when required,
+  and the JIT signing nonce must be accepted only when the MuSig2 partial
+  signature verifies for the exact commitment.
 - BTC-level simple-taproot cooperative close state must persist closee nonce
   indexes, counterparty closee nonces, consumed close nonce uses, and sent
   `closing_complete` partials. Shutdown-advertised closee nonces and JIT

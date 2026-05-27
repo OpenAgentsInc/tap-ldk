@@ -1069,7 +1069,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 [[package]]
 name = "ldk-node"
 version = "0.8.0+git"
-source = "git+https://github.com/OpenAgentsInc/ldk-node.git?rev=4754d17f819e607462c5353ea3bf8158dd064686#4754d17f819e607462c5353ea3bf8158dd064686"
+source = "git+https://github.com/OpenAgentsInc/ldk-node.git?rev=9f8481ef688dd2241f0575c341d9fce87bfc6c5c#9f8481ef688dd2241f0575c341d9fce87bfc6c5c"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1105,6 +1105,8 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "taproot-assets-core",
+ "taproot-assets-types",
  "tokio",
  "vss-client-ng",
  "winapi",
@@ -1142,7 +1144,7 @@ dependencies = [
 [[package]]
 name = "lightning"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bech32 0.11.1",
  "bitcoin",
@@ -1160,7 +1162,7 @@ dependencies = [
 [[package]]
 name = "lightning-background-processor"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "bitcoin-io",
@@ -1174,7 +1176,7 @@ dependencies = [
 [[package]]
 name = "lightning-block-sync"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "bitreq",
@@ -1186,7 +1188,7 @@ dependencies = [
 [[package]]
 name = "lightning-dns-resolver"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "dnssec-prover",
  "lightning",
@@ -1197,7 +1199,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.35.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bech32 0.11.1",
  "bitcoin",
@@ -1208,7 +1210,7 @@ dependencies = [
 [[package]]
 name = "lightning-liquidity"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "bitreq",
@@ -1224,7 +1226,7 @@ dependencies = [
 [[package]]
 name = "lightning-macros"
 version = "0.2.2+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1234,7 +1236,7 @@ dependencies = [
 [[package]]
 name = "lightning-net-tokio"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "lightning",
@@ -1244,7 +1246,7 @@ dependencies = [
 [[package]]
 name = "lightning-persister"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "lightning",
@@ -1255,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "lightning-rapid-gossip-sync"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "bitcoin-io",
@@ -1266,7 +1268,7 @@ dependencies = [
 [[package]]
 name = "lightning-transaction-sync"
 version = "0.3.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
  "electrum-client",
@@ -1279,7 +1281,7 @@ dependencies = [
 [[package]]
 name = "lightning-types"
 version = "0.4.0+git"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "bitcoin",
 ]
@@ -1415,7 +1417,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 [[package]]
 name = "possiblyrandom"
 version = "0.2.0"
-source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=76ac064ca815609130012afb289014aa97b4fa76#76ac064ca815609130012afb289014aa97b4fa76"
+source = "git+https://github.com/OpenAgentsInc/rust-lightning?rev=99fee582d4061af4b0a030353b0a409ee542e064#99fee582d4061af4b0a030353b0a409ee542e064"
 dependencies = [
  "getrandom 0.2.17",
 ]
@@ -2069,6 +2071,29 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "taproot-assets-core"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "099da2c1dcf12b785795fc22f6a29b0d18e9e6fd1d2773b1fe12c8458969612e"
+dependencies = [
+ "bitcoin",
+ "serde",
+ "taproot-assets-types",
+ "thiserror",
+]
+
+[[package]]
+name = "taproot-assets-types"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa87ac85fde4531e36afbdf038f89d4f4f0892b12782fd57c0e0767543c904f0"
+dependencies = [
+ "bitcoin",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

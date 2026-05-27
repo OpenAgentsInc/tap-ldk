@@ -22,6 +22,7 @@ WAIT_INTERVAL_SECONDS="${TAP_LDK_LL_WAIT_INTERVAL_SECONDS:-2}"
 CONTAINER_RUN_TIMEOUT_SECONDS="${TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS:-300}"
 LITD_FUND_TARGET_SAT="${TAP_LDK_LL_LITD_FUND_TARGET_SAT:-100000000}"
 LITD_FUND_BTC="${TAP_LDK_LL_LITD_FUND_BTC:-10}"
+LITD_FEE_RATE_SAT_PER_VBYTE="${TAP_LDK_LL_FEE_RATE_SAT_PER_VBYTE:-1}"
 LITD_HOST_GRPC_PORT="${TAP_LDK_LL_LITD_HOST_GRPC_PORT:-11009}"
 LITD_HOST_REST_PORT="${TAP_LDK_LL_LITD_HOST_REST_PORT:-28080}"
 LITD_HOST_HTTPS_PORT="${TAP_LDK_LL_LITD_HOST_HTTPS_PORT:-28443}"
@@ -39,6 +40,18 @@ Commands:
   status      Print container status and best-effort readiness JSON
   ready       Print best-effort readiness JSON
   connection  Print JSON connection material and local credential paths
+  mint-asset <asset-tag> <supply> [decimal-display]
+             Mint and confirm a normal asset in the integrated litd wallet
+  fund-asset-channel <peer-pubkey> <asset-id> <asset-amount> [sat-per-vbyte] [push-sat]
+             Ask integrated litd to fund a Taproot Asset channel to a peer
+  asset-channel-status <peer-pubkey> <asset-id> [minimum-local-amount]
+             Print the matching litd asset-channel status for one peer and asset
+  wait-asset-channel-active <peer-pubkey> <asset-id> [minimum-local-amount]
+             Wait until the matching litd asset channel is active and funded
+  send-asset-keysend <peer-pubkey> <asset-id> <asset-amount> [payment-timeout]
+             Send a Taproot Asset keysend payment from integrated litd to a peer
+  mine <blocks>
+             Mine regtest blocks with the shared Bitcoin Core wallet
   balance <asset-id>
              Print the current integrated taproot-assets balance for one asset ID
   smoke       Start, print readiness JSON, and stop
@@ -647,6 +660,416 @@ balance() {
     }'
 }
 
+mint_asset() {
+  local asset_tag="${1:-}"
+  local supply="${2:-}"
+  local decimal_display="${3:-0}"
+  if [ -z "$asset_tag" ] || [ -z "$supply" ]; then
+    echo "lightning-labs-litd-counterparty: mint-asset requires asset tag and supply." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$supply" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: mint-asset supply must be a non-negative integer." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$decimal_display" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: mint-asset decimal display must be a non-negative integer." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+  ensure_bitcoin_wallet
+
+  local meta_json mint_json finalize_json assets_json asset_json
+  local asset_id script_key genesis_outpoint anchor_outpoint
+  meta_json="$(
+    jq -nc \
+      --arg ticker "$asset_tag" \
+      '{ticker: $ticker, experimental: true, source: "tap-ldk-integrated-litd-demo"}'
+  )"
+  mint_json="$(
+    litd_tap_cli assets mint \
+      --type normal \
+      --name "$asset_tag" \
+      --supply "$supply" \
+      --decimal_display "$decimal_display" \
+      --meta_type json \
+      --meta_bytes "$meta_json"
+  )"
+  finalize_json="$(
+    litd_tap_cli assets mint finalize \
+      --sat_per_vbyte "$LITD_FEE_RATE_SAT_PER_VBYTE"
+  )"
+  mine_blocks 6
+  wait_until_container_condition "litd LND chain sync after asset mint" "$LITD_CONTAINER" litd_synced
+  assets_json="$(litd_tap_cli assets list --all_script_key_types)"
+
+  asset_json="$(
+    printf '%s' "$assets_json" | jq -c \
+      --arg tag "$asset_tag" \
+      --arg amount "$supply" \
+      '[.assets[] | select(((.asset_genesis.name // .assetGenesis.name) == $tag) and ((.amount | tostring) == $amount))][-1] // empty'
+  )"
+  if [ -z "$asset_json" ]; then
+    echo "lightning-labs-litd-counterparty: integrated litd assets list did not return the minted asset." >&2
+    exit 1
+  fi
+
+  asset_id="$(printf '%s' "$asset_json" | jq -r '.asset_genesis.asset_id // .assetGenesis.assetId // empty')"
+  script_key="$(printf '%s' "$asset_json" | jq -r '.script_key // .scriptKey // empty')"
+  genesis_outpoint="$(printf '%s' "$asset_json" | jq -r '.asset_genesis.genesis_point // .assetGenesis.genesisPoint // empty')"
+  anchor_outpoint="$(printf '%s' "$asset_json" | jq -r '.chain_anchor.anchor_outpoint // .chainAnchor.anchorOutpoint // empty')"
+  if [ -z "$asset_id" ] || [ -z "$script_key" ] || [ -z "$genesis_outpoint" ] || [ -z "$anchor_outpoint" ]; then
+    echo "lightning-labs-litd-counterparty: minted asset output was missing asset id, script key, genesis outpoint, or anchor outpoint." >&2
+    exit 1
+  fi
+
+  jq -n \
+    --arg source "lightning-labs-litd-counterparty-mint-asset" \
+    --arg asset_tag "$asset_tag" \
+    --arg supply "$supply" \
+    --arg decimal_display "$decimal_display" \
+    --arg asset_id "$asset_id" \
+    --arg script_key "$script_key" \
+    --arg genesis_outpoint "$genesis_outpoint" \
+    --arg anchor_outpoint "$anchor_outpoint" \
+    --argjson mint "$mint_json" \
+    --argjson finalize "$finalize_json" \
+    --argjson asset "$asset_json" \
+    '{
+      schema_version: 1,
+      source: $source,
+      asset_tag: $asset_tag,
+      asset_id: $asset_id,
+      supply: ($supply | tonumber),
+      decimal_display: ($decimal_display | tonumber),
+      script_key: $script_key,
+      genesis_outpoint: $genesis_outpoint,
+      anchor_outpoint: $anchor_outpoint,
+      raw_mint: $mint,
+      raw_finalize: $finalize,
+      raw_asset: $asset
+    }'
+}
+
+fund_asset_channel() {
+  local peer_pubkey="${1:-}"
+  local asset_id="${2:-}"
+  local asset_amount="${3:-}"
+  local sat_per_vbyte="${4:-$LITD_FEE_RATE_SAT_PER_VBYTE}"
+  local push_sat="${5:-0}"
+  if [ -z "$peer_pubkey" ] || [ -z "$asset_id" ] || [ -z "$asset_amount" ]; then
+    echo "lightning-labs-litd-counterparty: fund-asset-channel requires peer pubkey, asset id, and asset amount." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$asset_amount" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: asset amount must be a non-negative integer." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+
+  local stdout_file stderr_file status stdout stderr raw_result pid start now elapsed
+  stdout_file="$(mktemp)"
+  stderr_file="$(mktemp)"
+  set +e
+  litd_cli ln fundchannel \
+    --node_key "$peer_pubkey" \
+    --asset_id "$asset_id" \
+    --asset_amount "$asset_amount" \
+    --sat_per_vbyte "$sat_per_vbyte" \
+    --push_amt "$push_sat" >"$stdout_file" 2>"$stderr_file" &
+  pid=$!
+  start="$(date +%s)"
+  while kill -0 "$pid" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$CONTAINER_RUN_TIMEOUT_SECONDS" ]; then
+      kill "$pid" 2>/dev/null || true
+      sleep 1
+      kill -9 "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      status=124
+      printf 'timed out waiting for litd fundchannel after %ss\n' "$CONTAINER_RUN_TIMEOUT_SECONDS" >>"$stderr_file"
+      break
+    fi
+    sleep 1
+  done
+  if [ "${status:-}" = "" ]; then
+    wait "$pid"
+    status=$?
+  fi
+  set -e
+  stdout="$(cat "$stdout_file")"
+  stderr="$(cat "$stderr_file")"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if printf '%s' "$stdout" | jq -e . >/dev/null 2>&1; then
+    raw_result="$(printf '%s' "$stdout" | jq -c .)"
+  else
+    raw_result="null"
+  fi
+
+  jq -n \
+    --arg source "lightning-labs-litd-counterparty-fund-asset-channel" \
+    --arg peer_pubkey "$peer_pubkey" \
+    --arg asset_id "$asset_id" \
+    --arg asset_amount "$asset_amount" \
+    --arg sat_per_vbyte "$sat_per_vbyte" \
+    --arg push_sat "$push_sat" \
+    --arg stdout "$stdout" \
+    --arg stderr "$stderr" \
+    --argjson status "$status" \
+    --argjson raw_result "$raw_result" \
+    '{
+      schema_version: 1,
+      source: $source,
+      status: (if $status == 0 then "completed" else "failed" end),
+      exit_code: $status,
+      peer_pubkey: $peer_pubkey,
+      asset_id: $asset_id,
+      asset_amount: ($asset_amount | tonumber),
+      sat_per_vbyte: (if ($sat_per_vbyte | test("^[0-9]+$")) then ($sat_per_vbyte | tonumber) else null end),
+      push_sat: (if ($push_sat | test("^[0-9]+$")) then ($push_sat | tonumber) else null end),
+      raw_result: $raw_result,
+      stdout: $stdout,
+      stderr: $stderr
+    }'
+}
+
+asset_channel_status() {
+  local peer_pubkey="${1:-}"
+  local asset_id="${2:-}"
+  local minimum_local_amount="${3:-1}"
+  if [ -z "$peer_pubkey" ] || [ -z "$asset_id" ]; then
+    echo "lightning-labs-litd-counterparty: asset-channel-status requires peer pubkey and asset id." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$minimum_local_amount" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: minimum local amount must be a non-negative integer." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+
+  local channels_json match_json active local_asset_balance remote_asset_balance channel_point scid
+  channels_json="$(litd_ln_cli listchannels)"
+  match_json="$(
+    printf '%s' "$channels_json" | jq -c \
+      --arg peer_pubkey "$peer_pubkey" \
+      --arg asset_id "$asset_id" \
+      '[.channels[]? |
+        select((.remote_pubkey // .remotePubkey // "") == $peer_pubkey) |
+        select(any((.custom_channel_data.funding_assets // .customChannelData.fundingAssets // [])[]?;
+          ((.asset_genesis.asset_id // .assetGenesis.assetId // "") == $asset_id)))
+      ][-1] // null'
+  )"
+  active="$(printf '%s' "$match_json" | jq -r '.active // false')"
+  channel_point="$(printf '%s' "$match_json" | jq -r '.channel_point // .channelPoint // empty')"
+  scid="$(printf '%s' "$match_json" | jq -r '.scid_str // .scidStr // .scid // empty')"
+  local_asset_balance="$(
+    printf '%s' "$match_json" | jq -r \
+      --arg asset_id "$asset_id" \
+      'first((.custom_channel_data.local_assets // .customChannelData.localAssets // [])[]? |
+        select((.asset_id // .assetId // "") == $asset_id) |
+        (.amount | tostring)) // "0"'
+  )"
+  remote_asset_balance="$(
+    printf '%s' "$match_json" | jq -r \
+      --arg asset_id "$asset_id" \
+      'first((.custom_channel_data.remote_assets // .customChannelData.remoteAssets // [])[]? |
+        select((.asset_id // .assetId // "") == $asset_id) |
+        (.amount | tostring)) // "0"'
+  )"
+
+  jq -n \
+    --arg source "lightning-labs-litd-counterparty-asset-channel-status" \
+    --arg peer_pubkey "$peer_pubkey" \
+    --arg asset_id "$asset_id" \
+    --arg minimum_local_amount "$minimum_local_amount" \
+    --arg active "$active" \
+    --arg channel_point "$channel_point" \
+    --arg scid "$scid" \
+    --arg local_asset_balance "$local_asset_balance" \
+    --arg remote_asset_balance "$remote_asset_balance" \
+    --argjson channel "$match_json" \
+    '{
+      schema_version: 1,
+      source: $source,
+      peer_pubkey: $peer_pubkey,
+      asset_id: $asset_id,
+      minimum_local_amount: ($minimum_local_amount | tonumber),
+      found: ($channel != null),
+      active: ($active == "true"),
+      local_asset_balance: ($local_asset_balance | tonumber),
+      remote_asset_balance: ($remote_asset_balance | tonumber),
+      usable_for_keysend: (($active == "true") and (($local_asset_balance | tonumber) >= ($minimum_local_amount | tonumber))),
+      channel_point: ($channel_point | if length > 0 then . else null end),
+      scid: ($scid | if length > 0 then . else null end),
+      raw_channel: $channel
+    }'
+}
+
+wait_asset_channel_active() {
+  local peer_pubkey="${1:-}"
+  local asset_id="${2:-}"
+  local minimum_local_amount="${3:-1}"
+  if [ -z "$peer_pubkey" ] || [ -z "$asset_id" ]; then
+    echo "lightning-labs-litd-counterparty: wait-asset-channel-active requires peer pubkey and asset id." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+
+  local start now elapsed report
+  start="$(date +%s)"
+  while true; do
+    report="$(asset_channel_status "$peer_pubkey" "$asset_id" "$minimum_local_amount")"
+    if [ "$(printf '%s' "$report" | jq -r '.usable_for_keysend')" = "true" ]; then
+      printf '%s\n' "$report"
+      return 0
+    fi
+
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$WAIT_TIMEOUT_SECONDS" ]; then
+      printf '%s\n' "$report"
+      echo "lightning-labs-litd-counterparty: timed out waiting for active asset channel after ${WAIT_TIMEOUT_SECONDS}s" >&2
+      return 1
+    fi
+    sleep "$WAIT_INTERVAL_SECONDS"
+  done
+}
+
+send_asset_keysend() {
+  local peer_pubkey="${1:-}"
+  local asset_id="${2:-}"
+  local asset_amount="${3:-}"
+  local payment_timeout="${4:-15s}"
+  if [ -z "$peer_pubkey" ] || [ -z "$asset_id" ] || [ -z "$asset_amount" ]; then
+    echo "lightning-labs-litd-counterparty: send-asset-keysend requires peer pubkey, asset id, and asset amount." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$asset_amount" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: asset amount must be a non-negative integer." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+
+  local stdout_file stderr_file status stdout stderr raw_stdout payment_hash
+  local payments_json payment_status payment_error pid start now elapsed
+  stdout_file="$(mktemp)"
+  stderr_file="$(mktemp)"
+  set +e
+  litd_cli ln sendpayment \
+    --keysend \
+    --dest="$peer_pubkey" \
+    --asset_id="$asset_id" \
+    --asset_amount="$asset_amount" \
+    --allow_overpay \
+    --force \
+    --timeout="$payment_timeout" >"$stdout_file" 2>"$stderr_file" &
+  pid=$!
+  start="$(date +%s)"
+  while kill -0 "$pid" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$CONTAINER_RUN_TIMEOUT_SECONDS" ]; then
+      kill "$pid" 2>/dev/null || true
+      sleep 1
+      kill -9 "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      status=124
+      printf 'timed out waiting for litd asset keysend after %ss\n' "$CONTAINER_RUN_TIMEOUT_SECONDS" >>"$stderr_file"
+      break
+    fi
+    sleep 1
+  done
+  if [ "${status:-}" = "" ]; then
+    wait "$pid"
+    status=$?
+  fi
+  set -e
+  stdout="$(cat "$stdout_file")"
+  stderr="$(cat "$stderr_file")"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if printf '%s' "$stdout" | jq -e . >/dev/null 2>&1; then
+    raw_stdout="$(printf '%s' "$stdout" | jq -c .)"
+  else
+    raw_stdout="null"
+  fi
+  payment_hash="$(
+    printf '%s' "$stdout" |
+      sed -n \
+        -e 's/.*[Pp]ayment hash:[[:space:]]*\([0-9a-fA-F]\{64\}\).*/\1/p' \
+        -e 's/.*payment_hash["=: ]*\([0-9a-fA-F]\{64\}\).*/\1/p' |
+      head -n 1
+  )"
+  payments_json="$(litd_ln_cli listpayments --include_incomplete --max_payments=20 2>/dev/null || echo '{}')"
+  payment_status=""
+  payment_error=""
+  if [ -n "$payment_hash" ]; then
+    payment_status="$(
+      printf '%s' "$payments_json" | jq -r \
+        --arg payment_hash "$payment_hash" \
+        '.payments[]? | select((.payment_hash // .paymentHash // "") == $payment_hash) | .status // empty' |
+        head -n 1
+    )"
+    payment_error="$(
+      printf '%s' "$payments_json" | jq -r \
+        --arg payment_hash "$payment_hash" \
+        '.payments[]? | select((.payment_hash // .paymentHash // "") == $payment_hash) | .failure_reason // .failureReason // .payment_error // .paymentError // empty' |
+        head -n 1
+    )"
+  fi
+
+  jq -n \
+    --arg source "lightning-labs-litd-counterparty-send-asset-keysend" \
+    --arg peer_pubkey "$peer_pubkey" \
+    --arg asset_id "$asset_id" \
+    --arg asset_amount "$asset_amount" \
+    --arg payment_timeout "$payment_timeout" \
+    --arg stdout "$stdout" \
+    --arg stderr "$stderr" \
+    --arg payment_hash "$payment_hash" \
+    --arg payment_status "$payment_status" \
+    --arg payment_error "$payment_error" \
+    --argjson status "$status" \
+    --argjson raw_stdout "$raw_stdout" \
+    --argjson payments "$payments_json" \
+    '{
+      schema_version: 1,
+      source: $source,
+      status: (if $payment_status == "SUCCEEDED" then "completed" elif $status == 124 then "timed_out" elif $status == 0 then "sent_or_in_flight" else "failed" end),
+      exit_code: $status,
+      peer_pubkey: $peer_pubkey,
+      asset_id: $asset_id,
+      asset_amount: ($asset_amount | tonumber),
+      payment_timeout: $payment_timeout,
+      payment_hash: ($payment_hash | if length > 0 then . else null end),
+      payment_status: ($payment_status | if length > 0 then . else null end),
+      payment_error: ($payment_error | if length > 0 then . else null end),
+      raw_stdout: $raw_stdout,
+      recent_payments: $payments,
+      stdout: $stdout,
+      stderr: $stderr
+    }'
+}
+
+mine() {
+  local blocks="${1:-}"
+  if [ -z "$blocks" ] || ! printf '%s' "$blocks" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: mine requires a non-negative block count." >&2
+    exit 2
+  fi
+  require_container_runtime
+  ensure_bitcoin_wallet
+  mine_blocks "$blocks"
+  ready_report
+}
+
 smoke() {
   require_container_runtime
   trap 'stop >/dev/null 2>&1 || true' EXIT
@@ -659,6 +1082,12 @@ case "${1:-}" in
   status) status ;;
   ready) require_container_runtime && ready_report ;;
   connection) connection ;;
+  mint-asset) mint_asset "${2:-}" "${3:-}" "${4:-0}" ;;
+  fund-asset-channel) fund_asset_channel "${2:-}" "${3:-}" "${4:-}" "${5:-$LITD_FEE_RATE_SAT_PER_VBYTE}" "${6:-0}" ;;
+  asset-channel-status) asset_channel_status "${2:-}" "${3:-}" "${4:-1}" ;;
+  wait-asset-channel-active) wait_asset_channel_active "${2:-}" "${3:-}" "${4:-1}" ;;
+  send-asset-keysend) send_asset_keysend "${2:-}" "${3:-}" "${4:-}" "${5:-15s}" ;;
+  mine) mine "${2:-}" ;;
   balance) balance "${2:-}" ;;
   smoke) smoke ;;
   ""|-h|--help) usage ;;
