@@ -62,7 +62,9 @@ Finish #81 first: carry the live asset keysend over the connected independent
 Lightning Labs `litd` peer through payment-time Taproot Asset commitment
 updates in the fork-backed `ldk-node`/`rust-lightning` path. Live funding now
 completes, and the current fork pin attempts the first full-channel HTLC
-aux-leaf path, but the latest live run still closes on a payment-time
-partial-signature mismatch and leaves the `litd` payment `IN_FLIGHT`. The next
-work is exact Lightning Labs allocation/commitment construction, then observed
-post-settlement daemon balances, #58, and the #59 Path B completion gate.
+aux-leaf path and verifies peer HTLC signatures as BIP340 Schnorr. The latest
+live run still closes on `Invalid simple-taproot HTLC signature from peer` and
+leaves the `litd` payment `IN_FLIGHT`. The next work is exact Lightning Labs
+HTLC signature leaf, sighash, and key selection, then HTLC witness/control-block
+construction, observed post-settlement daemon balances, #58, and the #59 Path B
+completion gate.

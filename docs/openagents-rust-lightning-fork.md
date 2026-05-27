@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `15710fb516e800b2d3cb4e5d9d3525a4e573b24e`
+- Current `tap-ldk` revision: `e0cca0c569e491d6fff98eb3430f7c839d6d0eef`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "15710fb516e800b2d3cb4e5d9d3525a4e573b24e"
+rev = "e0cca0c569e491d6fff98eb3430f7c839d6d0eef"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -193,21 +193,23 @@ Revision `a7cb50c64ba589e1171526f04f199d09cac35812` sorts Taproot Asset
 simple-taproot commitment outputs by the base no-aux P2TR script while keeping
 the final aux-leaf P2TR script in the transaction. This matches the Lightning
 Labs allocation/custom-commit sort rule for the initial funding commitment.
-Revision `15710fb516e800b2d3cb4e5d9d3525a4e573b24e` preserves and decodes
+Revision `e0cca0c569e491d6fff98eb3430f7c839d6d0eef` preserves and decodes
 Lightning Labs `commitment_signed` TLV 65537 asset-signature blobs and
 requires Taproot Asset channels with non-dust HTLCs to carry one decoded
 signature group per HTLC. The same revision persists a proof-derived
 single-asset channel template in `ChannelTransactionParameters` and derives the
-first full-channel HTLC aux leaf for payment-time commitment outputs.
+first full-channel HTLC aux leaf for payment-time commitment outputs. It also
+interprets the existing 64-byte BOLT HTLC signature field as a raw BIP340
+Schnorr signature for simple-taproot HTLC transaction verification.
 
-With `ldk-node@9fdb7cff9f47c5cc3b0003a68d9387c62e56147f`, the latest live run
+With `ldk-node@35e1bae84c25a3f2bd1da1b4937233a90e673f24`, the latest live run
 confirms that `litd` `fundchannel` completes, the channel confirms, and `litd`
 reports a keysend-usable local asset balance. The live asset keysend still
-stays `IN_FLIGHT` after Rust Lightning closes on a payment-time
-partial-signature mismatch, so #81 remains open until the fork matches
-Lightning Labs' payment-time allocation/commitment construction and records
-observed balances. Partial split/change-output support remains later #71/#60
-work after the bounded live path settles.
+stays `IN_FLIGHT` after Rust Lightning closes on `Invalid simple-taproot HTLC
+signature from peer`, so #81 remains open until the fork matches Lightning
+Labs' exact HTLC signature leaf, sighash, key selection, and witness/control
+block construction and records observed balances. Partial split/change-output
+support remains later #71/#60 work after the bounded live path settles.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

@@ -27,10 +27,11 @@ runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
 balance. Live asset-channel config/API exposure and remote feature observation
 are in place. Live `litd` asset-channel funding now completes and the channel
 becomes usable for asset keysend. The current live blocker is payment-time
-commitment construction: Rust Lightning closes on a later simple-taproot
-commitment partial-signature check while `litd` leaves the asset keysend
-`IN_FLIGHT`. Settlement and post-settlement observed balance replacement
-remain open gaps after that.
+HTLC verification: Rust Lightning closes on `Invalid simple-taproot HTLC
+signature from peer` while `litd` leaves the asset keysend `IN_FLIGHT`.
+Settlement and post-settlement observed balance replacement remain open gaps
+after the Lightning Labs HTLC signature leaf/sighash/key and witness path are
+matched.
 
 ## Prerequisites
 

@@ -25,8 +25,8 @@ artifact as `native-ldk-litd-peer-preflight.json`.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@15710fb516e800b2d3cb4e5d9d3525a4e573b24e` and
-`OpenAgentsInc/ldk-node@9fdb7cff9f47c5cc3b0003a68d9387c62e56147f`, the
+`OpenAgentsInc/rust-lightning@e0cca0c569e491d6fff98eb3430f7c839d6d0eef` and
+`OpenAgentsInc/ldk-node@35e1bae84c25a3f2bd1da1b4937233a90e673f24`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live
@@ -34,9 +34,9 @@ outgoing-payment harness now moves past
 readiness into integrated `litd` issuance, live asset-channel funding,
 channel confirmation, and a keysend-usable local asset balance on `litd`.
 Issue #81 still remains open because the live asset keysend stays `IN_FLIGHT`
-after Rust Lightning closes on a later payment-time simple-taproot commitment
-partial-signature check. The current fork pin attempts the first full-channel
-HTLC aux-leaf path, but the latest live run proves that this still does not
-match Lightning Labs' payment-time commitment construction closely enough for
-signature verification. The current #57 report treats this as a readiness and
-partial-live gate, not as live settlement.
+after Rust Lightning closes on `Invalid simple-taproot HTLC signature from
+peer`. The current fork pin attempts the first full-channel HTLC aux-leaf path
+and treats the peer HTLC signature bytes as BIP340 Schnorr, but the latest live
+run proves that the selected Lightning Labs HTLC signature leaf, sighash, or
+key still does not match the peer's signed view. The current #57 report treats
+this as a readiness and partial-live gate, not as live settlement.

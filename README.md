@@ -13,18 +13,14 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
 checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
 `ldk-node` runtime pinned to OpenAgentsInc `rust-lightning`. The live harness
-connects to `litd`, observes both taproot feature sets, issues an asset, and
-completes `litd` asset-channel funding. The channel reaches `channel_ready`
-and becomes usable for asset keysend. The fork now advertises only the
-Lightning Labs no-op HTLC aux feature, not unimplemented STXO support. The
-fork now preserves and decodes Lightning Labs `commitment_signed` asset-signature
-blobs, decodes Lightning Labs commitment aux-leaf scripts, stores the
-proof-derived channel template, and attempts the first full-channel HTLC
-aux-leaf path. The current live run still fails settlement: `litd` leaves the
-keysend `IN_FLIGHT` after Rust Lightning closes on a payment-time
-partial-signature mismatch. The active #81 work is matching Lightning Labs'
-payment-time Taproot Asset allocation/commitment construction exactly, then
-persisting native receiver state and recording observed balances.
+connects to `litd`, observes both taproot feature sets, issues an asset,
+completes `litd` asset-channel funding, reaches `channel_ready`, and gets a
+keysend-usable asset channel. The current #81 work has matched output values,
+proof-witness preservation, commitment aux-leaf decoding, and Lightning Labs
+accepted-HTLC key ordering, and now treats HTLC signatures as BIP340 Schnorr
+bytes. The latest live run still closes on `Invalid simple-taproot HTLC
+signature from peer`, so #81 is now focused on matching Lightning Labs' exact
+HTLC signature leaf, sighash, and key selection, then recording balances.
 
 Current closure order: #81, then #57, #58, #59, #60, and the epics
 #61, #71, and #19. Path B must not be marked done until both payment directions

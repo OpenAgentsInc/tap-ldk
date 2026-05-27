@@ -27,9 +27,9 @@ and `native_litd_peer_connected=true`, with the fork-backed asset-channel
 message/payment APIs reachable. It does not mark a `tap-ldk` to Lightning Labs
 payment complete; #81 now completes live asset-channel funding, confirms the
 channel, and sees `litd` report a keysend-usable asset balance. It then waits
-on Rust Lightning to carry payment-time Taproot Asset commitment output
-construction through signature verification before it can settle and record
-the post-settlement receiver balance.
+on Rust Lightning to match Lightning Labs' simple-taproot HTLC signature
+leaf/sighash/key and witness construction before it can settle and record the
+post-settlement receiver balance.
 
 The harness mines a fresh regtest block before the LND sync checks, and again
 after the wallet-funding step, so a persisted regtest chain with an old tip

@@ -51,11 +51,13 @@ whether `litd` advertised the taproot features needed for asset channels. It
 now completes live asset-channel funding, confirms the channel, and sees
 `litd` report a keysend-usable local asset balance. It still stops at
 `live_asset_channel_payment_settlement` because the live asset keysend remains
-`IN_FLIGHT` after Rust Lightning closes on a later payment-time simple-taproot
-commitment partial-signature check. The current fork pin attempts a
-full-channel HTLC aux-leaf path and the live harness now defaults to that
-amount, but the latest live run still fails verification. The next work is
-exact Lightning Labs payment-time allocation/commitment construction and
+`IN_FLIGHT` after Rust Lightning closes on `Invalid simple-taproot HTLC
+signature from peer`. The current fork pin attempts a full-channel HTLC
+aux-leaf path, the live harness now defaults to that amount, and HTLC
+signatures are interpreted as BIP340 Schnorr signatures. The latest live run
+still proves a mismatch in the selected Lightning Labs HTLC signature leaf,
+sighash, or key. The next work is exact Lightning Labs HTLC signature
+construction, simple-taproot HTLC witness/control-block construction, and
 post-settlement balance observation.
 
 The current consolidated report can pass fixture-backed checks while still
