@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `a7cb50c64ba589e1171526f04f199d09cac35812`
+- Current `tap-ldk` revision: `ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "a7cb50c64ba589e1171526f04f199d09cac35812"
+rev = "ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -193,7 +193,12 @@ Revision `a7cb50c64ba589e1171526f04f199d09cac35812` sorts Taproot Asset
 simple-taproot commitment outputs by the base no-aux P2TR script while keeping
 the final aux-leaf P2TR script in the transaction. This matches the Lightning
 Labs allocation/custom-commit sort rule for the initial funding commitment.
-With `ldk-node@248bef4b1e94c784be57c40163f9d23d49df1b16`, the live rerun
+Revision `ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e` preserves and decodes
+Lightning Labs `commitment_signed` TLV 65537 asset-signature blobs and
+requires Taproot Asset channels with non-dust HTLCs to carry one decoded
+signature group per HTLC.
+
+With `ldk-node@001ec96071ec5943dce42ac2dead8ec2f103f640`, the live rerun
 confirms that `litd` `fundchannel` completes, the channel confirms, and `litd`
 reports a keysend-usable local asset balance. #81 remains open because the
 live asset keysend stays `IN_FLIGHT` after Rust Lightning closes on a later

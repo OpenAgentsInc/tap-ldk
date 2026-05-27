@@ -25,8 +25,8 @@ artifact as `native-ldk-litd-peer-preflight.json`.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@a7cb50c64ba589e1171526f04f199d09cac35812` and
-`OpenAgentsInc/ldk-node@248bef4b1e94c784be57c40163f9d23d49df1b16`, the
+`OpenAgentsInc/rust-lightning@ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e` and
+`OpenAgentsInc/ldk-node@001ec96071ec5943dce42ac2dead8ec2f103f640`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live

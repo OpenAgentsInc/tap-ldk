@@ -156,6 +156,10 @@ state:
 - Taproot Asset simple-taproot commitment output sorting by base no-aux script,
   first landed in the OpenAgentsInc fork at
   `a7cb50c64ba589e1171526f04f199d09cac35812`;
+- live `commitment_signed` TLV 65537 asset-signature blob preservation,
+  decoding, and HTLC-count validation, first landed in the OpenAgentsInc fork
+  at
+  `ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e`;
 - live channel-manager, resolver, and sweeper call-site exercises for the
   bounded hooks above.
 

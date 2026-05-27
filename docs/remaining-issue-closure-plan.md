@@ -16,7 +16,7 @@ lifecycle state.
 
 The local fork verification script now checks the current pinned
 OpenAgentsInc `rust-lightning` revision,
-`a7cb50c64ba589e1171526f04f199d09cac35812`, so later issue verification does
+`ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e`, so later issue verification does
 not fail against the older proof-ownership-only fork revision.
 
 Path B is live-funded but not live-settled. The current #57/#81 gate reaches:
@@ -28,7 +28,7 @@ Path B is live-funded but not live-settled. The current #57/#81 gate reaches:
 - fork-backed `OpenAgentsInc/ldk-node` peer connection to the independent
   `litd` node, with opt-in simple-taproot plus Taproot Asset negotiation
   enabled, remote taproot feature observation, and provenance reporting
-  `OpenAgentsInc/rust-lightning@a7cb50c64ba589e1171526f04f199d09cac35812`;
+  `OpenAgentsInc/rust-lightning@ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e`;
 - integrated `litd` asset issuance, live asset-channel funding, channel
   confirmation, and a keysend-usable local asset balance on `litd`.
 
@@ -45,10 +45,10 @@ post-settlement balances from real live Lightning Labs funding/payment.
 | Order | Issue | Current state | Required before close |
 | --- | --- | --- | --- |
 | Done | #77 Fork `ldk-node` | `OpenAgentsInc/ldk-node` exists and is documented as the owned live node implementation home. | Closed. |
-| Done | #78 Pin forked `ldk-node` to forked `rust-lightning` | `OpenAgentsInc/ldk-node` is pinned to `OpenAgentsInc/rust-lightning@a7cb50c64ba589e1171526f04f199d09cac35812`; `tap-ldk` consumes the OpenAgentsInc fork line and reports provenance. | Closed. |
+| Done | #78 Pin forked `ldk-node` to forked `rust-lightning` | `OpenAgentsInc/ldk-node` is pinned to `OpenAgentsInc/rust-lightning@ff572b99ff6de2aa1e1a9c425b1a80a01bb7581e`; `tap-ldk` consumes the OpenAgentsInc fork line and reports provenance. | Closed. |
 | Done | #79 Expose simple-taproot/Taproot Asset config | Implemented in `OpenAgentsInc/ldk-node@0faa999235050a17b198e6bbfa63c2f19aac4cc6`; BTC-only defaults remain unchanged, Taproot Asset negotiation fails closed without simple taproot, and `tap-ldk` live preflight reports both opt-in flags. | Closed. |
-| Done | #80 Wire asset messages and payment APIs | Implemented in `OpenAgentsInc/ldk-node@da05c714be061706806bc8757ee74b4709d5a8ef`, with litd-compatible Init feature cleanup and peer taproot feature reporting through `248bef4b1e94c784be57c40163f9d23d49df1b16`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, Lightning Labs aux Init feature bits, and remote feature reporting. The fork advertises Lightning Labs no-op HTLC aux support and does not advertise STXO until native STXO commitment leaves are implemented. | Closed. |
-| 1 | #81 Fork-backed Lightning Labs settlement | Current live gate connects to `litd`, observes both taproot feature sets, issues an asset, completes live asset-channel funding, confirms the channel, and sees `litd` report it usable for asset keysend. It now fails during payment settlement because Rust Lightning closes on a later simple-taproot commitment partial-signature check and `litd` leaves the keysend `IN_FLIGHT`. | Rust Lightning carries asset HTLC blobs into per-commitment asset state, derives dynamic aux leaves/output scripts for payment-time channel states, verifies `litd` signatures, and `tap-ldk` settles a live payment with observed balances. |
+| Done | #80 Wire asset messages and payment APIs | Implemented in `OpenAgentsInc/ldk-node@da05c714be061706806bc8757ee74b4709d5a8ef`, with litd-compatible Init feature cleanup and peer taproot feature reporting through `001ec96071ec5943dce42ac2dead8ec2f103f640`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, Lightning Labs aux Init feature bits, and remote feature reporting. The fork advertises Lightning Labs no-op HTLC aux support and does not advertise STXO until native STXO commitment leaves are implemented. | Closed. |
+| 1 | #81 Fork-backed Lightning Labs settlement | Current live gate connects to `litd`, observes both taproot feature sets, issues an asset, completes live asset-channel funding, confirms the channel, sees `litd` report it usable for asset keysend, and now preserves/decodes the live `commitment_signed` asset-signature blob. It still fails during payment settlement because Rust Lightning has not derived the payment-time Taproot Asset output scripts that `litd` signs, so the keysend remains `IN_FLIGHT`. | Rust Lightning derives dynamic aux leaves/output scripts for payment-time channel states, verifies the decoded `litd` asset signatures, and `tap-ldk` settles a live payment with observed balances. |
 | 2 | #57 Live `tap-ldk` pays Lightning Labs | Harness, proof binding, live current-balance query, integrated `litd`, and fork-backed `ldk-node` peer/API preflight are in place with opt-in asset-channel negotiation enabled. | Run asset-channel funding/payment over the fork-backed connected independent `litd` peer, settle the payment, record post-settlement Lightning Labs receiver balance, record `tap-ldk` sender state, and keep wrong-quote/wrong-asset/wrong-amount failures covered. |
 | 3 | #58 Live Lightning Labs pays `tap-ldk` | Receiver-side fixtures, buy-direction RFQ artifacts, quote-bound receive invoice, final-hop metadata, expected balance deltas, and negative checks exist. | Drive a Lightning Labs sender through the live path, have `tap-ldk` receive and validate the asset HTLC metadata through the LDK/fork boundary, persist the received balance and proof reference, restart `tap-ldk`, and compare observed balances on both sides. |
 | 4 | #59 Observed live balance reporting | Reports distinguish fixture-backed expected balances from live gates, and `live_daemon_gaps_remaining` remains true. | Make Path B completion impossible unless #57 and #58 both have observed post-settlement balances, compatible asset IDs, compatible payment state, and non-secret proof/payment references. Update README, ROADMAP, ARCHITECTURE, and public runbook after the reports pass. |
