@@ -589,7 +589,7 @@ mod tests {
         assert!(provenance.uses_openagents_rust_lightning_fork);
         assert_eq!(
             provenance.rust_lightning_fork_rev,
-            "99fee582d4061af4b0a030353b0a409ee542e064"
+            "5bd5992ac7f7625f254e5df67eec66d085fe7c7d"
         );
         assert_eq!(
             provenance.ldk_node_fork_url,

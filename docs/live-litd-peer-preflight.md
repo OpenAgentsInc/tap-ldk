@@ -26,7 +26,7 @@ This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
 `OpenAgentsInc/rust-lightning@5bd5992ac7f7625f254e5df67eec66d085fe7c7d` and
-`OpenAgentsInc/ldk-node@66a6a4e5f8abc12c08384c248b0c49dd4d690dce`, the
+`OpenAgentsInc/ldk-node@b750d91c92541529010259518eb1cc773dc5b5b8`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises the Lightning
 Labs Taproot Assets aux Init vector for no-op HTLCs and STXO. The live
