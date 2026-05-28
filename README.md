@@ -13,12 +13,11 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 Path B is live-funded but not live-settled. The harness connects to
 independent `litd`, observes taproot features, issues an asset, completes
 asset-channel funding, reaches `channel_ready`, and attempts asset keysend. The
-current fork pins fix the previous peer HTLC Schnorr-signature rejection: the
-latest live rerun accepts `commitment_signed` and then stalls while the native
-node is waiting for the payment-time monitor update to complete and release the
-held `revoke_and_ack`/local commitment response. #81 remains open until that
-monitor/message path, receiver claim, force-close witness path, and observed
-balances all pass.
+latest completed live run fixed the native monitor-update stall and released
+`revoke_and_ack`, but `litd` rejected our outgoing HTLC signature. The current
+pins add exact previous-output-bound Taproot Asset second-level HTLC aux leaves;
+#81 remains open until the rerun settles, receiver claim, force-close witness
+path, and observed balances all pass.
 
 Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
 is not done until both payment directions settle against Lightning Labs with

@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `acce215e1ca284fa45f1c13e13760de459d410d4`
+- Current `tap-ldk` revision: `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "acce215e1ca284fa45f1c13e13760de459d410d4"
+rev = "7bc73cf1ef7e2381c0562d61bfcdce9a18579cae"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,18 +205,21 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Revision `acce215e1ca284fa45f1c13e13760de459d410d4` adds the first concrete
-transcript fix from that audit: second-level Taproot Asset HTLC aux leaves now
-encode the Lightning Labs virtual `lock_time` and `relative_lock_time` fields.
+Revision `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae` adds the first concrete
+transcript fixes from that audit: second-level Taproot Asset HTLC aux leaves
+now encode the Lightning Labs virtual `lock_time` and `relative_lock_time`
+fields, full counterparty commitments are persisted through monitor updates,
+and outgoing HTLC signatures use exact previous-output-bound second-level aux
+leaves.
 
-With `ldk-node@fefcc5747b84145b1c85a76fde13848b445ffc3a`, the current pin has
-now been rerun live. `litd` `fundchannel` completes, the channel confirms,
-`litd` reports a keysend-usable local asset balance, Rust Lightning verifies
-the peer HTLC Schnorr signature, and the peer `commitment_signed` is accepted.
-The live asset keysend still stays `IN_FLIGHT` because monitor update `1` does
-not complete and release the held `revoke_and_ack`/local commitment response
-before the peer times out. #81 remains open until that monitor/message path,
-receiver claim, witness/control-block recovery, and observed balances pass.
+With `ldk-node@8e087c096a1c9d6d6089ac5be34acbc20fa62e22`, the current pin has
+not yet been rerun live. The latest completed run before this pin showed
+`litd` `fundchannel` completing, the channel confirming, `litd` reporting a
+keysend-usable local asset balance, Rust Lightning verifying the peer HTLC
+Schnorr signature, accepting `commitment_signed`, completing monitor update
+`1`, and releasing `revoke_and_ack`; `litd` then rejected our outgoing HTLC
+signature. #81 remains open until the exact-leaf rerun settles, receiver claim,
+witness/control-block recovery, and observed balances pass.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 

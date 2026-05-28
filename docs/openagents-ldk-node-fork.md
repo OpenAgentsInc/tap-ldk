@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `fefcc5747b84145b1c85a76fde13848b445ffc3a`
+  `8e087c096a1c9d6d6089ac5be34acbc20fa62e22`
 - Current `rust-lightning` fork commit:
-  `acce215e1ca284fa45f1c13e13760de459d410d4`
+  `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -38,16 +38,18 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `fefcc5747b84145b1c85a76fde13848b445ffc3a` pin
-   `OpenAgentsInc/rust-lightning@acce215e1ca284fa45f1c13e13760de459d410d4`,
+   `8e087c096a1c9d6d6089ac5be34acbc20fa62e22` pin
+   `OpenAgentsInc/rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
    taproot feature support to the live preflight. The current pin also carries
    live `commitment_signed` asset-signature blob preservation, validation,
    HTLC transcript fixture coverage, and second-level virtual-lock asset-leaf
-   encoding from the Rust Lightning fork. The fork does not advertise STXO
-   support until native STXO commitment leaves are implemented and verified.
+   encoding, full counterparty commitment monitor persistence, and exact
+   previous-output-bound second-level HTLC aux leaves from the Rust Lightning
+   fork. The fork does not advertise STXO support until native STXO commitment
+   leaves are implemented and verified.
 5. #81 replaces the current readiness preflight with fork-backed live
    settlement against independent integrated Lightning Labs `litd`.
 

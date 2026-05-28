@@ -27,9 +27,11 @@ and `native_litd_peer_connected=true`, with the fork-backed asset-channel
 message/payment APIs reachable. It does not mark a `tap-ldk` to Lightning Labs
 payment complete; #81 now completes live asset-channel funding, confirms the
 channel, and sees `litd` report a keysend-usable asset balance. The latest
-rerun accepts the peer `commitment_signed`, then waits on the monitor update
-completion and held `revoke_and_ack`/local commitment response before it can
-settle and record the post-settlement receiver balance.
+completed rerun accepts the peer `commitment_signed`, completes monitor update
+`1`, releases `revoke_and_ack`, and then `litd` rejects our outgoing HTLC
+signature. The current fork pin derives exact previous-output-bound
+second-level HTLC aux leaves before signing; #81 must rerun that path before
+it can settle and record the post-settlement receiver balance.
 
 The harness mines a fresh regtest block before the LND sync checks, and again
 after the wallet-funding step, so a persisted regtest chain with an old tip

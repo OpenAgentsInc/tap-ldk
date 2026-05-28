@@ -6,17 +6,19 @@ This audit is the current working map for getting Path B from "funded but not
 settled" to a completed live Lightning Labs interop demo. It exists because the
 last several fixes were useful but too local: they moved the harness from peer
 readiness to funding, then from funding to payment-time HTLC delivery, then
-past the first HTLC signature mismatch. The live payment now requires the
-native runtime to complete the payment-time monitor update, release held
-commitment messages, claim the incoming HTLC, and record real asset balances.
+past the first HTLC signature mismatch, through monitor update completion, and
+to an outgoing local commitment response. The live payment now requires the
+native runtime to produce the exact Lightning Labs-compatible outgoing HTLC
+signature, claim the incoming HTLC, and record real asset balances.
 
 The current failure is not Docker, not `litd` startup, not peer connection, not
-feature negotiation, not funding, not signature encoding, and not the basic
-anchor HTLC sighash policy. The previous byte-level transcript mismatch is now
-fixture-backed and the virtual-lock fix gets the live rerun through
-`commitment_signed` verification. The active blocker is the
-ldk-node/Rust-Lightning monitor persistence and message-release boundary after
-that valid `commitment_signed`.
+feature negotiation, not funding, not signature encoding, not the basic anchor
+HTLC sighash policy, and no longer the monitor/message-release boundary. The
+previous peer-signature transcript mismatch is fixture-backed, the
+virtual-lock fix gets the live rerun through `commitment_signed`
+verification, and the full counterparty commitment fix completes monitor
+update `1`. The active blocker from the latest completed live run is
+Lightning Labs rejecting our outgoing HTLC signature.
 
 ## Current Live Gate
 
@@ -72,35 +74,39 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@acce215e1ca284fa45f1c13e13760de459d410d4`
-  applies the first concrete fix from this audit: second-level Taproot Asset
-  HTLC aux leaves now encode Lightning Labs virtual `lock_time` and
-  `relative_lock_time` fields.
-- `OpenAgentsInc/ldk-node@fefcc5747b84145b1c85a76fde13848b445ffc3a` pins that
+- `OpenAgentsInc/rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`
+  applies the current concrete fixes from this audit: second-level Taproot
+  Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
+  `relative_lock_time` fields, full Taproot Asset counterparty commitments are
+  persisted through monitor updates, and outgoing HTLC signatures use exact
+  previous-output-bound second-level aux leaves.
+- `OpenAgentsInc/ldk-node@8e087c096a1c9d6d6089ac5be34acbc20fa62e22` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
-The live rerun against these pins produced:
+The latest completed live rerun before the exact-leaf pin produced:
 
 - artifact directory:
-  `target/live-lightning-labs-outgoing-payment-virtual-locks/`
+  `target/live-lightning-labs-outgoing-payment-full-commitment/`
 - `OpenAgentsInc/rust-lightning`:
   `acce215e1ca284fa45f1c13e13760de459d410d4`
 - live report status: `blocked`
 - blocked step: `live_asset_channel_payment_settlement`
 - LND payment wire status: `IN_FLIGHT`
-- Rust Lightning result: peer HTLC signature verified and
-  `commitment_signed` accepted.
+- Rust Lightning result: peer HTLC signature verified, `commitment_signed`
+  accepted, monitor update `1` completed, and `revoke_and_ack` emitted.
+- Lightning Labs result: rejected our outgoing HTLC signature with
+  `invalid_htlc_sig`.
 
 The new blocker is narrower. Rust Lightning logs `Received valid
-commitment_signed from peer`, then pauses monitor updates, flushes monitor
-update `1`, and applies it. The log does not show `Completed off-chain monitor
-update 1`, `revoke_and_ack`, or the local commitment response before the peer
-disconnects after the payment timeout. This does not close #81. The next honest
-gate is to fix that monitor-update completion and message-release path, then
-continue into native receiver claim, force-close, and balance recording. If a
-later rerun exposes another signature or force-close transcript delta, compare
-it against the fixture and port the remaining bounded `tapchannel`/`tapsend`
-allocation semantics before touching unrelated signing policy.
+commitment_signed from peer`, `Completed off-chain monitor update 1`, and
+`Enqueueing message RevokeAndACK`, then signs the remote HTLC transaction. The
+peer responds with `rejected commitment: commit_height=1, invalid_htlc_sig=...`.
+This does not close #81. The next honest gate is to rerun with
+`rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`, which derives exact
+previous-output-bound second-level aux leaves before signing. If a later rerun
+exposes another signature or force-close transcript delta, compare it against
+the fixture and port the remaining bounded `tapchannel`/`tapsend` allocation
+semantics before touching unrelated signing policy.
 
 ## Failing Transcript
 
@@ -428,13 +434,21 @@ Acceptance for this phase:
   `Invalid simple-taproot HTLC signature from peer`;
 - the live keysend progresses past the first payment-time commitment update.
 
-Status: the virtual-lock rerun has satisfied the signature-verification part of
-this phase and progressed to a valid `commitment_signed`. The keysend has not
-progressed past monitor update completion and held-message release.
+Status: the virtual-lock and full-commitment reruns have satisfied the
+signature-verification part of this phase and progressed to a valid
+`commitment_signed`, monitor update completion, and held-message release. The
+keysend has not progressed past the outgoing HTLC signature accepted by
+Lightning Labs.
 
 ### Phase 3B: Complete Monitor Update And Release Held Commitment Messages
 
-Fix the runtime/protocol boundary that now blocks settlement:
+Status: implemented in
+`OpenAgentsInc/rust-lightning@acce215e1ca284fa45f1c13e13760de459d410d4`.
+The full-commitment rerun logs monitor update `1` completion and
+`revoke_and_ack` emission. Keep the BTC-only behavior checks in the regression
+set.
+
+The runtime/protocol boundary requirements were:
 
 - inspect `ldk-node`'s async monitor persister and background processor setup;
 - inspect Rust Lightning's `ChannelMonitorUpdateStatus::InProgress` completion
@@ -453,6 +467,24 @@ Acceptance for this phase:
 - `litd` progresses beyond `IN_FLIGHT` or exposes the next receiver-claim
   blocker with a concrete transcript;
 - BTC-only monitor update behavior remains unchanged.
+
+### Phase 3C: Produce Lightning Labs-Compatible Outgoing HTLC Signatures
+
+The latest completed live run failed after Phase 3B when `litd` rejected our
+outgoing HTLC signature. The current pin changes the signing transcript by
+rewriting nondust HTLC state to the exact previous-output-bound Taproot Asset
+second-level aux leaf after commitment txid/output index assignment.
+
+Acceptance for this phase:
+
+- rerun the live harness with
+  `rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`;
+- the live log no longer contains `invalid_htlc_sig` for our outgoing HTLC
+  signature;
+- if `litd` still rejects the signature, capture the new commitment tx,
+  sighash, HTLC tx, aux leaves, and signature as the next fixture before
+  changing behavior;
+- BTC-only and fixture-backed Taproot Asset tests remain unchanged.
 
 ### Phase 4: Fix Force-Close Witness And Control-Block Construction
 

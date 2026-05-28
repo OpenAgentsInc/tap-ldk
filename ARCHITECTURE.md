@@ -43,11 +43,12 @@ The Lightning Labs path is not a live payment yet:
   `native_litd_peer_connected=true`, both remote taproot feature observations,
   live `litd` asset-channel funding, `channel_ready`, and a keysend-usable
   `litd` asset-channel balance. It still lacks post-settlement balance
-  observation because the latest live run accepts the peer
-  `commitment_signed`, then stalls while monitor update `1` remains incomplete
-  and the held `revoke_and_ack`/local commitment response is not released. The
-  current fork pin now attempts the first full-channel HTLC aux-leaf path, the
-  live harness defaults to that full-channel payment amount, and peer HTLC
+  observation because the latest completed live run accepts the peer
+  `commitment_signed`, completes monitor update `1`, releases
+  `revoke_and_ack`, and then receives a Lightning Labs rejection for our
+  outgoing HTLC signature. The current fork pin now derives exact
+  previous-output-bound second-level HTLC aux leaves before signing, the live
+  harness defaults to the full-channel payment amount, and peer HTLC
   signatures are checked as BIP340 Schnorr signatures.
 - It now uses fork-backed `ldk-node`, so the live peer path reaches the
   OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset channel
@@ -386,12 +387,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `acce215e1ca284fa45f1c13e13760de459d410d4`
+- current revision: `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "acce215e1ca284fa45f1c13e13760de459d410d4", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "7bc73cf1ef7e2381c0562d61bfcdce9a18579cae", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -574,9 +575,12 @@ a real live demo:
   validation for Taproot Asset channels. Revision
   `c94f4570587e94e89740f5126a5fa70021b58de2` adds trace diagnostics and a
   regression fixture for the rejected simple-taproot HTLC signature
-  transcript. Revision `acce215e1ca284fa45f1c13e13760de459d410d4` adds the
-  first transcript fix from that audit by encoding Lightning Labs
-  second-level virtual lock fields in Taproot Asset HTLC aux leaves.
+  transcript. Revision `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae` adds the
+  current transcript fixes from that audit by encoding Lightning Labs
+  second-level virtual lock fields in Taproot Asset HTLC aux leaves, persisting
+  full Taproot Asset counterparty commitments through monitor updates, and
+  deriving exact previous-output-bound second-level HTLC aux leaves before
+  outgoing HTLC signing.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
@@ -1085,13 +1089,12 @@ runs the fork-backed `ldk-node` to `litd` path. It now reaches live
 asset-channel funding, confirms the channel, and sees `litd` report the
 channel usable for asset keysend. It now blocks at
 `live_asset_channel_payment_settlement`: the live asset keysend remains
-`IN_FLIGHT` after Rust Lightning accepts the peer `commitment_signed`. The
-current fork pin now derives a first full-channel HTLC aux leaf and verifies
-the peer HTLC signature as BIP340 Schnorr, but monitor update `1` does not
-complete and release the held `revoke_and_ack`/local commitment response before
-the peer times out. #81 now needs the monitor/update message path, receiver
-claim, witness/control-block construction, and observed balances before it can
-close.
+`IN_FLIGHT` after Rust Lightning accepts the peer `commitment_signed`,
+completes monitor update `1`, and releases `revoke_and_ack`; Lightning Labs
+then rejects our outgoing HTLC signature. The current fork pin now derives
+exact previous-output-bound second-level HTLC aux leaves before signing. #81
+now needs that live rerun, receiver claim, witness/control-block construction,
+and observed balances before it can close.
 
 Artifacts land in:
 

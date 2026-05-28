@@ -63,9 +63,10 @@ Lightning Labs `litd` peer through payment-time Taproot Asset commitment
 updates in the fork-backed `ldk-node`/`rust-lightning` path. Live funding now
 completes, and the current fork pin attempts the first full-channel HTLC
 aux-leaf path and verifies peer HTLC signatures as BIP340 Schnorr. The latest
-live run accepts `commitment_signed`, then leaves the `litd` payment
-`IN_FLIGHT` because monitor update `1` does not complete and release the held
-`revoke_and_ack`/local commitment response. The next work is that
-monitor/message path, native receiver claim, HTLC witness/control-block
-construction, observed post-settlement daemon balances, #58, and the #59 Path B
-completion gate.
+completed live run accepts `commitment_signed`, completes monitor update `1`,
+releases `revoke_and_ack`, then leaves the `litd` payment `IN_FLIGHT` because
+Lightning Labs rejects our outgoing HTLC signature. The current fork pin adds
+exact previous-output-bound second-level HTLC aux leaves before signing; the
+next work is rerunning that live path, then native receiver claim, HTLC
+witness/control-block construction, observed post-settlement daemon balances,
+#58, and the #59 Path B completion gate.
