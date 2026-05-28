@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
-- `OpenAgentsInc/ldk-node@700cda432a86d5a63a443e5d8a1b53aaf4063045`
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
+- `OpenAgentsInc/ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e`
 - `tap-ldk` pinned to those forks
 
 ## Summary
@@ -19,16 +19,20 @@ helpers, BIP86 funding outputs, simple-taproot commitment output construction,
 HTLC script helpers, second-level HTLC signing, reestablish/RAA nonce maps, and
 cooperative-close message types.
 
-It does not fully implement the current spec yet. The latest #84 follow-up
+It does not fully implement the current spec yet. Follow-up work through #87
 fixes the force-close funding-input failure that produced
-`Invalid Taproot control block size`, and the latest #85 follow-up fixes the
-private-channel rule for simple-taproot and Taproot Asset opens:
+`Invalid Taproot control block size`, the private-channel rule for
+simple-taproot and Taproot Asset opens, immediate open/accept nonce validation,
+and the type-22 RAA/reestablish nonce-map path:
 
 - local unilateral fallback now persists the aggregate holder MuSig2
   commitment signature and spends the simple-taproot funding output with a
   one-element key-path Schnorr witness;
 - outbound simple-taproot and Taproot Asset opens clear `announce_channel`,
   while inbound public simple-taproot/Taproot Asset opens fail closed;
+- RAA and reestablish send only type-22 nonce maps, reject scalar fallback once
+  simple-taproot funding is active, and regenerate retransmitted partials from
+  fresh nonce-map material;
 - cooperative close exists behind `simple_close` plus
   `simple_taproot_musig2`, but it is not yet live-proven for the demo channel;
 - splice nonce maps have some multi-funding plumbing, but concurrent splice
@@ -40,7 +44,7 @@ stay limited to the live settlement blocker. The rest of the BOLT conformance
 work is split into the issue set in
 `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
-Follow-up update: `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
+Follow-up update: `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
 now serializes 64 zero bytes for the legacy `signature` field when a
 simple-taproot MuSig2 partial-signature TLV is present in `funding_created`,
 `funding_signed`, or `commitment_signed`, rejects non-zero legacy fields on
@@ -48,7 +52,7 @@ decode, derives post-claim Taproot Asset balance script keys with the real CSV
 delay, includes a live `litd` zero-HTLC post-claim transcript regression, and
 persists the aggregate holder commitment Schnorr signature needed for
 simple-taproot key-path force-close broadcast.
-`OpenAgentsInc/ldk-node@700cda432a86d5a63a443e5d8a1b53aaf4063045` pins those
+`OpenAgentsInc/ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e` pins those
 fixes for the live runtime.
 The same current fork line also enforces the draft private-channel rule:
 simple-taproot and Taproot Asset outbound opens do not set `announce_channel`,
@@ -56,6 +60,10 @@ and inbound public opens for those channel types are rejected.
 It also enforces immediate type-4 nonce presence for simple-taproot and
 Taproot Asset `open_channel` and `accept_channel` handling, while legacy
 channels can still omit the TLV.
+It also makes type-22 `next_local_nonces` authoritative for simple-taproot RAA
+and reestablish, rejects the legacy scalar fallback once a simple-taproot
+funding txid exists, and keys retransmitted commitment partial signatures by
+the received nonce-map material.
 
 ## Why This Matters For #81
 
@@ -89,8 +97,8 @@ blocks.
 | Funding partials | `funding_created` and `funding_signed` legacy `signature` field must be 64 zero bytes; type 2 MuSig2 partial must be present and valid. | Type 2 MuSig2 partials are generated and validated. Current wire serialization emits zero legacy fields when the simple-taproot TLV is present and rejects non-zero peer legacy fields. | Implemented for wire field | Keep live interop and functional coverage around funding message acceptance. |
 | `channel_ready` nonce | Message must include a fresh type 4 nonce. | `check_get_channel_ready` sends a nonce and `channel_ready` handling requires it for simple-taproot funding. | Implemented | Add a missing-nonce functional regression if not already covered by message tests. |
 | `commitment_signed` partial | Legacy `signature` field must be zero; type 2 partial must verify; HTLC signatures must be BIP340 Schnorr in the existing HTLC field. | Type 2 partial validation and BIP340 HTLC verification exist. Current wire serialization emits a zero legacy field when the simple-taproot TLV is present and rejects non-zero peer legacy fields. The live post-claim `litd` transcript now verifies with fixture coverage. | Implemented for current live path | Keep the live transcript fixture and add more spec vectors as upstream publishes them. |
-| `revoke_and_ack` nonce map | Type 22 `next_local_nonces` must include one entry for each active funding txid. | `simple_taproot_next_local_nonces` builds a map across current and pending funding; receipt validates expected txids. A legacy scalar type 4 compatibility path is still accepted for a single funding txid. | Partial | Make type 22 the authoritative path for spec mode; keep scalar compatibility only under an explicit `litd` compatibility note or remove it after interop is stable. |
-| `channel_reestablish` nonce map | Type 22 must be sent and checked for every active commitment; retransmitted commits must regenerate partials with new nonces. | Reestablish sends the nonce map and stores received maps. Sent commitment signatures are persisted by funding txid and nonce index. | Partial | Add a reconnect test that forces retransmission and proves the partial is regenerated against the newly received nonce map. |
+| `revoke_and_ack` nonce map | Type 22 `next_local_nonces` must include one entry for each active funding txid. | `simple_taproot_next_local_nonces` builds a map across current and pending funding. RAA sends only type 22; receipt rejects missing maps, scalar fallback, duplicate entries, unknown txids, and omitted expected txids. | Implemented for current/pending funding set | Splice-specific concurrent funding coverage remains tracked separately under #90. |
+| `channel_reestablish` nonce map | Type 22 must be sent and checked for every active commitment; retransmitted commits must regenerate partials with new nonces. | Reestablish sends only type 22, receipt applies the same fail-closed map validation, and retransmitted commitment partials are keyed by a domain-separated commitment number plus the newly received peer nonce. | Implemented for current/pending funding set | Splice-specific concurrent funding coverage remains tracked separately under #90. |
 | Splice coordination | Every active splice/funding txid needs a distinct nonce entry. | Expected txid calculation includes current funding and pending funding. No live or vector proof of concurrent splice maps exists. | Partial | Add bounded splice nonce-map tests or mark splicing out of the first demo's acceptance criteria. |
 | BIP86 funding output | Funding output must be P2TR over MuSig2 KeyAgg(KeySort(funding keys)). | `SimpleTaprootKeyAggContext` builds BIP86 funding scripts and has BOLT vector replay. | Implemented | Keep vector coverage. |
 | To-local output | NUMS internal key, delay/revocation leaves, correct parity-bearing control blocks, delay sequence. | `simple_taproot_to_local_spend_info` builds delay and revocation leaves and test coverage checks control-block lengths. Taproot Asset aux leaves alter tree depth. The #84 live invalid-control-block symptom was the funding-input witness, not a to-local output control block. | Partial | Keep to-local output-spend coverage in the broader BTC-only force-close and Taproot Asset recovery gates. |
@@ -105,31 +113,33 @@ blocks.
 
 Completed follow-up from this audit:
 
-- `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
   adds a focused regression for simple-taproot legacy signature zeroing and
   non-zero legacy signature rejection in `funding_created`, `funding_signed`,
   and `commitment_signed`.
-- `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
   also persists the aggregate simple-taproot holder commitment signature in
   `HolderCommitmentTransaction`, uses it in the on-chain holder funding-output
   package path, and asserts that the latest holder commitment transaction spends
   the P2TR funding output with exactly one 64-byte Schnorr witness element.
-- `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
   enforces private-only simple-taproot and Taproot Asset channel opens while
   preserving legacy public BTC channel behavior.
-- `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
   rejects missing type-4 `next_local_nonce` during simple-taproot and Taproot
   Asset `open_channel`/`accept_channel` handling before channel state advances.
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
+  makes type-22 `next_local_nonces` authoritative for RAA and reestablish,
+  rejects the legacy scalar fallback after simple-taproot funding exists, and
+  proves retransmitted commitment partials change when the peer advertises a
+  fresh nonce map.
 
 Remaining work that should be tracked outside #81 before #61 closes:
 
-1. Make type 22 `next_local_nonces` the spec path for RAA and reestablish,
-   then prove reconnect/retransmission regenerates partial signatures from the
-   newly received nonces.
-2. After the live #81 run is clean, run BTC-only simple-taproot open/pay,
+1. After the live #81 run is clean, run BTC-only simple-taproot open/pay,
    reestablish, cooperative close, and force-close checks before closing #61.
-3. Live-prove cooperative close for simple-taproot channels.
-4. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
+2. Live-prove cooperative close for simple-taproot channels.
+3. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
    out of the first demo's acceptance criteria.
 
 ## Closure Rule

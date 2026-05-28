@@ -9,8 +9,8 @@ before the project claims simple-taproot support is complete.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
-- `OpenAgentsInc/ldk-node@700cda432a86d5a63a443e5d8a1b53aaf4063045`
+- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
+- `OpenAgentsInc/ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e`
 
 The current fork line fixes the completed audit gaps so far: simple-taproot
 `funding_created`, `funding_signed`, and `commitment_signed` now serialize the
@@ -36,6 +36,11 @@ It also closes #86: simple-taproot and Taproot Asset `open_channel` and
 `accept_channel` handling now reject missing type-4 `next_local_nonce`
 immediately, while legacy channel types can still omit the TLV.
 
+It also closes #87: RAA and `channel_reestablish` now send type-22 nonce maps
+as the authoritative path, reject legacy scalar fallback once simple-taproot
+funding exists, and regenerate retransmitted commitment partials from fresh
+nonce-map material.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
@@ -45,7 +50,7 @@ immediately, while legacy channel types can still omit the TLV.
 | #84 | Done | Fix the live simple-taproot force-close control-block/witness path | Closed after fixture and live verification |
 | #85 | Done | Enforce the no-public-simple-taproot-channel rule | Closed after fork pin and docs update |
 | #86 | Done | Fail `open_channel` / `accept_channel` immediately on missing simple-taproot nonces | Closed after fork pin and docs update |
-| #87 | BOLT compliance | Make type-22 nonce maps authoritative and prove reconnect retransmission | #61 |
+| #87 | Done | Make type-22 nonce maps authoritative and prove reconnect retransmission | Closed after fork pin and docs update |
 | #88 | BOLT compliance | Add a BTC-only simple-taproot end-to-end conformance gate | #61 |
 | #89 | BOLT compliance | Live-prove cooperative close for simple-taproot channels | #61, #71 |
 | #90 | BOLT compliance | Cover splice nonce maps or explicitly gate splicing out of the first demo | #61, #71 |
@@ -55,14 +60,11 @@ immediately, while legacy channel types can still omit the TLV.
 These are required for BOLT simple-taproot completion but do not need to be
 stuffed into #81:
 
-1. Make type-22 `next_local_nonces` the spec path for RAA and
-   `channel_reestablish`, then prove retransmitted commitments regenerate
-   partial signatures from newly received nonce maps.
-2. Add a BTC-only simple-taproot conformance gate covering open, payment,
+1. Add a BTC-only simple-taproot conformance gate covering open, payment,
    reconnect/reestablish, cooperative close, and force-close.
-3. Prove cooperative close in the live/simple-taproot path before using it as a
+2. Prove cooperative close in the live/simple-taproot path before using it as a
    demo claim.
-4. Either add bounded splice nonce-map coverage or explicitly mark concurrent
+3. Either add bounded splice nonce-map coverage or explicitly mark concurrent
    splicing out of the first demo's acceptance criteria.
 
 ## Closure Policy

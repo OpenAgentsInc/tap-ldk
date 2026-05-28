@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
+- Current `tap-ldk` revision: `88bc3ec10b594aecbf8463a84a397e9b67028395`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "9ee4c0cabaca931a30a3926b85aa6631d9d63b4b"
+rev = "88bc3ec10b594aecbf8463a84a397e9b67028395"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,7 +205,7 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Follow-up revisions through `9ee4c0cabaca931a30a3926b85aa6631d9d63b4b` add the
+Follow-up revisions through `88bc3ec10b594aecbf8463a84a397e9b67028395` add the
 current concrete transcript fixes from that audit: second-level Taproot Asset
 HTLC aux leaves encode the Lightning Labs virtual `lock_time` and
 `relative_lock_time` fields, full counterparty commitments are persisted
@@ -225,7 +225,7 @@ rejects simple-taproot and Taproot Asset `open_channel`/`accept_channel`
 messages that omit the required type-4 `next_local_nonce`, while legacy
 channels can still omit that TLV.
 
-With `ldk-node@700cda432a86d5a63a443e5d8a1b53aaf4063045`, the current pin
+With `ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e`, the current pin
 carries that wire-field fix into the live runtime. The latest live state still
 settles the Lightning Labs to native payment and records native receiver
 balance, and the post-claim partial-signature transcript plus #84
