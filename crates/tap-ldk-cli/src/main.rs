@@ -23,7 +23,8 @@ use tap_ldk_core::{
     },
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
     live_litd_peer::{
-        LiveLitdPeerPreflightRequest, run_live_litd_peer_hold, run_live_litd_peer_preflight,
+        LiveLitdNativeAssetSendRequest, LiveLitdPeerPreflightRequest, run_live_litd_peer_hold,
+        run_live_litd_peer_preflight,
     },
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
@@ -144,6 +145,43 @@ fn main() {
             storage_dir,
             litd_node_id,
             litd_address,
+            hold_seconds,
+            native_send_asset_id,
+            native_send_asset_amount,
+            native_send_amount_msat,
+        ] if command == "live-litd-peer-hold" => {
+            let mut request =
+                LiveLitdPeerPreflightRequest::new(storage_dir, litd_node_id, litd_address);
+            apply_regtest_env_to_live_litd_request(&mut request);
+            let hold_seconds = parse_u64_or_exit(hold_seconds, "hold seconds");
+            let native_to_litd_send = LiveLitdNativeAssetSendRequest {
+                asset_id: parse_asset_id_or_exit(native_send_asset_id).0,
+                asset_amount: parse_u64_or_exit(
+                    native_send_asset_amount,
+                    "native send asset amount",
+                ),
+                amount_msat: parse_u64_or_exit(native_send_amount_msat, "native send msat amount"),
+            };
+            let report = match run_live_litd_peer_hold(
+                request,
+                report_path,
+                hold_seconds,
+                Some(native_to_litd_send),
+            ) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live litd peer hold: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "live litd peer hold report");
+        }
+        [
+            command,
+            report_path,
+            storage_dir,
+            litd_node_id,
+            litd_address,
         ] if command == "live-litd-peer-preflight" => {
             let mut request =
                 LiveLitdPeerPreflightRequest::new(storage_dir, litd_node_id, litd_address);
@@ -170,7 +208,7 @@ fn main() {
                 LiveLitdPeerPreflightRequest::new(storage_dir, litd_node_id, litd_address);
             apply_regtest_env_to_live_litd_request(&mut request);
             let hold_seconds = parse_u64_or_exit(hold_seconds, "hold seconds");
-            let report = match run_live_litd_peer_hold(request, report_path, hold_seconds) {
+            let report = match run_live_litd_peer_hold(request, report_path, hold_seconds, None) {
                 Ok(report) => report,
                 Err(err) => {
                     eprintln!("failed live litd peer hold: {err}");
@@ -849,7 +887,7 @@ fn print_help(info: ProjectInfo) {
         "  tap-ldk live-litd-peer-preflight <report.json> <storage-dir> <litd-node-id> <litd-address>"
     );
     println!(
-        "  tap-ldk live-litd-peer-hold <report.json> <storage-dir> <litd-node-id> <litd-address> <hold-seconds>"
+        "  tap-ldk live-litd-peer-hold <report.json> <storage-dir> <litd-node-id> <litd-address> <hold-seconds> [native-send-asset-id native-send-asset-amount native-send-msat]"
     );
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");

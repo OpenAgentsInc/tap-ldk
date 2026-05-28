@@ -427,8 +427,8 @@ Relevant Lightning Labs behavior:
 - Do not move settlement accounting into `tap-ldk` or `ldk-node` without the
   Rust Lightning commitment transcript being correct.
 - Do not depend on `tapd`, `litd`, or LND as a sidecar inside the wallet.
-- Do not close #57, #58, #59, #60, #61, #71, or #19 from fixture-only reports.
-  #81 is closed only by the live completed gate and remains a regression.
+- Do not close #58, #59, #60, #61, #71, or #19 from fixture-only reports.
+  #81 and #57 are closed only by live completed gates and remain regressions.
 - Do not weaken runtime fail-closed policy to make a live harness report
   better.
 
@@ -690,7 +690,7 @@ Current open issue order remains:
 6. #71: full Taproot Assets LDK epic;
 7. #19: Path B Lightning Labs interop epic.
 
-Keep #81's live harness green as a regression. Do not close #57 or #58 until
-their direction-specific live balance checks are real. Do not close #59 until
+Keep #81 and #57's live harness green as regressions. Do not close #58 until
+its direction-specific live balance/restart checks are real. Do not close #59 until
 expected-only fields cannot satisfy Path B. Do not close #61, #71, or #19
 while any concrete child issue above remains open.

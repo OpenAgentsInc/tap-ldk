@@ -26,6 +26,9 @@ LITD_ASSET_CHANNEL_FUND_REPORT="$ARTIFACT_DIR/lightning-labs-litd-asset-channel-
 LITD_ASSET_CHANNEL_ACTIVE_REPORT="$ARTIFACT_DIR/lightning-labs-litd-asset-channel-active.json"
 LITD_ASSET_PAYMENT_REPORT="$ARTIFACT_DIR/lightning-labs-litd-asset-keysend.json"
 LITD_POST_PAYMENT_BALANCE_REPORT="$ARTIFACT_DIR/lightning-labs-litd-post-payment-balance.json"
+LITD_POST_PAYMENT_CHANNEL_REPORT="$ARTIFACT_DIR/lightning-labs-litd-post-payment-channel.json"
+LITD_POST_NATIVE_PAYMENT_BALANCE_REPORT="$ARTIFACT_DIR/lightning-labs-litd-post-native-payment-balance.json"
+LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT="$ARTIFACT_DIR/lightning-labs-litd-post-native-payment-channel.json"
 TAPCHANNEL_FIXTURE_DIR="$ROOT/fixtures/lightning-labs/tapchannelmsg/testdata"
 WAIT_TIMEOUT_SECONDS="${TAP_LDK_LL_WAIT_TIMEOUT_SECONDS:-180}"
 WAIT_INTERVAL_SECONDS="${TAP_LDK_LL_WAIT_INTERVAL_SECONDS:-2}"
@@ -34,8 +37,13 @@ LITD_ASSET_SUPPLY="${TAP_LDK_LL_LITD_ASSET_SUPPLY:-1000000}"
 LITD_ASSET_DECIMAL_DISPLAY="${TAP_LDK_LL_LITD_ASSET_DECIMAL_DISPLAY:-2}"
 LITD_ASSET_TAG="${TAP_LDK_LL_LITD_ASSET_TAG:-OPENUSD-LITD-$(date +%s)}"
 LITD_ASSET_CHANNEL_AMOUNT="${TAP_LDK_LL_LITD_ASSET_CHANNEL_AMOUNT:-}"
+LITD_ASSET_CHANNEL_PUSH_SAT="${TAP_LDK_LL_LITD_ASSET_CHANNEL_PUSH_SAT:-5000}"
 LITD_FEE_RATE_SAT_PER_VBYTE="${TAP_LDK_LL_FEE_RATE_SAT_PER_VBYTE:-1}"
 LITD_ASSET_PAYMENT_AMOUNT="${TAP_LDK_LL_LITD_ASSET_PAYMENT_AMOUNT:-}"
+# Lightning Labs rejects an asset HTLC whose BTC amount is below the channel
+# dust floor. The litd-originated 125-unit payment uses 354 sat on regtest, so
+# use the same floor-covering amount for the reverse native-to-litd leg.
+NATIVE_TO_LITD_PAYMENT_MSAT="${TAP_LDK_LL_NATIVE_TO_LITD_PAYMENT_MSAT:-354000}"
 LITD_ASSET_PAYMENT_TIMEOUT="${TAP_LDK_LL_LITD_ASSET_PAYMENT_TIMEOUT:-15s}"
 LITD_ASSET_CHANNEL_POST_ACTIVE_SETTLE_SECONDS="${TAP_LDK_LL_LITD_ASSET_CHANNEL_POST_ACTIVE_SETTLE_SECONDS:-3}"
 NATIVE_LDK_HOLD_PID=""
@@ -52,7 +60,10 @@ rm -f \
   "$LITD_ASSET_CHANNEL_FUND_REPORT" \
   "$LITD_ASSET_CHANNEL_ACTIVE_REPORT" \
   "$LITD_ASSET_PAYMENT_REPORT" \
-  "$LITD_POST_PAYMENT_BALANCE_REPORT"
+  "$LITD_POST_PAYMENT_BALANCE_REPORT" \
+  "$LITD_POST_PAYMENT_CHANNEL_REPORT" \
+  "$LITD_POST_NATIVE_PAYMENT_BALANCE_REPORT" \
+  "$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT"
 
 cleanup() {
   if [ -n "$NATIVE_LDK_HOLD_PID" ] && kill -0 "$NATIVE_LDK_HOLD_PID" 2>/dev/null; then
@@ -101,6 +112,24 @@ wait_for_native_asset_payment_record() {
   done
 }
 
+wait_for_native_to_litd_asset_payment_record() {
+  local start now elapsed
+  start="$(date +%s)"
+  while true; do
+    if [ -s "$LITD_PEER_PREFLIGHT_REPORT" ] \
+      && jq -e '.native_to_litd_asset_payment.status == "settled"' \
+        "$LITD_PEER_PREFLIGHT_REPORT" >/dev/null 2>&1; then
+      return 0
+    fi
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$WAIT_TIMEOUT_SECONDS" ]; then
+      return 1
+    fi
+    sleep "$WAIT_INTERVAL_SECONDS"
+  done
+}
+
 is_uint() {
   case "$1" in
     ''|*[!0-9]*)
@@ -126,11 +155,19 @@ write_report() {
   local litd_peer_supports_simple_taproot_staging litd_peer_supports_taproot_asset_channel
   local native_ldk_litd_peer_preflight_gap litd_minted_asset_id litd_minted_asset_supply
   local litd_asset_channel_fund_status litd_asset_channel_fund_exit_code litd_asset_channel_fund_stderr
+  local litd_asset_channel_push_sat
   local litd_asset_channel_active litd_asset_channel_local_balance litd_asset_channel_active_stderr
   local litd_asset_payment_status litd_asset_payment_exit_code litd_asset_payment_hash litd_asset_payment_wire_status
-  local litd_asset_payment_error litd_post_payment_balance
+  local litd_asset_payment_error litd_post_payment_balance litd_post_native_payment_balance
+  local litd_post_payment_channel_local_balance litd_post_native_payment_channel_local_balance
+  local litd_post_payment_channel_remote_balance litd_post_native_payment_channel_remote_balance
+  local litd_post_payment_channel_active litd_post_native_payment_channel_active
   local native_asset_receiver_payment_status native_asset_receiver_payment_recorded native_asset_receiver_channel_id
   local native_asset_receiver_local_balance_after native_asset_receiver_remote_balance_after native_asset_receiver_amount
+  local native_asset_sender_payment_attempted native_asset_sender_payment_status native_asset_sender_payment_id
+  local native_asset_sender_channel_id native_asset_sender_amount native_asset_sender_msat
+  local native_asset_sender_local_balance_before native_asset_sender_remote_balance_before
+  local native_asset_sender_local_balance_after native_asset_sender_remote_balance_after native_asset_sender_error
   local native_ldk_payment_claimable_logged native_ldk_payment_claimed_logged native_ldk_counterparty_force_closed_logged
   local native_ldk_invalid_commitment_logged native_ldk_invalid_simple_taproot_partial_sig_logged
   local native_ldk_invalid_simple_taproot_commitment_partial_sig_logged native_ldk_invalid_simple_taproot_htlc_sig_logged
@@ -170,6 +207,7 @@ write_report() {
   litd_asset_channel_fund_status="$(jq -r '.status // empty' "$LITD_ASSET_CHANNEL_FUND_REPORT" 2>/dev/null || true)"
   litd_asset_channel_fund_exit_code="$(jq -r '.exit_code // empty' "$LITD_ASSET_CHANNEL_FUND_REPORT" 2>/dev/null || true)"
   litd_asset_channel_fund_stderr="$(jq -r '.stderr // empty' "$LITD_ASSET_CHANNEL_FUND_REPORT" 2>/dev/null || true)"
+  litd_asset_channel_push_sat="$(jq -r '.push_sat // empty' "$LITD_ASSET_CHANNEL_FUND_REPORT" 2>/dev/null || true)"
   litd_asset_channel_active="$(jq -r '.usable_for_keysend // empty' "$LITD_ASSET_CHANNEL_ACTIVE_REPORT" 2>/dev/null || true)"
   litd_asset_channel_local_balance="$(jq -r '.local_asset_balance // empty' "$LITD_ASSET_CHANNEL_ACTIVE_REPORT" 2>/dev/null || true)"
   litd_asset_channel_active_stderr="$(cat "$LOG_DIR/lightning-labs-litd-asset-channel-active.err" 2>/dev/null || true)"
@@ -179,6 +217,24 @@ write_report() {
   litd_asset_payment_wire_status="$(jq -r '.payment_status // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
   litd_asset_payment_error="$(jq -r '.payment_error // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
   litd_post_payment_balance="$(jq -r '.observed_balance // empty' "$LITD_POST_PAYMENT_BALANCE_REPORT" 2>/dev/null || true)"
+  litd_post_native_payment_balance="$(jq -r '.observed_balance // empty' "$LITD_POST_NATIVE_PAYMENT_BALANCE_REPORT" 2>/dev/null || true)"
+  litd_post_payment_channel_local_balance="$(jq -r '.local_asset_balance // empty' "$LITD_POST_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+  litd_post_native_payment_channel_local_balance="$(jq -r '.local_asset_balance // empty' "$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+  litd_post_payment_channel_remote_balance="$(jq -r '.remote_asset_balance // empty' "$LITD_POST_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+  litd_post_native_payment_channel_remote_balance="$(jq -r '.remote_asset_balance // empty' "$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+  litd_post_payment_channel_active="$(jq -r '.active // empty' "$LITD_POST_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+  litd_post_native_payment_channel_active="$(jq -r '.active // empty' "$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+  native_asset_sender_payment_attempted="$(jq -r '.native_to_litd_asset_payment.attempted // false' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_payment_status="$(jq -r '.native_to_litd_asset_payment.status // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_payment_id="$(jq -r '.native_to_litd_asset_payment.payment_id // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_channel_id="$(jq -r '.native_to_litd_asset_payment.channel_id // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_amount="$(jq -r '.native_to_litd_asset_payment.asset_amount // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_msat="$(jq -r '.native_to_litd_asset_payment.amount_msat // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_local_balance_before="$(jq -r '.native_to_litd_asset_payment.local_balance_before // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_remote_balance_before="$(jq -r '.native_to_litd_asset_payment.remote_balance_before // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_local_balance_after="$(jq -r '.native_to_litd_asset_payment.local_balance_after // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_remote_balance_after="$(jq -r '.native_to_litd_asset_payment.remote_balance_after // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+  native_asset_sender_error="$(jq -r '.native_to_litd_asset_payment.error // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
   native_ldk_log="$NATIVE_LDK_PEER_STATE_DIR/ldk_node.log"
   native_asset_receiver_payment_status=""
   native_asset_receiver_payment_recorded="false"
@@ -285,6 +341,7 @@ write_report() {
     --arg litd_asset_channel_fund_status "$litd_asset_channel_fund_status" \
     --arg litd_asset_channel_fund_exit_code "$litd_asset_channel_fund_exit_code" \
     --arg litd_asset_channel_fund_stderr "$litd_asset_channel_fund_stderr" \
+    --arg litd_asset_channel_push_sat "$litd_asset_channel_push_sat" \
     --arg litd_asset_channel_active "$litd_asset_channel_active" \
     --arg litd_asset_channel_local_balance "$litd_asset_channel_local_balance" \
     --arg litd_asset_channel_active_stderr "$litd_asset_channel_active_stderr" \
@@ -294,12 +351,30 @@ write_report() {
     --arg litd_asset_payment_wire_status "$litd_asset_payment_wire_status" \
     --arg litd_asset_payment_error "$litd_asset_payment_error" \
     --arg litd_post_payment_balance "$litd_post_payment_balance" \
+    --arg litd_post_native_payment_balance "$litd_post_native_payment_balance" \
+    --arg litd_post_payment_channel_local_balance "$litd_post_payment_channel_local_balance" \
+    --arg litd_post_native_payment_channel_local_balance "$litd_post_native_payment_channel_local_balance" \
+    --arg litd_post_payment_channel_remote_balance "$litd_post_payment_channel_remote_balance" \
+    --arg litd_post_native_payment_channel_remote_balance "$litd_post_native_payment_channel_remote_balance" \
+    --arg litd_post_payment_channel_active "$litd_post_payment_channel_active" \
+    --arg litd_post_native_payment_channel_active "$litd_post_native_payment_channel_active" \
     --arg native_asset_receiver_payment_recorded "$native_asset_receiver_payment_recorded" \
     --arg native_asset_receiver_payment_status "$native_asset_receiver_payment_status" \
     --arg native_asset_receiver_channel_id "$native_asset_receiver_channel_id" \
     --arg native_asset_receiver_local_balance_after "$native_asset_receiver_local_balance_after" \
     --arg native_asset_receiver_remote_balance_after "$native_asset_receiver_remote_balance_after" \
     --arg native_asset_receiver_amount "$native_asset_receiver_amount" \
+    --arg native_asset_sender_payment_attempted "$native_asset_sender_payment_attempted" \
+    --arg native_asset_sender_payment_status "$native_asset_sender_payment_status" \
+    --arg native_asset_sender_payment_id "$native_asset_sender_payment_id" \
+    --arg native_asset_sender_channel_id "$native_asset_sender_channel_id" \
+    --arg native_asset_sender_amount "$native_asset_sender_amount" \
+    --arg native_asset_sender_msat "$native_asset_sender_msat" \
+    --arg native_asset_sender_local_balance_before "$native_asset_sender_local_balance_before" \
+    --arg native_asset_sender_remote_balance_before "$native_asset_sender_remote_balance_before" \
+    --arg native_asset_sender_local_balance_after "$native_asset_sender_local_balance_after" \
+    --arg native_asset_sender_remote_balance_after "$native_asset_sender_remote_balance_after" \
+    --arg native_asset_sender_error "$native_asset_sender_error" \
     --arg native_ldk_payment_claimable_logged "$native_ldk_payment_claimable_logged" \
     --arg native_ldk_payment_claimed_logged "$native_ldk_payment_claimed_logged" \
     --arg native_ldk_counterparty_force_closed_logged "$native_ldk_counterparty_force_closed_logged" \
@@ -315,6 +390,9 @@ write_report() {
     --arg litd_asset_channel_active_report "$LITD_ASSET_CHANNEL_ACTIVE_REPORT" \
     --arg litd_asset_payment_report "$LITD_ASSET_PAYMENT_REPORT" \
     --arg litd_post_payment_balance_report "$LITD_POST_PAYMENT_BALANCE_REPORT" \
+    --arg litd_post_payment_channel_report "$LITD_POST_PAYMENT_CHANNEL_REPORT" \
+    --arg litd_post_native_payment_balance_report "$LITD_POST_NATIVE_PAYMENT_BALANCE_REPORT" \
+    --arg litd_post_native_payment_channel_report "$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT" \
     '((if (($native_asset_receiver_local_balance_after | test("^[0-9]+$")) and ($native_asset_receiver_amount | test("^[0-9]+$"))) then (($native_asset_receiver_local_balance_after | tonumber) >= ($native_asset_receiver_amount | tonumber)) else false end) as $native_receiver_balance_ok
     | (($litd_asset_payment_status == "completed")
       and (($litd_asset_payment_wire_status == "SUCCEEDED") or ($litd_asset_payment_wire_status | length == 0))
@@ -327,6 +405,23 @@ write_report() {
       and ($native_ldk_invalid_simple_taproot_commitment_partial_sig_logged != "true")
       and ($native_ldk_invalid_simple_taproot_htlc_sig_logged != "true")
       and ($native_ldk_invalid_taproot_control_block_logged != "true")) as $issue_81_acceptance_met
+    | (if (($litd_post_native_payment_channel_local_balance | test("^[0-9]+$"))
+        and ($native_asset_sender_amount | test("^[0-9]+$")))
+      then (($litd_post_native_payment_channel_local_balance | tonumber) >= ($native_asset_sender_amount | tonumber))
+      else false end) as $litd_receiver_delta_ok
+    | ($issue_81_acceptance_met
+      and ($native_asset_sender_payment_attempted == "true")
+      and ($native_asset_sender_payment_status == "settled")
+      and $litd_receiver_delta_ok
+      and ($quote_replay == "true")
+      and ($wrong_asset == "true")
+      and ($wrong_amount == "true")
+      and ($native_ldk_counterparty_force_closed_logged != "true")
+      and ($native_ldk_invalid_commitment_logged != "true")
+      and ($native_ldk_invalid_simple_taproot_partial_sig_logged != "true")
+      and ($native_ldk_invalid_simple_taproot_commitment_partial_sig_logged != "true")
+      and ($native_ldk_invalid_simple_taproot_htlc_sig_logged != "true")
+      and ($native_ldk_invalid_taproot_control_block_logged != "true")) as $issue_57_acceptance_met
     | {
       schema_version: 1,
       source: $source,
@@ -334,21 +429,21 @@ write_report() {
       blocked_step: ($blocked_step | if length > 0 then . else null end),
       reason: $reason,
       fixture_only_path: false,
-      live_payment_direction: "lightning_labs_litd_to_native_tap_ldk",
-      live_sender: "independent Lightning Labs integrated litd counterparty",
-      live_receiver: "fork-backed native LDK/tap-ldk node",
-      tap_ldk_sender: null,
-      lightning_labs_receiver: null,
+      live_payment_direction: "bidirectional_litd_to_native_then_native_to_litd",
+      live_sender: "fork-backed native LDK/tap-ldk node after receiving the live asset",
+      live_receiver: "independent Lightning Labs integrated litd counterparty",
+      tap_ldk_sender: ($native_litd_node_id | if length > 0 then . else null end),
+      lightning_labs_receiver: ($litd_identity_pubkey | if length > 0 then . else null end),
       payment_id: ($payment_id | if length > 0 then . else null end),
       asset_id: ($asset_id | if length > 0 then . else null end),
       asset_amount: (if ($asset_amount | test("^[0-9]+$")) then ($asset_amount | tonumber) else null end),
       quote_id: ($quote_id | if length > 0 then . else null end),
       expected_sender_balance_after: (if ($expected_sender_after | test("^[0-9]+$")) then ($expected_sender_after | tonumber) else null end),
       expected_lightning_labs_receiver_balance_after: (if ($expected_receiver_after | test("^[0-9]+$")) then ($expected_receiver_after | tonumber) else null end),
-      observed_lightning_labs_receiver_balance_after: null,
+      observed_lightning_labs_receiver_balance_after: (if ($litd_post_native_payment_balance | test("^[0-9]+$")) then ($litd_post_native_payment_balance | tonumber) else null end),
       observed_lightning_labs_sender_balance_after: (if ($litd_post_payment_balance | test("^[0-9]+$")) then ($litd_post_payment_balance | tonumber) else null end),
       observed_lightning_labs_receiver_current_balance: (if ($current_observed_balance | test("^[0-9]+$")) then ($current_observed_balance | tonumber) else null end),
-      observed_live_balance: ($native_asset_receiver_payment_recorded == "true"),
+      observed_live_balance: (($native_asset_receiver_payment_recorded == "true") and ($litd_receiver_delta_ok or ($native_asset_sender_payment_status | length == 0))),
       failure_checks: {
         quote_replay_rejected: ($quote_replay == "true"),
         wrong_asset_rejected: ($wrong_asset == "true"),
@@ -365,6 +460,9 @@ write_report() {
         integrated_litd_asset_channel_active_report: $litd_asset_channel_active_report,
         integrated_litd_asset_payment_report: $litd_asset_payment_report,
         integrated_litd_post_payment_balance_report: $litd_post_payment_balance_report,
+        integrated_litd_post_payment_channel_report: $litd_post_payment_channel_report,
+        integrated_litd_post_native_payment_balance_report: $litd_post_native_payment_balance_report,
+        integrated_litd_post_native_payment_channel_report: $litd_post_native_payment_channel_report,
         bounded_outgoing_payment_report: $bounded_report,
         outgoing_payment_store: $outgoing_store
       },
@@ -390,6 +488,7 @@ write_report() {
       integrated_litd_asset_channel_fund_status: ($litd_asset_channel_fund_status | if length > 0 then . else null end),
       integrated_litd_asset_channel_fund_exit_code: (if ($litd_asset_channel_fund_exit_code | test("^[0-9]+$")) then ($litd_asset_channel_fund_exit_code | tonumber) else null end),
       integrated_litd_asset_channel_fund_stderr: ($litd_asset_channel_fund_stderr | if length > 0 then . else null end),
+      integrated_litd_asset_channel_push_sat: (if ($litd_asset_channel_push_sat | test("^[0-9]+$")) then ($litd_asset_channel_push_sat | tonumber) else null end),
       integrated_litd_asset_channel_usable_for_keysend: ($litd_asset_channel_active == "true"),
       integrated_litd_asset_channel_local_balance: (if ($litd_asset_channel_local_balance | test("^[0-9]+$")) then ($litd_asset_channel_local_balance | tonumber) else null end),
       integrated_litd_asset_channel_active_stderr: ($litd_asset_channel_active_stderr | if length > 0 then . else null end),
@@ -399,12 +498,32 @@ write_report() {
       integrated_litd_asset_payment_wire_status: ($litd_asset_payment_wire_status | if length > 0 then . else null end),
       integrated_litd_asset_payment_error: ($litd_asset_payment_error | if length > 0 then . else null end),
       integrated_litd_post_payment_balance: (if ($litd_post_payment_balance | test("^[0-9]+$")) then ($litd_post_payment_balance | tonumber) else null end),
+      integrated_litd_post_native_payment_balance: (if ($litd_post_native_payment_balance | test("^[0-9]+$")) then ($litd_post_native_payment_balance | tonumber) else null end),
+      integrated_litd_post_payment_channel_active: ($litd_post_payment_channel_active == "true"),
+      integrated_litd_post_payment_channel_local_balance: (if ($litd_post_payment_channel_local_balance | test("^[0-9]+$")) then ($litd_post_payment_channel_local_balance | tonumber) else null end),
+      integrated_litd_post_payment_channel_remote_balance: (if ($litd_post_payment_channel_remote_balance | test("^[0-9]+$")) then ($litd_post_payment_channel_remote_balance | tonumber) else null end),
+      integrated_litd_post_native_payment_channel_active: ($litd_post_native_payment_channel_active == "true"),
+      integrated_litd_post_native_payment_channel_local_balance: (if ($litd_post_native_payment_channel_local_balance | test("^[0-9]+$")) then ($litd_post_native_payment_channel_local_balance | tonumber) else null end),
+      integrated_litd_post_native_payment_channel_remote_balance: (if ($litd_post_native_payment_channel_remote_balance | test("^[0-9]+$")) then ($litd_post_native_payment_channel_remote_balance | tonumber) else null end),
       native_asset_receiver_payment_recorded: ($native_asset_receiver_payment_recorded == "true"),
       native_asset_receiver_payment_status: ($native_asset_receiver_payment_status | if length > 0 then . else null end),
       native_asset_receiver_channel_id: ($native_asset_receiver_channel_id | if length > 0 then . else null end),
       native_asset_receiver_amount: (if ($native_asset_receiver_amount | test("^[0-9]+$")) then ($native_asset_receiver_amount | tonumber) else null end),
       native_asset_receiver_local_balance_after: (if ($native_asset_receiver_local_balance_after | test("^[0-9]+$")) then ($native_asset_receiver_local_balance_after | tonumber) else null end),
       native_asset_receiver_remote_balance_after: (if ($native_asset_receiver_remote_balance_after | test("^[0-9]+$")) then ($native_asset_receiver_remote_balance_after | tonumber) else null end),
+      native_asset_sender_payment_attempted: ($native_asset_sender_payment_attempted == "true"),
+      native_asset_sender_payment_status: ($native_asset_sender_payment_status | if length > 0 then . else null end),
+      native_asset_sender_payment_id: ($native_asset_sender_payment_id | if length > 0 then . else null end),
+      native_asset_sender_channel_id: ($native_asset_sender_channel_id | if length > 0 then . else null end),
+      native_asset_sender_amount: (if ($native_asset_sender_amount | test("^[0-9]+$")) then ($native_asset_sender_amount | tonumber) else null end),
+      native_asset_sender_msat: (if ($native_asset_sender_msat | test("^[0-9]+$")) then ($native_asset_sender_msat | tonumber) else null end),
+      native_asset_sender_local_balance_before: (if ($native_asset_sender_local_balance_before | test("^[0-9]+$")) then ($native_asset_sender_local_balance_before | tonumber) else null end),
+      native_asset_sender_remote_balance_before: (if ($native_asset_sender_remote_balance_before | test("^[0-9]+$")) then ($native_asset_sender_remote_balance_before | tonumber) else null end),
+      native_asset_sender_local_balance_after: (if ($native_asset_sender_local_balance_after | test("^[0-9]+$")) then ($native_asset_sender_local_balance_after | tonumber) else null end),
+      native_asset_sender_remote_balance_after: (if ($native_asset_sender_remote_balance_after | test("^[0-9]+$")) then ($native_asset_sender_remote_balance_after | tonumber) else null end),
+      native_asset_sender_error: ($native_asset_sender_error | if length > 0 then . else null end),
+      lightning_labs_receiver_balance_delta_observed: $litd_receiver_delta_ok,
+      lightning_labs_receiver_channel_balance_observed: $litd_receiver_delta_ok,
       native_ldk_payment_claimable_logged: ($native_ldk_payment_claimable_logged == "true"),
       native_ldk_payment_claimed_logged: ($native_ldk_payment_claimed_logged == "true"),
       native_ldk_counterparty_force_closed_logged: ($native_ldk_counterparty_force_closed_logged == "true"),
@@ -420,10 +539,12 @@ write_report() {
       issue_81_acceptance_scope: "Lightning Labs integrated litd pays fork-backed native tap-ldk/ldk-node over a live Taproot Asset channel",
       issue_81_acceptance_met: $issue_81_acceptance_met,
       issue_81_acceptance_reason: (if $issue_81_acceptance_met then "litd asset keysend completed, native LDK recorded a settled receiver payment, native receiver balance is at least the payment amount, and the native log has no stale invalid commitment, invalid simple-taproot partial/HTLC signature, invalid Taproot control-block, or counterparty force-close marker." else $reason end),
-      issue_57_acceptance_met: false,
+      issue_57_acceptance_scope: "fork-backed native tap-ldk/ldk-node pays the independent Lightning Labs integrated litd counterparty over the live Taproot Asset channel",
+      issue_57_acceptance_met: $issue_57_acceptance_met,
+      issue_57_acceptance_reason: (if $issue_57_acceptance_met then "native tap-ldk sent the live asset back to litd with a Taproot Asset HTLC blob, ldk-node recorded a settled local-to-remote asset payment, and the observed litd channel asset balance reflects the returned amount." else $reason end),
       next_required_work: [
         "keep issue 81 Lightning Labs to native settlement gate passing on the current fork pins",
-        "add the true native tap-ldk to Lightning Labs payment direction for #57 and record the Lightning Labs receiver balance delta",
+        "keep issue 57 native to Lightning Labs settlement gate passing on the current fork pins",
         "port any remaining Lightning Labs tapchannel/tapsend allocation semantics exposed by the reverse-direction transcript",
         "add broader BTC-only simple-taproot force-close and output-spend coverage under the BOLT conformance tracker",
         "add partial-split/change-output Taproot Asset commitment support after the bounded single-asset path settles"
@@ -530,6 +651,13 @@ if [ -z "$LITD_ASSET_PAYMENT_AMOUNT" ]; then
   LITD_ASSET_PAYMENT_AMOUNT="$LITD_ASSET_CHANNEL_AMOUNT"
 fi
 
+litd_minted_asset_id="$(jq -r '.asset_id // empty' "$LITD_MINTED_ASSET_REPORT" 2>/dev/null || true)"
+if [ -z "$litd_minted_asset_id" ]; then
+  write_report "blocked" "live_asset_channel_funding" "live asset-channel funding could not start because the litd minted asset id was missing"
+  cat "$REPORT_PATH"
+  exit 0
+fi
+
 rm -f "$LITD_PEER_PREFLIGHT_REPORT"
 rm -rf "$NATIVE_LDK_PEER_STATE_DIR"
 cargo run -q -p tap-ldk-cli -- live-litd-peer-hold \
@@ -538,6 +666,9 @@ cargo run -q -p tap-ldk-cli -- live-litd-peer-hold \
   "$litd_peer_pubkey" \
   "$litd_peer_address" \
   "$LITD_PEER_HOLD_SECONDS" \
+  "$litd_minted_asset_id" \
+  "$LITD_ASSET_PAYMENT_AMOUNT" \
+  "$NATIVE_TO_LITD_PAYMENT_MSAT" \
   >"$LOG_DIR/native-ldk-litd-peer-preflight.out" \
   2>"$LOG_DIR/native-ldk-litd-peer-preflight.err" &
 NATIVE_LDK_HOLD_PID=$!
@@ -556,7 +687,6 @@ if [ "$(jq -r '.peer_connected // false' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/nu
   exit 0
 fi
 
-litd_minted_asset_id="$(jq -r '.asset_id // empty' "$LITD_MINTED_ASSET_REPORT" 2>/dev/null || true)"
 native_litd_node_id="$(jq -r '.native_node_id // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
 if [ -z "$litd_minted_asset_id" ] || [ -z "$native_litd_node_id" ]; then
   write_report "blocked" "live_asset_channel_funding" "live asset-channel funding could not start because the litd minted asset id or native LDK node id was missing"
@@ -569,7 +699,7 @@ fi
   "$litd_minted_asset_id" \
   "$LITD_ASSET_CHANNEL_AMOUNT" \
   "$LITD_FEE_RATE_SAT_PER_VBYTE" \
-  0 >"$LITD_ASSET_CHANNEL_FUND_REPORT" \
+  "$LITD_ASSET_CHANNEL_PUSH_SAT" >"$LITD_ASSET_CHANNEL_FUND_REPORT" \
   2>"$LOG_DIR/lightning-labs-litd-asset-channel-fund.err" || true
 
 if [ "$(jq -r '.status // empty' "$LITD_ASSET_CHANNEL_FUND_REPORT" 2>/dev/null || true)" != "completed" ]; then
@@ -618,6 +748,12 @@ fi
   >"$LITD_POST_PAYMENT_BALANCE_REPORT" \
   2>"$LOG_DIR/lightning-labs-litd-post-payment-balance.err" || true
 
+./scripts/lightning-labs-litd-counterparty.sh asset-channel-status \
+  "$native_litd_node_id" \
+  "$litd_minted_asset_id" \
+  0 >"$LITD_POST_PAYMENT_CHANNEL_REPORT" \
+  2>"$LOG_DIR/lightning-labs-litd-post-payment-channel.err" || true
+
 litd_asset_channel_fund_status="$(jq -r '.status // empty' "$LITD_ASSET_CHANNEL_FUND_REPORT" 2>/dev/null || true)"
 litd_asset_payment_status="$(jq -r '.status // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
 litd_asset_payment_wire_status="$(jq -r '.payment_status // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
@@ -625,7 +761,18 @@ litd_asset_payment_error="$(jq -r '.payment_error // empty' "$LITD_ASSET_PAYMENT
 litd_asset_payment_hash="$(jq -r '.payment_hash // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
 if [ "$litd_asset_payment_status" = "completed" ] && [ -n "$litd_asset_payment_hash" ]; then
   wait_for_native_asset_payment_record "$litd_asset_payment_hash" || true
+  wait_for_native_to_litd_asset_payment_record || true
 fi
+
+./scripts/lightning-labs-litd-counterparty.sh balance "$litd_minted_asset_id" \
+  >"$LITD_POST_NATIVE_PAYMENT_BALANCE_REPORT" \
+  2>"$LOG_DIR/lightning-labs-litd-post-native-payment-balance.err" || true
+
+./scripts/lightning-labs-litd-counterparty.sh asset-channel-status \
+  "$native_litd_node_id" \
+  "$litd_minted_asset_id" \
+  0 >"$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT" \
+  2>"$LOG_DIR/lightning-labs-litd-post-native-payment-channel.err" || true
 native_ldk_log="$NATIVE_LDK_PEER_STATE_DIR/ldk_node.log"
 native_ldk_has_invalid_commitment="false"
 native_ldk_has_invalid_simple_taproot_partial_sig="false"
@@ -690,8 +837,40 @@ if [ "$litd_asset_payment_status" = "completed" ] \
   issue_81_acceptance_met="true"
 fi
 
+native_sender_payment_attempted="$(jq -r '.native_to_litd_asset_payment.attempted // false' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+native_sender_payment_status="$(jq -r '.native_to_litd_asset_payment.status // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+native_sender_amount="$(jq -r '.native_to_litd_asset_payment.asset_amount // empty' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)"
+litd_post_payment_balance="$(jq -r '.observed_balance // empty' "$LITD_POST_PAYMENT_BALANCE_REPORT" 2>/dev/null || true)"
+litd_post_native_payment_balance="$(jq -r '.observed_balance // empty' "$LITD_POST_NATIVE_PAYMENT_BALANCE_REPORT" 2>/dev/null || true)"
+litd_post_payment_channel_local_balance="$(jq -r '.local_asset_balance // empty' "$LITD_POST_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+litd_post_native_payment_channel_local_balance="$(jq -r '.local_asset_balance // empty' "$LITD_POST_NATIVE_PAYMENT_CHANNEL_REPORT" 2>/dev/null || true)"
+litd_receiver_delta_matches="false"
+if is_uint "$litd_post_native_payment_channel_local_balance" && is_uint "$native_sender_amount" \
+  && [ "$litd_post_native_payment_channel_local_balance" -ge "$native_sender_amount" ]; then
+  litd_receiver_delta_matches="true"
+fi
+
+issue_57_acceptance_met="false"
+if [ "$issue_81_acceptance_met" = "true" ] \
+  && [ "$native_sender_payment_attempted" = "true" ] \
+  && [ "$native_sender_payment_status" = "settled" ] \
+  && [ "$litd_receiver_delta_matches" = "true" ] \
+  && [ "$native_ldk_has_invalid_commitment" != "true" ] \
+  && [ "$native_ldk_has_invalid_simple_taproot_partial_sig" != "true" ] \
+  && [ "$native_ldk_has_invalid_simple_taproot_commitment_partial_sig" != "true" ] \
+  && [ "$native_ldk_has_invalid_simple_taproot_htlc_sig" != "true" ] \
+  && [ "$native_ldk_has_invalid_taproot_control_block" != "true" ] \
+  && [ "$native_ldk_has_counterparty_force_close" != "true" ]; then
+  issue_57_acceptance_met="true"
+fi
+
 final_reason="The live tapd proof can be bound, the native outgoing RFQ/HTLC artifacts are ready, integrated litd minted a real asset, the fork-backed native LDK node stayed connected to litd, litd completed fundchannel, the asset channel became usable for keysend, and the harness now attempted a real litd asset keysend. #81 still needs the payment to settle, native receiver claim, force-close witness handling, and observed balances."
-if [ "$litd_asset_payment_status" = "completed" ]; then
+if [ "$issue_57_acceptance_met" = "true" ]; then
+  final_reason="The live bidirectional Path B gate completed: litd paid the fork-backed native LDK node, native LDK recorded the received asset balance, native LDK sent the asset back with a Taproot Asset HTLC blob, and litd's observed channel asset balance reflects the returned amount."
+elif [ "$issue_81_acceptance_met" = "true" ]; then
+  final_reason="The live Lightning Labs to native LDK direction remains green. #57 is now waiting on the native-to-litd send leg to settle and show the litd receiver channel balance."
+fi
+if [ "$issue_57_acceptance_met" != "true" ] && [ "$issue_81_acceptance_met" != "true" ] && [ "$litd_asset_payment_status" = "completed" ]; then
   if jq -e --arg payment_id "$litd_asset_payment_hash" '.live_node_asset_payments[]? | select(.payment_id == $payment_id and .status == "settled")' "$LITD_PEER_PREFLIGHT_REPORT" >/dev/null 2>&1; then
     if [ "$native_ldk_has_invalid_simple_taproot_commitment_partial_sig" = "true" ]; then
       final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but native LDK rejects litd's zero-HTLC post-claim commitment with Invalid simple-taproot commitment partial signature. #81 needs the exact post-claim transcript, tapscript root, and signed transaction state matched before closure."
@@ -713,30 +892,33 @@ if [ "$litd_asset_payment_status" = "completed" ]; then
   else
     final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, but the refreshed fork-backed ldk-node report did not expose the native receiver-side asset payment before timeout. #81 still needs native receiver-balance observability before this can be closed."
   fi
-elif [ -f "$native_ldk_log" ] && grep -q "invalid_htlc_sig" "$native_ldk_log"; then
+elif [ "$issue_57_acceptance_met" != "true" ] && [ -f "$native_ldk_log" ] && grep -q "invalid_htlc_sig" "$native_ldk_log"; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is ${litd_asset_payment_wire_status:-unknown}. Rust Lightning accepted the peer commitment_signed, completed monitor update 1, released revoke_and_ack, and then litd rejected our outgoing HTLC signature. #81 now needs the rejected outgoing-signature transcript kept fixture-backed and the remaining Lightning Labs Taproot Asset HTLC allocation/signing semantics matched before receiver claim, force-close, and balance checks can complete."
-elif [ -f "$native_ldk_log" ] \
+elif [ "$issue_57_acceptance_met" != "true" ] && [ -f "$native_ldk_log" ] \
   && grep -q "Received valid commitment_signed from peer" "$native_ldk_log" \
   && grep -q "Flushing monitor update 1" "$native_ldk_log" \
   && ! grep -q "Completed off-chain monitor update 1" "$native_ldk_log"; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is ${litd_asset_payment_wire_status:-unknown}. Rust Lightning now verifies the peer HTLC signature and accepts commitment_signed, then holds the outbound revoke_and_ack/local commitment response while monitor update 1 remains incomplete. #81 now needs the ldk-node/Rust Lightning monitor-update completion and message-release path fixed before receiver claim, force-close, and balance checks can complete."
-elif [ -f "$native_ldk_log" ] && grep -q "Invalid simple-taproot HTLC signature from peer" "$native_ldk_log"; then
+elif [ "$issue_57_acceptance_met" != "true" ] && [ -f "$native_ldk_log" ] && grep -q "Invalid simple-taproot HTLC signature from peer" "$native_ldk_log"; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is ${litd_asset_payment_wire_status:-unknown}. Rust Lightning reached channel_ready and then closed while verifying the peer's simple-taproot HTLC Schnorr signature, so #81 now needs exact Lightning Labs Taproot Asset commitment allocation and second-level HTLC transcript matching plus HTLC witness/control-block construction before balances can be recorded."
-elif [ -n "$litd_asset_payment_wire_status" ]; then
+elif [ "$issue_57_acceptance_met" != "true" ] && [ -n "$litd_asset_payment_wire_status" ]; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is $litd_asset_payment_wire_status. #81 still needs live settlement, native receiver claim, force-close witness handling, and native receiver-balance persistence."
-elif [ -n "$litd_asset_payment_error" ]; then
+elif [ "$issue_57_acceptance_met" != "true" ] && [ -n "$litd_asset_payment_error" ]; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but returned a payment error: $litd_asset_payment_error. #81 still needs payment-time Taproot Asset commitment output construction, settlement, and native receiver-balance persistence."
 fi
-if [ "$litd_asset_channel_fund_status" != "completed" ] \
+if [ "$issue_57_acceptance_met" != "true" ] \
+  && [ "$litd_asset_channel_fund_status" != "completed" ] \
   && [ "$(jq -r '.litd_peer_supports_taproot_asset_channel // false' "$LITD_PEER_PREFLIGHT_REPORT" 2>/dev/null || true)" != "true" ]; then
   final_reason="The live tapd proof can be bound and the native outgoing RFQ/HTLC artifacts now include an ordered native asset-payment wire session, current tapd balance observation, an integrated litd counterparty with asset-channel RPCs ready, a fork-backed ldk-node connection to litd, remote taproot feature observation, and fork-backed Taproot Asset message/channel/payment APIs. The connected litd peer did not advertise the Taproot Asset channel feature, so #81 still needs compatible feature negotiation before live asset-channel funding/payment and the post-settlement receiver-balance check."
 fi
 
 final_status="blocked"
-final_blocked_step="live_asset_channel_payment_settlement"
-if [ "$issue_81_acceptance_met" = "true" ]; then
+final_blocked_step="native_to_lightning_labs_payment_settlement"
+if [ "$issue_57_acceptance_met" = "true" ]; then
   final_status="completed"
   final_blocked_step=""
+elif [ "$issue_81_acceptance_met" != "true" ]; then
+  final_blocked_step="live_asset_channel_payment_settlement"
 fi
 
 write_report \

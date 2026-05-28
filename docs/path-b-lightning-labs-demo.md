@@ -39,21 +39,17 @@ blocked JSON report at `live-tapd-proof-binding.json`.
 The wrapper also runs `scripts/live-lightning-labs-outgoing-payment.sh`. That
 gate links live proof binding to the sender-side RFQ/invoice/HTLC artifact,
 starts the integrated `litd` counterparty, connects the fork-backed
-OpenAgentsInc `ldk-node` runtime to that `litd` peer, and keeps issue #57
-marked incomplete until the native LDK asset payment path settles against the
-independent Lightning Labs litd receiver with an observed receiver balance.
+OpenAgentsInc `ldk-node` runtime to that `litd` peer, and now completes the
+bidirectional live payment regression: `litd` pays native LDK, native LDK
+records the received asset, native LDK sends the asset back to `litd`, and the
+report observes the returned `litd` channel asset balance.
 
-Current #57 status is narrower than the old runtime prerequisite. The gate can
-reach live proof binding, native asset-payment session readiness, integrated
-`litd` readiness, fork-backed `ldk-node` to `litd` peer connection, and a
-pre-settlement Lightning Labs current-balance observation. It also records
-whether `litd` advertised the taproot features needed for asset channels. It
-now completes live asset-channel funding, settles a Lightning Labs to native
-asset keysend, logs native `PaymentClaimed`, and records the native receiver
-asset balance in fork-backed `ldk-node`. The current fork clears the
-post-claim partial-signature failure and stale invalid-control-block fallback
-symptom in the live run. The current #57 gate remains false because the true
-native `tap-ldk` to Lightning Labs direction has not settled yet.
+Current #57 status: complete. The latest passing artifact is
+`target/live-lightning-labs-outgoing-payment-issue57-final/report.json` with
+`issue_57_acceptance_met=true` and `issue_81_acceptance_met=true`. The reverse
+native-to-`litd` leg uses a canonical Taproot Asset HTLC blob and a 354,000
+msat BTC carrier amount so the asset HTLC is above LND's dust floor. The report
+has no invalid-commitment or counterparty force-close markers.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement
@@ -69,16 +65,14 @@ session. The `litd` peer preflight now proves that the OpenAgentsInc
 `rust-lightning` revision, opt into simple-taproot/Taproot Asset channel
 negotiation locally, observe remote simple-taproot and Taproot Asset channel
 support, reach typed asset-channel message/payment APIs, and complete the #81
-live Lightning Labs to native settlement gate. Issue #57 still has to drive
-the native `tap-ldk` sender direction into Lightning Labs.
+live Lightning Labs to native settlement gate plus the #57 native-to-`litd`
+return payment gate.
 
 Open issue path:
 
-1. #57: live `tap-ldk` pays Lightning Labs and records post-settlement receiver
-   balance.
-2. #58: live Lightning Labs pays `tap-ldk` and `tap-ldk` persists the received
+1. #58: live Lightning Labs pays `tap-ldk` and `tap-ldk` persists the received
    balance across restart.
-3. #59: Path B reports require observed live balances in both directions.
-4. #60: semantic proof ancestry validation replaces the remaining bounded
+2. #59: Path B reports require observed live balances in both directions.
+3. #60: semantic proof ancestry validation replaces the remaining bounded
    proof boundary.
-5. #19 closes only after those live and semantic gates pass.
+4. #19 closes only after those live and semantic gates pass.

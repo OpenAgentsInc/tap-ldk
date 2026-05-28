@@ -151,12 +151,12 @@ Latest completed live rerun artifact:
 - `native_ldk_invalid_simple_taproot_partial_sig_logged`: `false`
 - `native_ldk_invalid_taproot_control_block_logged`: `false`
 
-The new result changes the live diagnosis again. The bounded Lightning Labs to
-native direction now settles and persists receiver balance, and the post-claim
+The newer #57 result changes the live diagnosis again. The bounded Lightning
+Labs to native direction settles and persists receiver balance, the native
+return payment settles into integrated `litd`, and the post-claim
 partial-signature transcript verifies. The #84 follow-up also fixes the stale
-funding-input control-block fallback symptom. The next live work is the true
-native-to-Lightning Labs direction and the remaining BOLT conformance issue
-set.
+funding-input control-block fallback symptom. The next live work is the #58
+issue-specific receive/restart proof and the #59 completion report.
 
 ## What Works
 
@@ -460,8 +460,8 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #57, #58, #59, #60, #61, #71, or #19 from fixture-only or
-readiness reports. Keep the closed #81 gate running as a regression.
+Do not close #58, #59, #60, #61, #71, or #19 from fixture-only or readiness
+reports. Keep the closed #81 and #57 gates running as regressions.
 
 Required live evidence before closure:
 
@@ -508,11 +508,11 @@ Close live issues only from observed settlement and observed balance state.
 The next step is to keep the #84 funding-input fallback regression in place and
 move the remaining live-demo work forward:
 
-1. Preserve the latest Lightning Labs to native settlement artifact with no
-   post-claim signature or invalid-control-block failure.
-2. Finish the true native `tap-ldk` to Lightning Labs payment direction.
-3. Add the broader BTC-only simple-taproot force-close and output-spend
-   coverage tracked outside #81.
+1. Preserve the latest bidirectional #57 artifact with no post-claim
+   signature, invalid-control-block, invalid-commitment, or force-close marker.
+2. Finish the #58 issue-specific Lightning Labs to native receive/restart
+   proof.
+3. Finish the #59 Path B observed-balance completion switch.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

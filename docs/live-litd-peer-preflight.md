@@ -26,7 +26,8 @@ fork-backed `ldk-node` Taproot Asset channel and payment records. This lets the
 shell report prove that a live Lightning Labs payment was claimed and persisted
 by the native receiver instead of only proving peer connectivity.
 
-This is still not issue #57 completion. It proves connectivity, fork
+This preflight is no longer the whole #57 story by itself; it is the live node
+state source used by the #57 regression gate. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
 `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f` and
@@ -36,10 +37,10 @@ Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live
 payment harness now moves past readiness into integrated `litd` issuance, live
 asset-channel funding, Lightning Labs to native asset keysend, native
-`PaymentClaimed`, and durable native receiver balance recording. The current
-pin adds post-claim balance-output aux-leaf placement for claimed full-amount
-asset HTLCs and clears the live zero-HTLC post-claim partial-signature failure.
-It also carries the #84 force-close funding-input key-path witness fix and the
-latest live run no longer logs `Invalid Taproot control block size`.
-The current #57 report remains false because the true native `tap-ldk` to
-Lightning Labs direction has not settled yet.
+`PaymentClaimed`, durable native receiver balance recording, and the reverse
+native-to-`litd` asset send. The current pin adds post-claim balance-output
+aux-leaf placement for claimed full-amount asset HTLCs, clears the live
+zero-HTLC post-claim partial-signature failure, carries the #84 force-close
+funding-input key-path witness fix, and uses canonical Lightning Labs HTLC blob
+encoding plus a dust-covering BTC amount for the reverse leg. The latest live
+run reports `issue_57_acceptance_met=true`.

@@ -23,16 +23,13 @@ checks and optionally starts a Docker- or Podman-backed Bitcoin
 Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
 `tap-ldk` runtime sidecars. The live gate now also starts integrated `litd`
 for the asset-channel path, connects the fork-backed OpenAgentsInc `ldk-node`
-runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
-balance. Live asset-channel config/API exposure and remote feature observation
-are in place. Live `litd` asset-channel funding now completes and the channel
-becomes usable for asset keysend. The Lightning Labs to native payment now
-settles and native receiver balance is recorded by fork-backed `ldk-node`. The
-post-claim partial-signature failure is now cleared in the live run and covered
-by a fork regression fixture, and the stale invalid-control-block fallback
-symptom is fixed by the #84 funding-input key-path witness change. The true
-native `tap-ldk` to Lightning Labs receiver direction and two-sided observed
-balance replacement remain open.
+runtime to that `litd` peer, funds a live asset channel, settles Lightning Labs
+to native, then sends the asset back from native LDK to `litd`. The latest
+live report has `issue_81_acceptance_met=true` and `issue_57_acceptance_met=true`
+with no invalid-commitment or counterparty force-close markers. Path B still
+needs the issue-specific Lightning Labs-to-native receive/restart proof (#58),
+the broader observed-balance completion gate (#59), and semantic proof ancestry
+validation (#60) before the Path B epic can close.
 
 Concurrent simple-taproot splicing is not part of the first public demo. The
 demo keeps one funding outpoint from open through payment, restart, close, and
@@ -235,9 +232,8 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 ```
 
 Report Path A and Path B separately. Do not describe Path B as complete until
-both live directions and observed balance checks replace the current
-fixture-backed gap. The remaining open path is #57 live `tap-ldk` pays
-Lightning Labs, #58 live Lightning Labs pays `tap-ldk` with the issue-specific
-receiver/restart proof, #59 observed-balance reporting, and #60 semantic proof
-ancestry validation. Keep the completed #81 fork-backed `ldk-node` settlement
-gate green as a regression.
+both live directions and observed balance checks are represented in the
+completion report. The remaining open path is #58 live Lightning Labs pays
+`tap-ldk` with the issue-specific receiver/restart proof, #59 observed-balance
+reporting, and #60 semantic proof ancestry validation. Keep the completed #81
+and #57 fork-backed `ldk-node` settlement gates green as regressions.

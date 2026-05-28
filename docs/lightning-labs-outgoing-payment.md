@@ -12,25 +12,20 @@ cargo run -p tap-ldk-cli -- lightning-labs-outgoing-payment-smoke fixtures/light
 ./scripts/live-lightning-labs-outgoing-payment.sh target/live-lightning-labs-outgoing-payment/report.json target/live-lightning-labs-outgoing-payment/wallet.json
 ```
 
-The stored status is `stopped_at_live_daemon_gap`. This is intentional: the
-current smoke does not drive a live Lightning Labs receiver or observe the
-Lightning Labs receiver balance after settlement. The live gate now also runs
-the ordered native asset-payment wire session over a localhost `tap-ldk`
-socket, asks standalone `tapd` for the current asset balance when reachable,
-and starts the integrated `litd` counterparty that exposes the asset-channel
-RPC surface. It then starts the OpenAgentsInc `ldk-node` fork and connects it
-to that `litd` node over the Lightning P2P address. It records the expected
-balance change and the exact remaining gap instead of reporting a successful
-interop settlement.
+The fixture-only bounded artifact still records the expected sender/receiver
+balance changes. The live gate now runs the integrated `litd` counterparty,
+opens a live asset channel to the OpenAgentsInc `ldk-node` fork, proves the
+Lightning Labs to native direction, then has native LDK send the asset back to
+`litd` over the same channel. The reverse leg uses the canonical Lightning
+Labs Taproot Asset HTLC blob shape and a 354,000 msat BTC carrier amount so the
+asset HTLC clears LND's dust check.
 
-Current #57 state: the gate reaches proof binding, native payment-session
-readiness, integrated `litd` readiness, fork-backed `ldk-node` to `litd` peer
-connection/API preflight, remote taproot feature observation, live
-asset-channel funding, and a settled Lightning Labs to native asset keysend.
-That proves the receiver side can claim and persist asset balance, but #57 is
-still false because the live sender in this script is `litd`. #57 closes only
-after native `tap-ldk` pays the connected Lightning Labs peer and the report
-records the Lightning Labs receiver balance after settlement.
+Current #57 state: `target/live-lightning-labs-outgoing-payment-issue57-final/report.json`
+completed with `issue_57_acceptance_met=true`. The report shows integrated
+`litd` fundchannel, litd-to-native settlement, native receiver accounting,
+native-to-litd settlement, returned `litd` channel asset balance, replay and
+wrong-metadata failures, and no invalid commitment or counterparty force-close
+markers.
 
 ## Checks
 
@@ -50,20 +45,18 @@ records the Lightning Labs receiver balance after settlement.
 - Starts a fork-backed `ldk-node` preflight node and connects it to the
   integrated `litd` node ID and P2P address.
 - The live gate report links the live `tapd` proof-binding artifact to the
-  outgoing payment artifact, native payment-session artifact, and integrated
-  `litd` readiness and fork-backed `ldk-node` peer preflight artifacts, and keeps
-  `issue_57_acceptance_met=false` until a real Lightning Labs receiver balance
-  is observed after settlement.
+  outgoing payment artifact, native payment-session artifact, integrated `litd`
+  readiness, fork-backed `ldk-node` peer preflight artifacts, post-payment
+  channel status, and post-native-payment channel status.
+- `issue_57_acceptance_met=true` requires #81 to remain green, native
+  local-to-remote accounting to settle, observed `litd` channel asset balance
+  to reflect the returned amount, replay and wrong-metadata checks to pass, and
+  no invalid commitment or counterparty force-close markers.
 
 ## Next Step
 
-#81 is complete: the live Lightning Labs to native payment reports
-`SUCCEEDED`, native LDK claims it, and fork-backed `ldk-node` records the
-native receiver asset balance. The current fork handles the post-claim
-zero-HTLC asset commitment-sig blob, derives the claimed asset HTLC's
-post-claim balance-output aux leaf with the correct CSV-bound script key, and
-uses a key-path funding-input force-close witness. Keep that live report green,
-then implement the true native `tap-ldk` to Lightning Labs payment direction
-for #57, the issue-specific incoming receive/restart proof for #58, and the
-#59 observed-balance completion gate. Both directions and observed balance
-replacement are still required before Track B is a settled interop success.
+#81 and #57 are complete live regression gates. Keep
+`./scripts/live-lightning-labs-outgoing-payment.sh` green, then implement the
+issue-specific incoming receive/restart proof for #58, the #59 observed-balance
+completion gate, and #60 semantic proof ancestry validation before closing the
+Path B epic.

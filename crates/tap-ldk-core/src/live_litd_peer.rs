@@ -9,7 +9,7 @@ use std::{
 };
 
 use ldk_node::{
-    Builder, Node,
+    Builder, ChannelDetails, Node,
     bitcoin::{
         Network, Txid,
         secp256k1::{PublicKey, Secp256k1, SecretKey},
@@ -22,7 +22,7 @@ use ldk_node::{
     taproot_asset::{
         TaprootAssetChannelOpenRequest, TaprootAssetChannelStatus, TaprootAssetMessageKind,
         TaprootAssetMonitorAuxRequest, TaprootAssetPaymentDirection, TaprootAssetPaymentMetadata,
-        TaprootAssetPaymentRequest, TaprootAssetPaymentStatus,
+        TaprootAssetPaymentRequest, TaprootAssetPaymentStatus, encode_taproot_asset_htlc_blob,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -117,8 +117,10 @@ pub struct LiveLitdPeerPreflightReport {
     pub live_node_asset_channel_open_api_ready: bool,
     pub live_node_asset_payment_api_ready: bool,
     pub live_node_asset_runtime_event_count: usize,
+    pub live_node_lightning_channel_count: usize,
     pub live_node_asset_channel_count: usize,
     pub live_node_asset_payment_count: usize,
+    pub live_node_lightning_channels: Vec<LiveLightningChannelSnapshot>,
     pub live_node_asset_channels: Vec<TaprootAssetChannelStatus>,
     pub live_node_asset_payments: Vec<TaprootAssetPaymentStatus>,
     pub openagents_rust_lightning_rev: String,
@@ -134,7 +136,52 @@ pub struct LiveLitdPeerPreflightReport {
     pub litd_peer_supports_taproot_asset_channel: bool,
     pub known_peer_count: usize,
     pub asset_channel_settlement_ready: bool,
+    pub native_to_litd_asset_payment: Option<LiveLitdNativeAssetSendReport>,
     pub remaining_asset_channel_gap: String,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LiveLitdNativeAssetSendRequest {
+    pub asset_id: [u8; 32],
+    pub asset_amount: u64,
+    pub amount_msat: u64,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LiveLitdNativeAssetSendReport {
+    pub attempted: bool,
+    pub status: String,
+    pub payment_id: Option<String>,
+    pub channel_id: Option<String>,
+    pub lightning_channel_id: Option<String>,
+    pub asset_id: [u8; 32],
+    pub asset_amount: u64,
+    pub amount_msat: u64,
+    pub lightning_outbound_capacity_msat_before: Option<u64>,
+    pub lightning_next_outbound_htlc_limit_msat_before: Option<u64>,
+    pub lightning_next_outbound_htlc_minimum_msat_before: Option<u64>,
+    pub local_balance_before: Option<u64>,
+    pub remote_balance_before: Option<u64>,
+    pub local_balance_after: Option<u64>,
+    pub remote_balance_after: Option<u64>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LiveLightningChannelSnapshot {
+    pub channel_id: String,
+    pub counterparty_node_id: String,
+    pub channel_value_sats: u64,
+    pub outbound_capacity_msat: u64,
+    pub inbound_capacity_msat: u64,
+    pub next_outbound_htlc_limit_msat: u64,
+    pub next_outbound_htlc_minimum_msat: u64,
+    pub is_outbound: bool,
+    pub is_channel_ready: bool,
+    pub is_usable: bool,
+    pub confirmations: Option<u32>,
+    pub unspendable_punishment_reserve_sats: Option<u64>,
+    pub counterparty_unspendable_punishment_reserve_sats: u64,
 }
 
 pub fn run_live_litd_peer_preflight(
@@ -191,6 +238,7 @@ pub fn run_live_litd_peer_preflight(
         litd_peer_supports_simple_taproot_staging,
         litd_peer_supports_taproot_asset_channel,
         peer_details.len(),
+        None,
         "connected",
     ))
 }
@@ -199,6 +247,7 @@ pub fn run_live_litd_peer_hold(
     request: LiveLitdPeerPreflightRequest,
     report_path: impl AsRef<Path>,
     hold_seconds: u64,
+    native_to_litd_send: Option<LiveLitdNativeAssetSendRequest>,
 ) -> Result<LiveLitdPeerPreflightReport, LiveLitdPeerError> {
     let report_path = report_path.as_ref().to_path_buf();
     let request = request.validate()?;
@@ -248,14 +297,25 @@ pub fn run_live_litd_peer_hold(
         litd_peer_supports_simple_taproot_staging,
         litd_peer_supports_taproot_asset_channel,
         peer_details.len(),
+        None,
         "holding",
     );
     write_report(&report_path, &report)?;
 
     let started = Instant::now();
     let mut latest_report = report;
+    let mut native_to_litd_send_report = None;
     while started.elapsed() < Duration::from_secs(hold_seconds) {
         thread::sleep(Duration::from_secs(1));
+        let snapshot = asset_runtime_snapshot(&node);
+        if native_to_litd_send_report.is_none() {
+            native_to_litd_send_report = maybe_send_native_to_litd_asset_payment(
+                &node,
+                request.litd_node_id,
+                native_to_litd_send,
+                &snapshot,
+            )?;
+        }
         let peer_details = node.list_peers();
         let matched_peer = peer_details
             .iter()
@@ -276,6 +336,7 @@ pub fn run_live_litd_peer_hold(
                 .map(|peer| peer.supports_taproot_asset_channel)
                 .unwrap_or(false),
             peer_details.len(),
+            native_to_litd_send_report.clone(),
             "holding",
         );
         write_report(&report_path, &latest_report)?;
@@ -299,6 +360,7 @@ fn build_report(
     litd_peer_supports_simple_taproot_staging: bool,
     litd_peer_supports_taproot_asset_channel: bool,
     known_peer_count: usize,
+    native_to_litd_asset_payment: Option<LiveLitdNativeAssetSendReport>,
     status: &str,
 ) -> LiveLitdPeerPreflightReport {
     let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
@@ -325,8 +387,10 @@ fn build_report(
         live_node_asset_channel_open_api_ready: asset_runtime_probe.channel_open_api_ready,
         live_node_asset_payment_api_ready: asset_runtime_probe.payment_api_ready,
         live_node_asset_runtime_event_count: asset_runtime_probe.runtime_event_count,
+        live_node_lightning_channel_count: asset_runtime_snapshot.lightning_channels.len(),
         live_node_asset_channel_count: asset_runtime_snapshot.channels.len(),
         live_node_asset_payment_count: asset_runtime_snapshot.payments.len(),
+        live_node_lightning_channels: asset_runtime_snapshot.lightning_channels,
         live_node_asset_channels: asset_runtime_snapshot.channels,
         live_node_asset_payments: asset_runtime_snapshot.payments,
         openagents_rust_lightning_rev: provenance.rust_lightning_fork_rev.to_owned(),
@@ -345,8 +409,150 @@ fn build_report(
         litd_peer_supports_taproot_asset_channel,
         known_peer_count,
         asset_channel_settlement_ready: false,
+        native_to_litd_asset_payment,
         remaining_asset_channel_gap: remaining_asset_channel_gap.to_owned(),
     }
+}
+
+fn maybe_send_native_to_litd_asset_payment(
+    node: &Node,
+    litd_node_id: PublicKey,
+    request: Option<LiveLitdNativeAssetSendRequest>,
+    snapshot: &LiveLitdAssetRuntimeSnapshot,
+) -> Result<Option<LiveLitdNativeAssetSendReport>, LiveLitdPeerError> {
+    let Some(request) = request else {
+        return Ok(None);
+    };
+    let Some(channel) = snapshot.channels.iter().find(|channel| {
+        channel.counterparty_node_id == litd_node_id.to_string()
+            && channel.asset_id == request.asset_id
+            && channel.local_balance >= request.asset_amount
+            && !channel.closed
+    }) else {
+        return Ok(None);
+    };
+    let Some(lightning_channel) = snapshot.lightning_channels.iter().find(|channel| {
+        channel.counterparty_node_id == litd_node_id.to_string()
+            && channel.is_usable
+            && channel.next_outbound_htlc_minimum_msat <= request.amount_msat
+            && channel.next_outbound_htlc_limit_msat >= request.amount_msat
+    }) else {
+        return Ok(None);
+    };
+
+    let blob = encode_taproot_asset_htlc_blob(request.asset_id, request.asset_amount)
+        .map_err(|err| LiveLitdPeerError::AssetRuntime(err.to_string()))?;
+    let send_result = node
+        .spontaneous_payment()
+        .send_with_taproot_asset_htlc_blob(request.amount_msat, litd_node_id, None, blob);
+    let payment_id = match send_result {
+        Ok(payment_id) => payment_id,
+        Err(err) => {
+            return Ok(Some(LiveLitdNativeAssetSendReport {
+                attempted: true,
+                status: "failed".to_owned(),
+                payment_id: None,
+                channel_id: Some(channel.channel_id.clone()),
+                lightning_channel_id: Some(lightning_channel.channel_id.clone()),
+                asset_id: request.asset_id,
+                asset_amount: request.asset_amount,
+                amount_msat: request.amount_msat,
+                lightning_outbound_capacity_msat_before: Some(
+                    lightning_channel.outbound_capacity_msat,
+                ),
+                lightning_next_outbound_htlc_limit_msat_before: Some(
+                    lightning_channel.next_outbound_htlc_limit_msat,
+                ),
+                lightning_next_outbound_htlc_minimum_msat_before: Some(
+                    lightning_channel.next_outbound_htlc_minimum_msat,
+                ),
+                local_balance_before: Some(channel.local_balance),
+                remote_balance_before: Some(channel.remote_balance),
+                local_balance_after: None,
+                remote_balance_after: None,
+                error: Some(err.to_string()),
+            }));
+        }
+    };
+
+    let channel_id = parse_hex32(&channel.channel_id)?;
+    let now = now_unix_seconds()?;
+    let metadata = TaprootAssetPaymentMetadata {
+        asset_id: request.asset_id,
+        asset_amount: request.asset_amount,
+        proof_root_hash: channel.proof_root_hash,
+        proof_root_sum: channel.proof_root_sum,
+        quote_id: payment_id.0,
+        payment_hash: payment_id.0,
+    };
+    let status = node
+        .taproot_asset()
+        .send_payment(TaprootAssetPaymentRequest {
+            channel_id,
+            payment_id: payment_id.0,
+            direction: TaprootAssetPaymentDirection::LocalToRemote,
+            expected: metadata,
+            metadata: Some(metadata),
+            quote_accepted: true,
+            now_unix_seconds: now,
+            quote_expiry_unix_seconds: now + 300,
+            monitor_aux: Some(TaprootAssetMonitorAuxRequest {
+                state_digest: derived_digest(payment_id.0, 0x51),
+                nonce_digest: derived_digest(payment_id.0, 0x52),
+                signature_digest: derived_digest(payment_id.0, 0x53),
+            }),
+        })
+        .map_err(|err| LiveLitdPeerError::AssetRuntime(err.to_string()))?;
+
+    Ok(Some(LiveLitdNativeAssetSendReport {
+        attempted: true,
+        status: status.status,
+        payment_id: Some(status.payment_id),
+        channel_id: Some(status.channel_id),
+        lightning_channel_id: Some(lightning_channel.channel_id.clone()),
+        asset_id: status.asset_id,
+        asset_amount: status.asset_amount,
+        amount_msat: request.amount_msat,
+        lightning_outbound_capacity_msat_before: Some(lightning_channel.outbound_capacity_msat),
+        lightning_next_outbound_htlc_limit_msat_before: Some(
+            lightning_channel.next_outbound_htlc_limit_msat,
+        ),
+        lightning_next_outbound_htlc_minimum_msat_before: Some(
+            lightning_channel.next_outbound_htlc_minimum_msat,
+        ),
+        local_balance_before: Some(channel.local_balance),
+        remote_balance_before: Some(channel.remote_balance),
+        local_balance_after: Some(status.local_balance_after),
+        remote_balance_after: Some(status.remote_balance_after),
+        error: None,
+    }))
+}
+
+fn parse_hex32(input: &str) -> Result<[u8; 32], LiveLitdPeerError> {
+    if input.len() != 64 {
+        return Err(LiveLitdPeerError::AssetRuntime(format!(
+            "expected 32-byte hex value, got {} bytes of text",
+            input.len()
+        )));
+    }
+    let mut out = [0u8; 32];
+    for idx in 0..32 {
+        out[idx] = u8::from_str_radix(&input[idx * 2..idx * 2 + 2], 16)
+            .map_err(|err| LiveLitdPeerError::AssetRuntime(err.to_string()))?;
+    }
+    Ok(out)
+}
+
+fn now_unix_seconds() -> Result<u64, LiveLitdPeerError> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|err| LiveLitdPeerError::AssetRuntime(err.to_string()))?
+        .as_secs())
+}
+
+fn derived_digest(mut base: [u8; 32], marker: u8) -> [u8; 32] {
+    base[0] ^= marker;
+    base
 }
 
 fn write_report(
@@ -412,6 +618,7 @@ struct LiveLitdAssetRuntimeProbe {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct LiveLitdAssetRuntimeSnapshot {
+    lightning_channels: Vec<LiveLightningChannelSnapshot>,
     channels: Vec<TaprootAssetChannelStatus>,
     payments: Vec<TaprootAssetPaymentStatus>,
 }
@@ -448,8 +655,32 @@ fn run_asset_runtime_probe(node: &Node) -> Result<LiveLitdAssetRuntimeProbe, Liv
 fn asset_runtime_snapshot(node: &Node) -> LiveLitdAssetRuntimeSnapshot {
     let taproot_asset = node.taproot_asset();
     LiveLitdAssetRuntimeSnapshot {
+        lightning_channels: node
+            .list_channels()
+            .into_iter()
+            .map(lightning_channel_snapshot)
+            .collect(),
         channels: taproot_asset.list_channels(),
         payments: taproot_asset.list_payments(),
+    }
+}
+
+fn lightning_channel_snapshot(channel: ChannelDetails) -> LiveLightningChannelSnapshot {
+    LiveLightningChannelSnapshot {
+        channel_id: channel.channel_id.to_string(),
+        counterparty_node_id: channel.counterparty_node_id.to_string(),
+        channel_value_sats: channel.channel_value_sats,
+        outbound_capacity_msat: channel.outbound_capacity_msat,
+        inbound_capacity_msat: channel.inbound_capacity_msat,
+        next_outbound_htlc_limit_msat: channel.next_outbound_htlc_limit_msat,
+        next_outbound_htlc_minimum_msat: channel.next_outbound_htlc_minimum_msat,
+        is_outbound: channel.is_outbound,
+        is_channel_ready: channel.is_channel_ready,
+        is_usable: channel.is_usable,
+        confirmations: channel.confirmations,
+        unspendable_punishment_reserve_sats: channel.unspendable_punishment_reserve,
+        counterparty_unspendable_punishment_reserve_sats: channel
+            .counterparty_unspendable_punishment_reserve,
     }
 }
 

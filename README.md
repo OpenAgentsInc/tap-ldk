@@ -10,20 +10,16 @@ Path A works as a bounded native demo: issue demo `OPENUSD`, exchange proofs,
 open a single-asset channel, pay, restart, close, export proofs, and exercise
 the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
-Path B now settles the Lightning Labs to native direction: integrated `litd`
-funds an asset channel, sends asset keysend, native LDK claims the HTLC, and
-`ldk-node` records the native receiver balance. The current pins add the
-post-claim balance-output fix, the live zero-HTLC post-claim signature
-regression, Taproot HTLC script-path claim witnesses, and the simple-taproot
-holder force-close funding input as a one-element key-path Schnorr witness.
-They also keep simple-taproot and Taproot Asset opens private by construction.
-Missing required simple-taproot open/accept nonces now fail immediately.
-Lightning Labs staging/overlay channels now use the legacy scalar next-local
-nonce for single-funding `revoke_and_ack` and reestablish interop, while final
-or multi-funding simple-taproot paths keep the type-22 nonce-map rule. A
-BTC-only simple-taproot conformance gate now covers open, payment,
-reconnect/reestablish, functional cooperative close, force-close, P2TR funding
-witnesses, and legacy P2WSH isolation.
+Path B now settles both live payment directions over an integrated Lightning
+Labs `litd` asset channel. `litd` can fund the channel and pay native LDK;
+native LDK claims the asset HTLC and records the receiver balance. Native LDK
+can then send the same asset back to `litd` with the canonical Taproot Asset
+HTLC blob, a dust-covering BTC amount, and observed `litd` channel asset
+balance. The current pins also cover the post-claim balance-output fix,
+Taproot HTLC script-path claim witnesses, simple-taproot key-path force-close
+witnesses, private-only simple-taproot/Taproot Asset opens, immediate missing
+nonce rejection, Lightning Labs staging scalar nonce interop, and the BTC-only
+simple-taproot lifecycle conformance gate.
 Native cooperative-close coverage now also asserts the final close transaction
 uses a one-element 64-byte Taproot key-path witness and the asset-channel smoke
 proves the latest asset allocation survives close-store restart. The live
@@ -31,17 +27,19 @@ Lightning Labs cooperative-close command is available, but Path B still needs
 native post-close proof and balance observation before claiming live close.
 Concurrent simple-taproot splicing is explicitly excluded from the first public
 demo until bounded splice nonce-map tests are added.
-The latest live run no longer logs the post-claim partial-signature failure or
-invalid Taproot control-block failure. Path B still needs the true native
-`tap-ldk` to Lightning Labs payment direction. #81 is the completed regression
-gate; #57 is the next open payment-direction issue.
+The latest live run no longer logs the post-claim partial-signature failure,
+invalid Taproot control-block failure, invalid commitment failure, or
+counterparty force-close. #81 and #57 are completed regression gates. Path B
+still needs the issue-specific Lightning Labs-to-native receive/restart proof
+(#58), live-gap replacement (#59), and full semantic proof ancestry validation
+(#60) before the Path B epic can close.
 
 Spec-compliance work is split out of #81. #82 is complete for the first-demo
 BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close
 paths are covered, and concurrent splicing is explicitly out of scope until
 bounded splice nonce-map vectors are added. Path B is not done until both
-payment directions settle against Lightning Labs with observed post-settlement
-balances.
+payment directions stay green against Lightning Labs with observed
+post-settlement channel balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 

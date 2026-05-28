@@ -7,10 +7,10 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `0964b3d0cce5753a0ff42166ea4686702faf93b4`
+  `eb61dde920493afe1037ec299888c10bc353e33a`
 - Current `rust-lightning` fork commit:
-  `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
-- Tracking issues: #77, #78, #79, #80, #81
+  `4a3cea6d859d172144e7010a38dc821db7fa5a5b`
+- Tracking issues: #77, #78, #79, #80, #81, #57
 
 ## Why This Fork Exists
 
@@ -19,15 +19,13 @@ proves a native LDK node can connect to integrated Lightning Labs `litd`, that
 the runtime is built against the OpenAgentsInc `rust-lightning` fork, that the
 live node opts into simple-taproot plus Taproot Asset channel negotiation, and
 that the fork exposes typed Taproot Asset message/channel/payment APIs. It
-now also records the native receiver-side Taproot Asset payment and balance
-for the live Lightning Labs to native keysend path.
+now records both the native receiver-side Taproot Asset payment for the live
+Lightning Labs to native keysend path and the native-to-`litd` return payment
+used to close #57.
 
-For #57 to settle honestly, the remaining work is the reverse direction:
-native `tap-ldk` must pay the independent Lightning Labs peer and record the
-Lightning Labs receiver balance delta. A direct lower-level `rust-lightning`
-node is possible, but the
-narrow `ldk-node` fork is the chosen route because it preserves node lifecycle,
-chain sync, persistence, peer management, wallet plumbing, and normal BTC smoke
+A direct lower-level `rust-lightning` node is possible, but the narrow
+`ldk-node` fork is the chosen route because it preserves node lifecycle, chain
+sync, persistence, peer management, wallet plumbing, and normal BTC smoke
 coverage.
 
 ## Fork Scope
@@ -64,7 +62,7 @@ coverage.
    Rust Lightning revision. The fork does not advertise STXO support until
    native STXO commitment leaves are
    implemented and verified.
-5. #81 now uses fork-backed live settlement against independent integrated
+5. #81 uses fork-backed live settlement against independent integrated
    Lightning Labs `litd`. The latest completed live run settled the Lightning
    Labs to native direction and recorded native receiver balance. The current
    pin adds post-claim balance-output aux-leaf placement for claimed
@@ -72,6 +70,11 @@ coverage.
    clears the live zero-HTLC post-claim partial-signature failure with a
    regression fixture. It also clears the stale invalid-control-block fallback
    symptom by carrying the persisted key-path holder commitment signature.
+6. #57 uses the same fork-backed live channel for the reverse native-to-`litd`
+   send. `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`
+   emits the canonical Lightning Labs outer-TLV Taproot Asset HTLC blob, and
+   the live harness sends 354,000 msat with the 125-unit asset HTLC so LND's
+   dust check passes.
 
 ## Invariants
 
