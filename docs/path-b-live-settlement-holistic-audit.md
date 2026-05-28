@@ -156,8 +156,8 @@ Labs to native direction settles and persists receiver balance, the native
 return payment settles into integrated `litd`, and the post-claim
 partial-signature transcript verifies. The #84 follow-up also fixes the stale
 funding-input control-block fallback symptom. The #58 issue-specific
-receive/restart proof is now complete; the next live work is the #59 completion
-report.
+receive/restart proof and #59 completion report are now complete; the next live
+work is #60 semantic proof ancestry validation.
 
 ## What Works
 
@@ -461,8 +461,8 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #59, #60, #61, #71, or #19 from fixture-only or readiness
-reports. Keep the closed #81, #57, and #58 gates running as regressions.
+Do not close #60, #61, #71, or #19 from fixture-only or readiness reports.
+Keep the closed #81, #57, #58, and #59 gates running as regressions.
 
 Required live evidence before closure:
 
@@ -511,7 +511,8 @@ move the remaining live-demo work forward:
 
 1. Preserve the latest bidirectional #57/#58 artifact with no post-claim
    signature, invalid-control-block, invalid-commitment, or force-close marker.
-2. Finish the #59 Path B observed-balance completion switch.
+2. Preserve the #59 Path B observed-balance completion report.
+3. Finish #60 semantic proof ancestry validation.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

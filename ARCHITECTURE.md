@@ -550,8 +550,8 @@ a real live demo:
   success/timeout path. Initial support landed in
   `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
   single-asset lifecycle state on top of these surfaces, while live
-  channel-manager and interop exercises continue in #59 and the
-  epics #61, #71, and #19.
+  channel-manager and interop exercises continue in #60 and the epics #61,
+  #71, and #19.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
@@ -1332,23 +1332,20 @@ Until those are done, Track B must keep saying:
 
 The shortest path is now the open issue sequence:
 
-1. Keep #81, #57, and #58 green as regressions.
+1. Keep #81, #57, #58, and #59 green as regressions.
    - #81 proves Lightning Labs to native settlement.
    - #57 proves native to Lightning Labs settlement over the same integrated
      `litd` asset channel.
    - #58 proves the native receiver payment/balance checkpoint survives
      restart.
+   - #59 proves the wrapper-level Path B completion report cannot pass from
+     fixture-only or expected-only balances.
    - The live script is
      `./scripts/live-lightning-labs-outgoing-payment.sh`.
+   - The wrapper completion report is
+     `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json`.
 
-2. Finish #59: observed-balance reporting.
-   - Keep fixture tests as regression coverage.
-   - Make reports fail completion when observed post-settlement balances are
-     missing.
-   - Only mark Track B complete when asset ID, payment state, proof reference,
-     and balances match in both directions.
-
-3. Finish #60: semantic proof ancestry.
+2. Finish #60: semantic proof ancestry.
    - Replace the current `TAPF` envelope/raw-byte preservation boundary with
      semantic validation of asset leaves, anchors, virtual transaction
      history, owner transitions, split/previous-witness ancestry, and amount
@@ -1356,7 +1353,7 @@ The shortest path is now the open issue sequence:
    - Use the same validation boundary in wallet import, funding, HTLC receipt,
      cooperative close, and recovery.
 
-4. Close #61, #71, and #19 only after their acceptance criteria are actually
+3. Close #61, #71, and #19 only after their acceptance criteria are actually
    met. The issue-by-issue closeout table lives in
    `docs/remaining-issue-closure-plan.md`.
 

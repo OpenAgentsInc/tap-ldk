@@ -27,9 +27,10 @@ runtime to that `litd` peer, funds a live asset channel, settles Lightning Labs
 to native, then sends the asset back from native LDK to `litd`. The latest
 live report has `issue_81_acceptance_met=true`, `issue_57_acceptance_met=true`,
 and `issue_58_acceptance_met=true` with no invalid-commitment or counterparty
-force-close markers. Path B still needs the broader observed-balance completion
-gate (#59) and semantic proof ancestry validation (#60) before the Path B epic
-can close.
+force-close markers. The Path B wrapper completion report now has
+`path_b_live_observed_balance_gate_met=true` and `live_daemon_gaps_remaining=false`
+from observed live balances. Path B still needs semantic proof ancestry
+validation (#60) before the Path B epic can close.
 
 Concurrent simple-taproot splicing is not part of the first public demo. The
 demo keeps one funding outpoint from open through payment, restart, close, and
@@ -231,10 +232,9 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 ./scripts/full-demo-smoke.sh
 ```
 
-Report Path A and Path B separately. Do not describe Path B as complete until
-both live directions and observed balance checks are represented in the
-completion report. #58 is now represented by the live receiver/restart snapshot
-in `target/live-lightning-labs-outgoing-payment-issue58-rerun/report.json`.
-The remaining open path is #59 observed-balance reporting and #60 semantic
-proof ancestry validation. Keep the completed #81, #57, and #58 fork-backed
-`ldk-node` settlement gates green as regressions.
+Report Path A and Path B separately. The #59 completion report is now
+`target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json`; it
+keeps `path_b_complete=false` until #60 while refusing fixture-only or
+expected-only balance completion. The remaining open path is #60 semantic proof
+ancestry validation. Keep the completed #81, #57, #58, and #59 gates green as
+regressions.

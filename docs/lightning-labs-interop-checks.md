@@ -14,10 +14,11 @@ value, and related artifact path.
 cargo run -p tap-ldk-cli -- lightning-labs-interop-check-smoke fixtures/lightning-labs/tapchannelmsg/testdata fixtures/lightning-labs/proof/testdata target/lightning-labs-interop-checks.json
 ```
 
-The report can pass its automated fixture checks while still setting
-`live_daemon_gaps_remaining=true`. That is intentional: current outgoing and
-incoming payment checks still stop at expected balance deltas until a live
-LND/`tapd` counterparty reports observed settlement and durable balances.
+The fixture report can pass its automated checks while still setting
+`live_daemon_gaps_remaining=true`. That remains intentional for the fixture
+smoke: outgoing and incoming payment artifacts are expected-delta checks. The
+Path B wrapper now writes `path-b-completion-report.json` as the live gate that
+consumes observed daemon/channel balances.
 
 Current live status is more specific: the completed #81 gate and current #57
 path can start the relevant Lightning Labs stacks, bind a live proof, run the
@@ -25,10 +26,10 @@ native ordered asset-payment-session smoke, connect fork-backed `ldk-node` to
 integrated `litd`, exercise the fork-backed asset message/channel/payment APIs, settle
 Lightning Labs to native asset keysend, and record the native receiver asset
 balance. #57 adds the native-to-Lightning Labs returned channel-balance
-observation, and #58 adds the native receiver restart snapshot. Live
-cooperative close still remains a documented gap until native post-close proof
-and balance observation exists. #59 should only flip the Path B completion flag
-after #57 and #58 both record observed post-settlement balances.
+observation, #58 adds the native receiver restart snapshot, and #59 adds the
+wrapper completion report that sets `live_daemon_gaps_remaining=false` only
+from those live observed balances. Live cooperative close still remains a
+documented gap until native post-close proof and balance observation exists.
 
 ## Checks
 
@@ -45,7 +46,7 @@ after #57 and #58 both record observed post-settlement balances.
   latest allocation preservation, close-store restart, and proof-ownership
   recovery checks pass through the OpenAgentsInc rust-lightning fork state.
 - Wrong, stale, malformed, and replayed payment metadata checks remain true.
-- Live observed balance gaps and live Lightning Labs cooperative-close
+- Fixture-only observed balance gaps and live Lightning Labs cooperative-close
   post-close observation are recorded as documented gaps, not success.
 
 ## Closure Gate
@@ -54,7 +55,7 @@ after #57 and #58 both record observed post-settlement balances.
   balance.
 - #58 provides the live Lightning Labs pays `tap-ldk` observed durable receiver
   balance and restart snapshot.
-- #59 must make `live_daemon_gaps_remaining=false` impossible unless both live
+- #59 makes `live_daemon_gaps_remaining=false` impossible unless both live
   directions agree on asset ID, amount, payment state, proof reference, and
   balances.
 - #60 must replace shallow proof acceptance with semantic proof ancestry

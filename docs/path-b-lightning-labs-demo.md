@@ -6,8 +6,8 @@ fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
 proof-binding report, the integrated `litd` counterparty readiness report, the
 fork-backed `ldk-node` to `litd` peer preflight report, the live outgoing-payment
-gate, and the consolidated interop check report into an ignored artifact
-directory. The
+gate, the consolidated interop check report, and the Path B completion report
+into an ignored artifact directory. The
 consolidated report now includes the HTLC RFQ metadata vector, Lightning Labs
 RFQ message-type vectors, and the fork-backed simple-taproot asset-channel
 lifecycle, close, and proof-recovery checks.
@@ -42,19 +42,19 @@ starts the integrated `litd` counterparty, connects the fork-backed
 OpenAgentsInc `ldk-node` runtime to that `litd` peer, and now completes the
 bidirectional live payment regression: `litd` pays native LDK, native LDK
 records the received asset, native LDK sends the asset back to `litd`, and the
-report observes the returned `litd` channel asset balance.
+report observes the returned `litd` channel asset balance. The wrapper then
+writes `path-b-completion-report.json`, which sets
+`path_b_live_observed_balance_gate_met=true` only when #57 and #58 live
+observed-balance evidence is present, keeps fixture-only and expected-only
+completion disabled, and keeps `path_b_complete=false` until #60 is done.
 
-Current #57 status: complete. The latest passing artifact is
-`target/live-lightning-labs-outgoing-payment-issue57-final/report.json` with
-`issue_57_acceptance_met=true` and `issue_81_acceptance_met=true`. The reverse
-native-to-`litd` leg uses a canonical Taproot Asset HTLC blob and a 354,000
-msat BTC carrier amount so the asset HTLC is above LND's dust floor. The report
-has no invalid-commitment or counterparty force-close markers.
-
-The current consolidated report can pass fixture-backed checks while still
-showing `live_daemon_gaps_remaining=true`. That means live daemon settlement
-and observed balance replacement are still required before Track B is a settled
-interop success.
+Current #59 status: complete. The latest passing wrapper artifact is
+`target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json` with
+`path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`,
+`expected_only_balances_can_complete_path_b=false`, and
+`fixture_only_reports_can_complete_path_b=false`. The report still keeps
+`path_b_complete=false` because #60 semantic proof ancestry validation remains
+open.
 
 The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
@@ -66,11 +66,11 @@ session. The `litd` peer preflight now proves that the OpenAgentsInc
 negotiation locally, observe remote simple-taproot and Taproot Asset channel
 support, reach typed asset-channel message/payment APIs, and complete the #81
 live Lightning Labs to native settlement gate, the #57 native-to-`litd`
-return payment gate, and the #58 native receiver restart snapshot.
+return payment gate, the #58 native receiver restart snapshot, and the #59
+observed-balance completion gate.
 
 Open issue path:
 
-1. #59: Path B reports require observed live balances in both directions.
-2. #60: semantic proof ancestry validation replaces the remaining bounded
+1. #60: semantic proof ancestry validation replaces the remaining bounded
    proof boundary.
-3. #19 closes only after those live and semantic gates pass.
+2. #19 closes only after those live and semantic gates pass.

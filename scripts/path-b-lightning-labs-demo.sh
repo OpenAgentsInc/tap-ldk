@@ -18,6 +18,9 @@ ASSET_ID="7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93"
 ASSET_AMOUNT="125"
 SUMMARY="$ARTIFACT_DIR/summary.txt"
 DEPENDENCY_GAP="$ARTIFACT_DIR/lightning-labs-counterparty-gap.txt"
+LIVE_PAYMENT_REPORT="$ARTIFACT_DIR/live-lightning-labs-outgoing-payment.json"
+INTEROP_CHECK_REPORT="$ARTIFACT_DIR/lightning-labs-interop-checks.json"
+COMPLETION_REPORT="$ARTIFACT_DIR/path-b-completion-report.json"
 DOCKER_APP_BIN="/Applications/Docker.app/Contents/Resources/bin/docker"
 
 mkdir -p "$LOG_DIR"
@@ -47,6 +50,101 @@ run_optional_log() {
   set -e
   echo "$status" >"$LOG_DIR/$name.status"
   return "$status"
+}
+
+write_completion_report() {
+  if [ -s "$LIVE_PAYMENT_REPORT" ]; then
+    jq -n \
+      --arg completion_report "$COMPLETION_REPORT" \
+      --arg live_payment_report "$LIVE_PAYMENT_REPORT" \
+      --arg interop_check_report "$INTEROP_CHECK_REPORT" \
+      --slurpfile live "$LIVE_PAYMENT_REPORT" \
+      --slurpfile interop "$INTEROP_CHECK_REPORT" \
+      '($live[0] // {}) as $live_report
+      | ($interop[0] // {}) as $interop_report
+      | (($live_report.issue_57_acceptance_met == true)
+        and ($live_report.issue_58_acceptance_met == true)
+        and ($live_report.native_asset_receiver_payment_status == "settled")
+        and ($live_report.native_asset_receiver_restart_state_matches == true)
+        and ($live_report.lightning_labs_receiver_channel_balance_observed == true)) as $observed_gate
+      | {
+          schema_version: 1,
+          source: "path-b-lightning-labs-demo",
+          status: (if $observed_gate then "live_observed_balance_gate_complete" else "blocked" end),
+          report_path: $completion_report,
+          path_b_complete: false,
+          path_b_complete_reason: (if $observed_gate then "Both live payment directions have observed daemon/channel balance evidence. Path B epic completion still waits for #60 semantic proof ancestry validation." else "The live observed-balance gate is incomplete; fixture or expected-only values cannot complete Path B." end),
+          path_b_live_observed_balance_gate_met: $observed_gate,
+          live_daemon_gaps_remaining: ($observed_gate | not),
+          semantic_proof_ancestry_complete: false,
+          semantic_proof_ancestry_required_issue: 60,
+          issue_57_acceptance_met: ($live_report.issue_57_acceptance_met == true),
+          issue_58_acceptance_met: ($live_report.issue_58_acceptance_met == true),
+          expected_only_balances_can_complete_path_b: false,
+          fixture_only_reports_can_complete_path_b: false,
+          observed_balances: {
+            tap_ldk_receiver: {
+              payment_id: $live_report.integrated_litd_asset_payment_hash,
+              asset_id: $live_report.integrated_litd_minted_asset_id,
+              asset_amount: $live_report.native_asset_receiver_amount,
+              local_balance_after: $live_report.native_asset_receiver_local_balance_after,
+              restart_state_matches: ($live_report.native_asset_receiver_restart_state_matches == true),
+              restart_snapshot_report: $live_report.artifacts.native_ldk_litd_peer_restart_snapshot_report
+            },
+            lightning_labs_receiver: {
+              payment_id: $live_report.native_asset_sender_payment_id,
+              asset_id: $live_report.integrated_litd_minted_asset_id,
+              asset_amount: $live_report.native_asset_sender_amount,
+              channel_balance_observed: ($live_report.lightning_labs_receiver_channel_balance_observed == true),
+              post_native_payment_channel_local_balance: $live_report.integrated_litd_post_native_payment_channel_local_balance,
+              post_native_payment_channel_report: $live_report.artifacts.integrated_litd_post_native_payment_channel_report
+            }
+          },
+          non_secret_references: {
+            live_payment_report: $live_payment_report,
+            interop_check_report: $interop_check_report,
+            proof_binding_report: $live_report.artifacts.proof_binding_report,
+            native_receiver_channel_id: $live_report.native_asset_receiver_channel_id,
+            native_sender_channel_id: $live_report.native_asset_sender_channel_id
+          },
+          fixture_interop_report: {
+            live_daemon_gaps_remaining: ($interop_report.live_daemon_gaps_remaining // null),
+            documented_gap_count: (($interop_report.documented_gaps // []) | length)
+          },
+          remaining_work: [
+            "#60 semantic proof ancestry validation",
+            "#19 Path B epic closure after live and semantic gates agree"
+          ]
+        }' >"$COMPLETION_REPORT"
+  else
+    jq -n \
+      --arg completion_report "$COMPLETION_REPORT" \
+      --arg live_payment_report "$LIVE_PAYMENT_REPORT" \
+      --arg interop_check_report "$INTEROP_CHECK_REPORT" \
+      '{
+        schema_version: 1,
+        source: "path-b-lightning-labs-demo",
+        status: "blocked",
+        report_path: $completion_report,
+        path_b_complete: false,
+        path_b_complete_reason: "The live payment report is missing or empty; fixture or expected-only values cannot complete Path B.",
+        path_b_live_observed_balance_gate_met: false,
+        live_daemon_gaps_remaining: true,
+        semantic_proof_ancestry_complete: false,
+        semantic_proof_ancestry_required_issue: 60,
+        expected_only_balances_can_complete_path_b: false,
+        fixture_only_reports_can_complete_path_b: false,
+        non_secret_references: {
+          live_payment_report: $live_payment_report,
+          interop_check_report: $interop_check_report
+        },
+        remaining_work: [
+          "run the live integrated litd payment gate",
+          "#60 semantic proof ancestry validation",
+          "#19 Path B epic closure after live and semantic gates agree"
+        ]
+      }' >"$COMPLETION_REPORT"
+  fi
 }
 
 detect_container_runtime() {
@@ -167,7 +265,7 @@ run_json outgoing-payment "$ARTIFACT_DIR/lightning-labs-outgoing-payment-report.
   cargo run -q -p tap-ldk-cli -- lightning-labs-outgoing-payment-smoke \
     "$TAPCHANNEL_FIXTURE_DIR" "$ARTIFACT_DIR/lightning-labs-outgoing-payment-store.json"
 run_optional_log live-outgoing-payment ./scripts/live-lightning-labs-outgoing-payment.sh \
-  "$ARTIFACT_DIR/live-lightning-labs-outgoing-payment.json" \
+  "$LIVE_PAYMENT_REPORT" \
   "$ARTIFACT_DIR/live-tapd-wallet.json" \
   "$ARTIFACT_DIR/lightning-labs-outgoing-payment-store.json" \
   "$ARTIFACT_DIR/lightning-labs-outgoing-payment-report.json" || true
@@ -176,7 +274,9 @@ run_json incoming-payment "$ARTIFACT_DIR/lightning-labs-incoming-payment-report.
     "$TAPCHANNEL_FIXTURE_DIR" "$ARTIFACT_DIR/lightning-labs-incoming-payment-store.json"
 run_json interop-checks "$ARTIFACT_DIR/lightning-labs-interop-checks.stdout.json" \
   cargo run -q -p tap-ldk-cli -- lightning-labs-interop-check-smoke \
-    "$TAPCHANNEL_FIXTURE_DIR" "$PROOF_FIXTURE_DIR" "$ARTIFACT_DIR/lightning-labs-interop-checks.json"
+    "$TAPCHANNEL_FIXTURE_DIR" "$PROOF_FIXTURE_DIR" "$INTEROP_CHECK_REPORT"
+
+write_completion_report
 
 cat >"$SUMMARY" <<SUMMARY_TEXT
 Path B Lightning Labs interop demo artifacts: $ARTIFACT_DIR
@@ -199,16 +299,17 @@ Fixture-backed checks:
 - live tap-ldk pays Lightning Labs gate: $ARTIFACT_DIR/live-lightning-labs-outgoing-payment.json
 - Lightning Labs pays tap-ldk artifacts: $ARTIFACT_DIR/lightning-labs-incoming-payment-report.json
 - consolidated checks: $ARTIFACT_DIR/lightning-labs-interop-checks.json
+- Path B completion gate: $ARTIFACT_DIR/path-b-completion-report.json
 
 Visible mocked/experimental pieces:
 - issuer identity and price oracle remain bounded demo fixtures
 - proof courier is local fixture/import-export plumbing
 - live tap-ldk peer and native asset-payment session smokes are local; the
   fork-backed ldk-node preflight reaches litd, observes remote taproot asset
-  support, and reaches the asset APIs, but #81 still has to run those APIs
-  through live Lightning Labs settlement
+  support, reaches the asset APIs, and the live gate now proves both payment
+  directions with observed balances
 - LND/tapd are independent compatibility peers, not tap-ldk runtime sidecars
-- live daemon settlement remains a documented gap until observed balances replace expected deltas
+- Path B epic completion still waits for #60 semantic proof ancestry validation
 SUMMARY_TEXT
 
 cat "$SUMMARY"
@@ -217,4 +318,7 @@ echo "path-b-lightning-labs-demo: dependency gap"
 cat "$DEPENDENCY_GAP"
 echo
 echo "path-b-lightning-labs-demo: consolidated checks"
-cat "$ARTIFACT_DIR/lightning-labs-interop-checks.json"
+cat "$INTEROP_CHECK_REPORT"
+echo
+echo "path-b-lightning-labs-demo: completion gate"
+cat "$COMPLETION_REPORT"

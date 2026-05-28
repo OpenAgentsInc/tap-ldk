@@ -55,7 +55,6 @@ markers.
 
 ## Next Step
 
-#81, #57, and #58 are complete live regression gates. Keep
+#81, #57, #58, and #59 are complete live/reporting regression gates. Keep
 `./scripts/live-lightning-labs-outgoing-payment.sh` green, then implement the
-#59 observed-balance completion gate and #60 semantic proof ancestry validation
-before closing the Path B epic.
+#60 semantic proof ancestry validation before closing the Path B epic.

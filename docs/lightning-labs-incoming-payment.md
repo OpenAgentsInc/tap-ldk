@@ -36,7 +36,7 @@ verifies the received payment/balance checkpoint reloads. The latest #58 run is
 
 ## Next Step
 
-#58 is complete. #59 now owns the consolidated Path B completion report: it
-must consume the observed live balances and non-secret proof/payment references
-from #57 and #58 instead of allowing expected-only fixture values to read as
-live interop success.
+#58 and #59 are complete. The consolidated Path B completion report consumes
+the observed live balances and non-secret proof/payment references from #57 and
+#58 instead of allowing expected-only fixture values to read as live interop
+success. #60 now owns semantic proof ancestry validation.
