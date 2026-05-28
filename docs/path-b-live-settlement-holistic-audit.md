@@ -6,9 +6,11 @@ This audit records the current root cause for the live Lightning Labs Path B
 blocker and the complete work path needed to stop making one-off settlement
 patches. The current failure is not a Docker, peer-connection, funding, or
 basic feature-negotiation problem. The live path now reaches a real
-Lightning Labs `litd` asset channel and attempts a real asset keysend. It
-fails because the Rust implementation is still approximating parts of the
-Lightning Labs Taproot Asset commitment and second-level HTLC transcript.
+Lightning Labs `litd` asset channel and attempts a real asset keysend. The
+latest rerun got past the earlier HTLC Schnorr-signature mismatch; the current
+blocker is now after `commitment_signed` is accepted, where the payment-time
+monitor update does not complete and release the held `revoke_and_ack` and
+local commitment response before `litd` leaves the payment `IN_FLIGHT`.
 
 The more detailed file-level audit and implementation map is
 `docs/path-b-live-settlement-system-audit-2026-05-28.md`. Use that document for
@@ -16,7 +18,7 @@ the current #81 coding sequence.
 
 ## Current Live Result
 
-Latest live run artifact:
+Previous diagnostic artifact:
 
 - `target/live-lightning-labs-outgoing-payment-diagnostic/report.json`
 - `status`: `blocked`
@@ -41,11 +43,36 @@ Follow-up after this artifact: the current code is now pinned to
 `OpenAgentsInc/ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e`. That pin
 keeps the failing transcript as a regression fixture and adds the Lightning
 Labs second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields.
-The next required step is a live rerun against this pin.
+
+Latest virtual-lock rerun artifact:
+
+- `target/live-lightning-labs-outgoing-payment-virtual-locks/report.json`
+- `status`: `blocked`
+- `blocked_step`: `live_asset_channel_payment_settlement`
+- `openagents_rust_lightning_rev`:
+  `7f72bfb48f56d729abac5f488923389034f8f1b3`
+- `integrated_litd_asset_channel_fund_status`: `completed`
+- `integrated_litd_asset_channel_usable_for_keysend`: `true`
+- `integrated_litd_asset_channel_local_balance`: `125`
+- `integrated_litd_asset_payment_status`: `timed_out`
+- `integrated_litd_asset_payment_wire_status`: `IN_FLIGHT`
+- `integrated_litd_asset_payment_hash`:
+  `22956bec1a6b29dffed07d095c6b8b823b28b5e0173f5b77784a47c71bd608f3`
+
+The new result changes the live diagnosis. Rust Lightning now logs:
+
+```text
+Received valid commitment_signed from peer
+```
+
+It then pauses channel monitor updates, logs `Flushing monitor update 1`, and
+applies update id `1`. It does not log `Completed off-chain monitor update 1`
+or emit the held `revoke_and_ack`/local commitment response before the peer
+disconnects after the payment timeout.
 
 The important fact is that funding succeeds and `litd` believes the channel is
-usable for asset keysend. The first payment-time commitment update reaches
-Rust Lightning, but Rust Lightning rejects the peer HTLC Schnorr signature:
+usable for asset keysend. The earlier payment-time commitment update reached
+Rust Lightning, but Rust Lightning rejected the peer HTLC Schnorr signature:
 
 ```text
 Invalid simple-taproot HTLC signature from peer
@@ -58,8 +85,10 @@ construction problem:
 Invalid Taproot control block size
 ```
 
-These are distinct blockers. The signature mismatch prevents live settlement;
-the control-block failure prevents correct unilateral recovery once the
+The virtual-lock rerun proves that the signature mismatch is no longer the
+active live blocker. The remaining active blocker is monitor-update completion
+and message release after a valid `commitment_signed`; the separate
+control-block failure still prevents correct unilateral recovery once the
 payment-time commitment path gets farther.
 
 ## What Works
@@ -82,6 +111,7 @@ payment-time commitment path gets farther.
   `commitment_signed` asset-signature blob structurally.
 - Rust Lightning verifies the peer HTLC signature as BIP340 Schnorr bytes,
   not as an ECDSA wrapper.
+- The latest live rerun accepts the peer `commitment_signed`.
 - The latest rust-lightning pin treats simple-taproot HTLC second-level
   signing like the Lightning Labs anchor path:
   `SIGHASH_SINGLE|ANYONECANPAY` and input sequence `1`, and encodes
@@ -90,34 +120,27 @@ payment-time commitment path gets farther.
 
 ## What Is Still Broken
 
-The current Rust path is still not deriving the exact same payment-time HTLC
-view that Lightning Labs signs. The anchor-style sighash and sequence fix was
-necessary, but not sufficient.
+The current Rust path accepts the payment-time HTLC commitment but does not
+advance the live peer exchange far enough for `litd` to settle the payment.
+The observed stall is:
 
-The current mismatch is likely in one or more of these transcript inputs:
+- valid peer `commitment_signed`;
+- channel updates HTLC state toward `AwaitingRemoteRevokeToAnnounce`;
+- monitor updates pause and update `1` flushes;
+- channel monitor applies update `1`;
+- no observed completion event for update `1`;
+- no observed held `revoke_and_ack` or local `commitment_signed`;
+- `litd` leaves the payment `IN_FLIGHT`.
 
-- second-level HTLC output script;
-- second-level Taproot Asset aux leaf;
-- HTLC taproot spend info and control block;
-- output value or output script selected for the HTLC signature;
-- script-tree construction order once the Taproot Asset sibling is present;
-- exact Lightning Labs allocation and commitment construction for the
-  payment-time asset movement.
+This now points at the ldk-node/Rust Lightning monitor persistence and message
+release boundary, not at another isolated sighash or key-selection patch.
 
-The latest native log shows Rust Lightning now checks the peer signature
-against a v2 HTLC transaction with input sequence `1`, output value `354`
-sats, `SIGHASH_SINGLE|ANYONECANPAY`, and the expected offered/accepted HTLC
-leaf script. Lightning Labs logs show `litd` builds Taproot Asset allocations
-for both first-level and second-level HTLC outputs and tweaks asset-layer
-script keys before producing the aux leaves. Rust still reconstructs this from
-a bounded single-asset/no-split template rather than porting the exact
-Lightning Labs allocation path.
-
-The 2026-05-28 diagnostic run captured the exact mismatch: Rust's second-level
-aux leaf contained local root/script-key material that did not match the
-Lightning Labs `tapchannel`/`tapsend` second-level allocation trace. The
-current pin fixes one concrete cause, the missing virtual lock fields. If the
-next live rerun still fails, the remaining work is a fixture-backed port of the
+The earlier 2026-05-28 diagnostic run still matters as a regression fixture:
+Rust's second-level aux leaf contained local root/script-key material that did
+not match the Lightning Labs `tapchannel`/`tapsend` second-level allocation
+trace. The current pin fixes one concrete cause, the missing virtual lock
+fields. If a later live rerun exposes a new signature or force-close transcript
+delta, the remaining work is a fixture-backed port of the
 bounded single-asset allocation path, not another isolated sighash or key
 guess.
 

@@ -33,11 +33,12 @@ no-op HTLC aux support without advertising unimplemented STXO support. The live
 outgoing-payment harness now moves past
 readiness into integrated `litd` issuance, live asset-channel funding,
 channel confirmation, and a keysend-usable local asset balance on `litd`.
-Issue #81 still remains open because the live asset keysend stays `IN_FLIGHT`
-after Rust Lightning closes on `Invalid simple-taproot HTLC signature from
-peer` in the previous live run. The current fork pin attempts the first
-full-channel HTLC aux-leaf path, treats the peer HTLC signature bytes as BIP340
-Schnorr, keeps the failing transcript as a regression fixture, and adds the
-Lightning Labs second-level virtual-lock asset-leaf fields. The current #57
-report treats this as a readiness and partial-live gate until the live rerun
-settles and records observed balances.
+Issue #81 still remains open because the live asset keysend stays `IN_FLIGHT`.
+The current fork pin treats the peer HTLC signature bytes as BIP340 Schnorr,
+keeps the earlier failing transcript as a regression fixture, and adds the
+Lightning Labs second-level virtual-lock asset-leaf fields. The latest rerun
+accepts `commitment_signed`, then stalls while monitor update `1` remains
+incomplete and the held `revoke_and_ack`/local commitment response is not
+released. The current #57 report treats this as a readiness and partial-live
+gate until the monitor/message path, receiver claim, force-close witness path,
+and observed balances pass.

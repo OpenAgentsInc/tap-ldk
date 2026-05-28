@@ -209,16 +209,16 @@ Revision `7f72bfb48f56d729abac5f488923389034f8f1b3` adds the first concrete
 transcript fix from that audit: second-level Taproot Asset HTLC aux leaves now
 encode the Lightning Labs virtual `lock_time` and `relative_lock_time` fields.
 
-With `ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e`, the current pin is
-ready for the next live run against that fixed transcript. The previous live run
-confirmed that `litd` `fundchannel` completes, the channel confirms, and
-`litd` reports a keysend-usable local asset balance. The live asset keysend
-still stays `IN_FLIGHT` after Rust Lightning closes on `Invalid
-simple-taproot HTLC signature from peer`; #81 remains open until the rerun
-settles or identifies the next exact Lightning Labs HTLC signature leaf,
-sighash, key-selection, or witness/control-block delta and records observed
-balances. Partial split/change-output support remains later #71/#60 work after
-the bounded live path settles.
+With `ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e`, the current pin has
+now been rerun live. `litd` `fundchannel` completes, the channel confirms,
+`litd` reports a keysend-usable local asset balance, Rust Lightning verifies
+the peer HTLC Schnorr signature, and the peer `commitment_signed` is accepted.
+The live asset keysend still stays `IN_FLIGHT` because monitor update `1` does
+not complete and release the held `revoke_and_ack`/local commitment response
+before the peer times out. #81 remains open until that monitor/message path,
+receiver claim, witness/control-block recovery, and observed balances pass.
+Partial split/change-output support remains later #71/#60 work after the
+bounded live path settles.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic closes only after BTC-only simple-taproot LDK channels open, pay,

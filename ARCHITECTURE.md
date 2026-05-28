@@ -43,12 +43,12 @@ The Lightning Labs path is not a live payment yet:
   `native_litd_peer_connected=true`, both remote taproot feature observations,
   live `litd` asset-channel funding, `channel_ready`, and a keysend-usable
   `litd` asset-channel balance. It still lacks post-settlement balance
-  observation because Rust Lightning closes on `Invalid simple-taproot HTLC
-  signature from peer`. The current fork pin now attempts the first
-  full-channel HTLC aux-leaf path, the live harness defaults to that
-  full-channel payment amount, and peer HTLC signatures are checked as BIP340
-  Schnorr signatures, but the latest run still proves a mismatch in the
-  selected Lightning Labs HTLC signature leaf, sighash, or key.
+  observation because the latest live run accepts the peer
+  `commitment_signed`, then stalls while monitor update `1` remains incomplete
+  and the held `revoke_and_ack`/local commitment response is not released. The
+  current fork pin now attempts the first full-channel HTLC aux-leaf path, the
+  live harness defaults to that full-channel payment amount, and peer HTLC
+  signatures are checked as BIP340 Schnorr signatures.
 - It now uses fork-backed `ldk-node`, so the live peer path reaches the
   OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset channel
   hooks.
@@ -372,9 +372,9 @@ Current boundary:
   asset custom-message, channel-open, and payment APIs;
 - the live outgoing-payment script now drives integrated `litd` asset issuance
   and real asset-channel funding against the fork-backed peer. #81 remains
-  open until Rust Lightning matches Lightning Labs simple-taproot HTLC
-  signature leaf/sighash/key selection, verifies the peer's HTLC signature and
-  witness path, and observes post-settlement balances end to end;
+  open until the payment-time monitor update completes, held commitment
+  messages are released, the native receiver claims the HTLC, the witness path
+  works, and post-settlement balances are observed end to end;
 - it does not yet send Lightning wire custom messages to LND;
 - it is the runnable `tap-ldk` peer process and ordered native payment-session
   exchange that must be moved onto the connected counterparty peer.
@@ -1085,12 +1085,13 @@ runs the fork-backed `ldk-node` to `litd` path. It now reaches live
 asset-channel funding, confirms the channel, and sees `litd` report the
 channel usable for asset keysend. It now blocks at
 `live_asset_channel_payment_settlement`: the live asset keysend remains
-`IN_FLIGHT` after Rust Lightning closes on `Invalid simple-taproot HTLC
-signature from peer`. The current fork pin now derives a first full-channel
-HTLC aux leaf and verifies the peer HTLC signature as BIP340 Schnorr, but the
-latest live run still fails verification, so #81 needs exact Lightning Labs
-HTLC signature leaf, sighash, key selection, and witness/control-block
-construction before balances can be recorded.
+`IN_FLIGHT` after Rust Lightning accepts the peer `commitment_signed`. The
+current fork pin now derives a first full-channel HTLC aux leaf and verifies
+the peer HTLC signature as BIP340 Schnorr, but monitor update `1` does not
+complete and release the held `revoke_and_ack`/local commitment response before
+the peer times out. #81 now needs the monitor/update message path, receiver
+claim, witness/control-block construction, and observed balances before it can
+close.
 
 Artifacts land in:
 
@@ -1268,16 +1269,18 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. Dynamic Taproot Asset commitment output construction in Rust Lightning for
+1. Monitor-update completion and held-message release after valid
+   `commitment_signed` on the live asset-channel payment path.
+2. Dynamic Taproot Asset commitment output construction in Rust Lightning for
    later asset HTLC and change outputs.
-2. Native receiver-side asset-balance persistence after live keysend
+3. Native receiver-side asset-balance persistence after live keysend
    settlement.
-3. Real Lightning wire custom-message exchange through LDK/rust-lightning over
+4. Real Lightning wire custom-message exchange through LDK/rust-lightning over
    the connected independent `litd` peer beyond funding.
-4. Real RFQ exchange with Lightning Labs peer/session semantics.
-5. Real payment from `tap-ldk` to Lightning Labs.
-6. Real payment from Lightning Labs to `tap-ldk`.
-7. Observed post-settlement balance checks from both live sides.
+5. Real RFQ exchange with Lightning Labs peer/session semantics.
+6. Real payment from `tap-ldk` to Lightning Labs.
+7. Real payment from Lightning Labs to `tap-ldk`.
+8. Observed post-settlement balance checks from both live sides.
 8. Full semantic proof ancestry validation.
 9. Live force-close and sweep recovery.
 

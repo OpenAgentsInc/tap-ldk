@@ -274,11 +274,12 @@ write_report() {
       native_ldk_litd_peer_preflight_gap: ($native_ldk_litd_peer_preflight_gap | if length > 0 then . else null end),
       issue_57_acceptance_met: false,
       next_required_work: [
-        "turn the captured Lightning Labs payment-time HTLC transcript into a regression fixture",
-        "replace the bounded full-channel aux-leaf approximation with exact single-asset Lightning Labs tapchannel/tapsend allocation and commitment construction",
-        "match Lightning Labs second-level HTLC transaction, aux leaf, tapleaf, sighash, output, and key selection so live asset keysend verifies",
+        "keep the captured Lightning Labs payment-time HTLC transcript fixture-backed",
+        "fix the post-commitment monitor-update completion path so held revoke_and_ack and local commitment responses are released",
+        "drive the accepted incoming HTLC to native receiver claim and persisted asset balance",
         "fix simple-taproot HTLC witness/control-block construction for force-close broadcasts",
-        "add partial-split/change-output Taproot Asset commitment support after the bounded full-channel path settles",
+        "port any remaining Lightning Labs tapchannel/tapsend allocation semantics exposed by the next transcript",
+        "add partial-split/change-output Taproot Asset commitment support after the bounded single-asset path settles",
         "persist and verify the native receiver-side asset balance after the live payment settles",
         "record the post-settlement Lightning Labs receiver balance and compare it to the expected delta"
       ]
@@ -477,13 +478,18 @@ litd_asset_payment_wire_status="$(jq -r '.payment_status // empty' "$LITD_ASSET_
 litd_asset_payment_error="$(jq -r '.payment_error // empty' "$LITD_ASSET_PAYMENT_REPORT" 2>/dev/null || true)"
 native_ldk_log="$NATIVE_LDK_PEER_STATE_DIR/ldk_node.log"
 
-final_reason="The live tapd proof can be bound, the native outgoing RFQ/HTLC artifacts are ready, integrated litd minted a real asset, the fork-backed native LDK node stayed connected to litd, litd completed fundchannel, the asset channel became usable for keysend, and the harness now attempted a real litd asset keysend. #81 still needs the payment commitment update to verify, the payment to settle, and the native receiver asset-balance check to pass."
+final_reason="The live tapd proof can be bound, the native outgoing RFQ/HTLC artifacts are ready, integrated litd minted a real asset, the fork-backed native LDK node stayed connected to litd, litd completed fundchannel, the asset channel became usable for keysend, and the harness now attempted a real litd asset keysend. #81 still needs the payment-time monitor update and held commitment messages to complete, the payment to settle, and the native receiver asset-balance check to pass."
 if [ "$litd_asset_payment_status" = "completed" ]; then
   final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel. #81 still needs native tap-ldk to expose and verify the receiver-side asset balance durably before this can be closed."
+elif [ -f "$native_ldk_log" ] \
+  && grep -q "Received valid commitment_signed from peer" "$native_ldk_log" \
+  && grep -q "Flushing monitor update 1" "$native_ldk_log" \
+  && ! grep -q "Completed off-chain monitor update 1" "$native_ldk_log"; then
+  final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is ${litd_asset_payment_wire_status:-unknown}. Rust Lightning now verifies the peer HTLC signature and accepts commitment_signed, then holds the outbound revoke_and_ack/local commitment response while monitor update 1 remains incomplete. #81 now needs the ldk-node/Rust Lightning monitor-update completion and message-release path fixed before receiver claim, force-close, and balance checks can complete."
 elif [ -f "$native_ldk_log" ] && grep -q "Invalid simple-taproot HTLC signature from peer" "$native_ldk_log"; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is ${litd_asset_payment_wire_status:-unknown}. Rust Lightning reached channel_ready and then closed while verifying the peer's simple-taproot HTLC Schnorr signature, so #81 now needs exact Lightning Labs Taproot Asset commitment allocation and second-level HTLC transcript matching plus HTLC witness/control-block construction before balances can be recorded."
 elif [ -n "$litd_asset_payment_wire_status" ]; then
-  final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is $litd_asset_payment_wire_status. #81 still needs payment-time Taproot Asset commitment output construction, HTLC signature verification, and native receiver-balance persistence."
+  final_reason="The integrated litd asset keysend was attempted after live fundchannel but did not settle yet; latest LND payment status is $litd_asset_payment_wire_status. #81 still needs payment-time monitor/message completion, native receiver claim, and native receiver-balance persistence."
 elif [ -n "$litd_asset_payment_error" ]; then
   final_reason="The integrated litd asset keysend was attempted after live fundchannel but returned a payment error: $litd_asset_payment_error. #81 still needs payment-time Taproot Asset commitment output construction, settlement, and native receiver-balance persistence."
 fi

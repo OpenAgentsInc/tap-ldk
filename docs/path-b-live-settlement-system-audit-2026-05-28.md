@@ -5,20 +5,22 @@ Date: 2026-05-28
 This audit is the current working map for getting Path B from "funded but not
 settled" to a completed live Lightning Labs interop demo. It exists because the
 last several fixes were useful but too local: they moved the harness from peer
-readiness to funding, then from funding to payment-time HTLC delivery, but they
-did not finish the one thing the live payment now requires. Rust Lightning must
-derive the same Taproot Asset commitment, aux leaf, HTLC transaction, sighash,
-and witness transcript that Lightning Labs `litd` derives.
+readiness to funding, then from funding to payment-time HTLC delivery, then
+past the first HTLC signature mismatch. The live payment now requires the
+native runtime to complete the payment-time monitor update, release held
+commitment messages, claim the incoming HTLC, and record real asset balances.
 
 The current failure is not Docker, not `litd` startup, not peer connection, not
 feature negotiation, not funding, not signature encoding, and not the basic
-anchor HTLC sighash policy. It is a byte-level transcript mismatch between the
-Rust allocation model and Lightning Labs' `tapchannel`/`tapsend` allocation
-model.
+anchor HTLC sighash policy. The previous byte-level transcript mismatch is now
+fixture-backed and the virtual-lock fix gets the live rerun through
+`commitment_signed` verification. The active blocker is the
+ldk-node/Rust-Lightning monitor persistence and message-release boundary after
+that valid `commitment_signed`.
 
 ## Current Live Gate
 
-Latest diagnostic run:
+Previous diagnostic run:
 
 - artifact directory:
   `target/live-lightning-labs-outgoing-payment-diagnostic/`
@@ -77,10 +79,28 @@ above:
 - `OpenAgentsInc/ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
-This does not close #81. The next honest gate is a live rerun against these
-pins. If the payment still fails, compare the new transcript against the
-fixture and port the remaining bounded `tapchannel`/`tapsend` allocation
-semantics before touching unrelated signing policy.
+The live rerun against these pins produced:
+
+- artifact directory:
+  `target/live-lightning-labs-outgoing-payment-virtual-locks/`
+- `OpenAgentsInc/rust-lightning`:
+  `7f72bfb48f56d729abac5f488923389034f8f1b3`
+- live report status: `blocked`
+- blocked step: `live_asset_channel_payment_settlement`
+- LND payment wire status: `IN_FLIGHT`
+- Rust Lightning result: peer HTLC signature verified and
+  `commitment_signed` accepted.
+
+The new blocker is narrower. Rust Lightning logs `Received valid
+commitment_signed from peer`, then pauses monitor updates, flushes monitor
+update `1`, and applies it. The log does not show `Completed off-chain monitor
+update 1`, `revoke_and_ack`, or the local commitment response before the peer
+disconnects after the payment timeout. This does not close #81. The next honest
+gate is to fix that monitor-update completion and message-release path, then
+continue into native receiver claim, force-close, and balance recording. If a
+later rerun exposes another signature or force-close transcript delta, compare
+it against the fixture and port the remaining bounded `tapchannel`/`tapsend`
+allocation semantics before touching unrelated signing policy.
 
 ## Failing Transcript
 
@@ -228,9 +248,11 @@ Responsibilities:
 - expose bounded asset message/channel/payment APIs used by `tap-ldk`;
 - report provenance so the harness can fail if it is not running the fork.
 
-Important point: `ldk-node` is not where the current signature mismatch should
-be solved. It should carry API and provenance changes after Rust Lightning
-gains the exact allocation transcript. Do not fake settlement here.
+Important point: `ldk-node` is now part of the active blocker because the live
+run stalls at the async monitor persistence/message-release boundary. Keep
+protocol transcript construction in Rust Lightning, but audit the `ldk-node`
+persister/background-processor wiring before making another signature patch.
+Do not fake settlement here.
 
 ### OpenAgentsInc `rust-lightning`
 
@@ -405,6 +427,32 @@ Acceptance for this phase:
 - the live harness no longer closes on
   `Invalid simple-taproot HTLC signature from peer`;
 - the live keysend progresses past the first payment-time commitment update.
+
+Status: the virtual-lock rerun has satisfied the signature-verification part of
+this phase and progressed to a valid `commitment_signed`. The keysend has not
+progressed past monitor update completion and held-message release.
+
+### Phase 3B: Complete Monitor Update And Release Held Commitment Messages
+
+Fix the runtime/protocol boundary that now blocks settlement:
+
+- inspect `ldk-node`'s async monitor persister and background processor setup;
+- inspect Rust Lightning's `ChannelMonitorUpdateStatus::InProgress` completion
+  path for payment-time updates on simple-taproot/Taproot Asset channels;
+- add logging or tests that prove update id `1` returns a completion event;
+- ensure `ChannelManager` receives the monitor completion event and releases
+  held `revoke_and_ack` and local `commitment_signed` messages;
+- keep persistence fail-closed if the monitor update cannot be durably stored;
+- rerun the live harness and confirm `litd` no longer leaves the payment
+  stuck at the first commitment exchange.
+
+Acceptance for this phase:
+
+- the live log contains completion for monitor update `1`;
+- held commitment messages are emitted after completion;
+- `litd` progresses beyond `IN_FLIGHT` or exposes the next receiver-claim
+  blocker with a concrete transcript;
+- BTC-only monitor update behavior remains unchanged.
 
 ### Phase 4: Fix Force-Close Witness And Control-Block Construction
 
