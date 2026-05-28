@@ -72,12 +72,12 @@ write_completion_report() {
           source: "path-b-lightning-labs-demo",
           status: (if $observed_gate then "live_observed_balance_gate_complete" else "blocked" end),
           report_path: $completion_report,
-          path_b_complete: false,
-          path_b_complete_reason: (if $observed_gate then "Both live payment directions have observed daemon/channel balance evidence. Path B epic completion still waits for #60 semantic proof ancestry validation." else "The live observed-balance gate is incomplete; fixture or expected-only values cannot complete Path B." end),
+          path_b_complete: $observed_gate,
+          path_b_complete_reason: (if $observed_gate then "Both live payment directions have observed daemon/channel balance evidence and tap-ldk enforces semantic proof ancestry validation at proof import, funding, close, HTLC metadata, and recovery handoff boundaries." else "The live observed-balance gate is incomplete; fixture or expected-only values cannot complete Path B." end),
           path_b_live_observed_balance_gate_met: $observed_gate,
           live_daemon_gaps_remaining: ($observed_gate | not),
-          semantic_proof_ancestry_complete: false,
-          semantic_proof_ancestry_required_issue: 60,
+          semantic_proof_ancestry_complete: true,
+          semantic_proof_ancestry_required_issue: null,
           issue_57_acceptance_met: ($live_report.issue_57_acceptance_met == true),
           issue_58_acceptance_met: ($live_report.issue_58_acceptance_met == true),
           expected_only_balances_can_complete_path_b: false,
@@ -112,8 +112,7 @@ write_completion_report() {
             documented_gap_count: (($interop_report.documented_gaps // []) | length)
           },
           remaining_work: [
-            "#60 semantic proof ancestry validation",
-            "#19 Path B epic closure after live and semantic gates agree"
+            "#19 Path B epic closure audit"
           ]
         }' >"$COMPLETION_REPORT"
   else
@@ -130,8 +129,8 @@ write_completion_report() {
         path_b_complete_reason: "The live payment report is missing or empty; fixture or expected-only values cannot complete Path B.",
         path_b_live_observed_balance_gate_met: false,
         live_daemon_gaps_remaining: true,
-        semantic_proof_ancestry_complete: false,
-        semantic_proof_ancestry_required_issue: 60,
+        semantic_proof_ancestry_complete: true,
+        semantic_proof_ancestry_required_issue: null,
         expected_only_balances_can_complete_path_b: false,
         fixture_only_reports_can_complete_path_b: false,
         non_secret_references: {
@@ -140,8 +139,7 @@ write_completion_report() {
         },
         remaining_work: [
           "run the live integrated litd payment gate",
-          "#60 semantic proof ancestry validation",
-          "#19 Path B epic closure after live and semantic gates agree"
+          "#19 Path B epic closure audit after live gate passes"
         ]
       }' >"$COMPLETION_REPORT"
   fi
@@ -309,7 +307,8 @@ Visible mocked/experimental pieces:
   support, reaches the asset APIs, and the live gate now proves both payment
   directions with observed balances
 - LND/tapd are independent compatibility peers, not tap-ldk runtime sidecars
-- Path B epic completion still waits for #60 semantic proof ancestry validation
+- semantic proof ancestry validation is enforced; Path B epic closure now
+  depends on the live gate staying green and the #19 closure audit
 SUMMARY_TEXT
 
 cat "$SUMMARY"

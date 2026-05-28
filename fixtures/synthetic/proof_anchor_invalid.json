@@ -15,6 +15,34 @@
         "tap_asset_root_sum": 999999
       },
       "error": "root_sum_mismatch"
+    },
+    {
+      "name": "root-hash-mismatch",
+      "mutate": {
+        "tap_asset_root_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "error": "commitment_root_mismatch"
+    },
+    {
+      "name": "malformed-anchor-outpoint",
+      "mutate": {
+        "anchor_outpoint": "wrong-anchor-without-index"
+      },
+      "error": "malformed_outpoint"
+    },
+    {
+      "name": "genesis-anchor-cycle",
+      "mutate": {
+        "anchor_outpoint": "9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0"
+      },
+      "error": "broken_ancestry"
+    },
+    {
+      "name": "bounded-scope-rejected",
+      "mutate": {
+        "verification_scope": "bounded-anchor-only"
+      },
+      "error": "unsupported_scope"
     }
   ]
 }

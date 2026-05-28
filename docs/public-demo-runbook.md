@@ -29,8 +29,9 @@ live report has `issue_81_acceptance_met=true`, `issue_57_acceptance_met=true`,
 and `issue_58_acceptance_met=true` with no invalid-commitment or counterparty
 force-close markers. The Path B wrapper completion report now has
 `path_b_live_observed_balance_gate_met=true` and `live_daemon_gaps_remaining=false`
-from observed live balances. Path B still needs semantic proof ancestry
-validation (#60) before the Path B epic can close.
+from observed live balances. Path B also requires the semantic proof ancestry
+gate to stay green; #60 now enforces that boundary before native wallet state
+advances.
 
 Concurrent simple-taproot splicing is not part of the first public demo. The
 demo keeps one funding outpoint from open through payment, restart, close, and
@@ -234,7 +235,6 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 
 Report Path A and Path B separately. The #59 completion report is now
 `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json`; it
-keeps `path_b_complete=false` until #60 while refusing fixture-only or
-expected-only balance completion. The remaining open path is #60 semantic proof
-ancestry validation. Keep the completed #81, #57, #58, and #59 gates green as
-regressions.
+refuses fixture-only or expected-only balance completion and, after #60, may
+set `path_b_complete=true` when the live observed-balance gate stays green.
+Keep the completed #81, #57, #58, #59, and #60 gates green as regressions.

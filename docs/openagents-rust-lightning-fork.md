@@ -245,8 +245,8 @@ spends the P2TR funding output with a one-element 64-byte key-path Schnorr
 witness. It also carries the #90 first-demo splice policy: concurrent
 simple-taproot splicing is explicitly out of the first public demo until
 bounded nonce-map vectors exist.
-Partial split/change-output support remains later #71/#60 work after the
-bounded live path settles.
+Partial split/change-output support remains later #71 work after the bounded
+live path settles.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
 The epic can only close with the first-demo splice exclusion clearly recorded

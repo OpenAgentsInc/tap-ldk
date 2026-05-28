@@ -13,7 +13,7 @@ use crate::{
     asset_commitment::{AssetCommitmentError, AssetCommitmentStore, build_commitment_update},
     asset_htlc::{
         AssetHtlcCustomRecords, AssetHtlcDecode, AssetHtlcError, AssetHtlcStatus, AssetHtlcStore,
-        decode_custom_records, validate_final_hop,
+        decode_custom_records, validate_final_hop_against_proof_root,
     },
     asset_peer_message::AssetPeerMessage,
     rfq_invoice::{
@@ -258,7 +258,14 @@ pub fn send_native_asset_payment(
     receiver_quote_store: &mut RfqQuoteStore,
     request: NativeAssetPaymentRequest,
 ) -> Result<NativeAssetPayment, NativeAssetPaymentError> {
-    let prepared = prepare_payment(receiver_quote_store, &request, None)?;
+    let state = commitment_store.channel_state(&request.channel_id)?;
+    let prepared = prepare_payment(
+        receiver_quote_store,
+        &request,
+        None,
+        state.monitor_blob.proof_root_hash,
+        state.monitor_blob.proof_root_sum,
+    )?;
     settle_prepared_payment(
         commitment_store,
         htlc_store,
@@ -277,7 +284,13 @@ pub fn try_native_asset_payment_with_failure(
     failure_mode: NativeAssetPaymentFailureMode,
 ) -> Result<NativeAssetPayment, NativeAssetPaymentError> {
     let before = commitment_store.channel_state(&request.channel_id)?;
-    let result = match prepare_payment(receiver_quote_store, &request, Some(failure_mode)) {
+    let result = match prepare_payment(
+        receiver_quote_store,
+        &request,
+        Some(failure_mode),
+        before.monitor_blob.proof_root_hash,
+        before.monitor_blob.proof_root_sum,
+    ) {
         Ok(prepared) => settle_prepared_payment(
             commitment_store,
             htlc_store,
@@ -420,6 +433,8 @@ fn prepare_payment(
     receiver_quote_store: &mut RfqQuoteStore,
     request: &NativeAssetPaymentRequest,
     failure_mode: Option<NativeAssetPaymentFailureMode>,
+    proof_root_hash: Bytes32,
+    proof_root_sum: u64,
 ) -> Result<PreparedPayment, NativeAssetPaymentError> {
     validate_payment_request(request)?;
     let rfq = AssetPeerMessage::RfqRequest {
@@ -475,9 +490,11 @@ fn prepare_payment(
 
     let quote_payment = pay_quote_bound_invoice(receiver_quote_store, invoice.clone(), pay_time)?;
     let mut validation_invoice = quote_payment.invoice.clone();
-    let mut records = AssetHtlcCustomRecords::from_authorization(
+    let mut records = AssetHtlcCustomRecords::from_authorization_with_proof_root(
         &quote_payment.invoice,
         &quote_payment.authorization,
+        proof_root_hash,
+        proof_root_sum,
     )?;
 
     match failure_mode {
@@ -498,10 +515,12 @@ fn prepare_payment(
         AssetHtlcDecode::Asset(records) => records,
         AssetHtlcDecode::BtcOnly => return Err(NativeAssetPaymentError::MissingAssetHtlc),
     };
-    validate_final_hop(
+    validate_final_hop_against_proof_root(
         &decoded,
         &validation_invoice,
         &quote_payment.authorization,
+        proof_root_hash,
+        proof_root_sum,
         validate_time,
     )?;
 
@@ -531,10 +550,12 @@ fn settle_prepared_payment(
         .checked_add(4)
         .ok_or(NativeAssetPaymentError::TimestampOverflow)?;
 
-    let validation = validate_final_hop(
+    let validation = validate_final_hop_against_proof_root(
         &prepared.records,
         &prepared.invoice,
         &prepared.authorization,
+        state.monitor_blob.proof_root_hash,
+        state.monitor_blob.proof_root_sum,
         validate_time,
     )?;
     let update = build_commitment_update(&state, validation.asset_amount, 0, request.asset_nonce)?;

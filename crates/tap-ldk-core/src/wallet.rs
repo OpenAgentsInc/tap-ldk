@@ -12,10 +12,10 @@ use sha2::{Digest, Sha256};
 use crate::{
     asset::{
         AssetAmount, AssetError, AssetLeaf, AssetType, Bytes32, CompressedKey, Genesis,
-        RootHashSum, derive_hash_sum_root, validate_split_conservation,
+        derive_hash_sum_root, validate_split_conservation,
     },
-    proof::{ProofError, ProofFile, VerificationScope},
-    tapd_proof::{TapdProofError, decode_tapd_proof_file},
+    proof::{ProofError, ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
+    tapd_proof::{TapdProofError, TapdProofFileSummary, decode_tapd_proof_file},
 };
 
 pub const WALLET_SCHEMA_VERSION: u32 = 1;
@@ -80,7 +80,7 @@ impl WalletState {
         &mut self,
         proof: ProofFile,
     ) -> Result<ImportOutcome, WalletError> {
-        self.import_verified_proof_with_tapd(proof, None)
+        self.import_verified_proof_with_tapd(proof, None, None)
     }
 
     pub fn import_tapd_proof_file(
@@ -89,16 +89,27 @@ impl WalletState {
     ) -> Result<ImportOutcome, WalletError> {
         let proof_summary =
             decode_tapd_proof_file(&request.tapd_proof_file).map_err(WalletError::TapdProof)?;
-        let proof = request.build_bounded_proof(proof_summary.raw_digest);
-        self.import_verified_proof_with_tapd(proof, Some(request.tapd_proof_file))
+        let proof = request.build_semantic_proof(&proof_summary)?;
+        self.import_verified_proof_with_tapd(
+            proof,
+            Some(request.tapd_proof_file),
+            Some(proof_summary),
+        )
     }
 
     fn import_verified_proof_with_tapd(
         &mut self,
         proof: ProofFile,
         tapd_proof_file: Option<Vec<u8>>,
+        tapd_proof_summary: Option<TapdProofFileSummary>,
     ) -> Result<ImportOutcome, WalletError> {
-        proof.verify_bounded_anchor().map_err(WalletError::Proof)?;
+        let validation_context = match tapd_proof_summary {
+            Some(summary) => ProofValidationContext::for_tapd_import(summary),
+            None => ProofValidationContext::default(),
+        };
+        proof
+            .verify_semantic_ancestry(&validation_context)
+            .map_err(WalletError::Proof)?;
         let encoded = proof.encode().map_err(WalletError::Proof)?;
         let proof_id = proof_id(&proof);
         let proof_hex = encode_hex(&encoded);
@@ -230,6 +241,9 @@ impl WalletState {
             })?;
 
         let input_proof = self.decode_proof(&input_utxo.proof_id)?;
+        input_proof
+            .verify_semantic_ancestry(&ProofValidationContext::default())
+            .map_err(WalletError::Proof)?;
         let input_amount = AssetAmount::new(input_utxo.amount);
         let change_amount = input_amount
             .checked_sub(request.amount)
@@ -324,7 +338,19 @@ impl WalletState {
 
             let encoded = decode_hex(&stored.proof_tlv_hex)?;
             let proof = ProofFile::decode(&encoded).map_err(WalletError::Proof)?;
-            proof.verify_bounded_anchor().map_err(WalletError::Proof)?;
+            let tapd_summary = if let Some(tapd_hex) = stored.tapd_raw_proof_file_hex.as_deref() {
+                let tapd_bytes = decode_hex(tapd_hex)?;
+                Some(decode_tapd_proof_file(&tapd_bytes).map_err(WalletError::TapdProof)?)
+            } else {
+                None
+            };
+            let validation_context = match tapd_summary.clone() {
+                Some(summary) => ProofValidationContext::for_tapd_import(summary),
+                None => ProofValidationContext::default(),
+            };
+            proof
+                .verify_semantic_ancestry(&validation_context)
+                .map_err(WalletError::Proof)?;
             if proof_id(&proof) != *key {
                 return Err(WalletError::StorageInvariant(format!(
                     "proof key {key} does not match encoded proof"
@@ -335,10 +361,7 @@ impl WalletState {
                     "proof {key} verification scope does not match encoded proof"
                 )));
             }
-            if let Some(tapd_hex) = stored.tapd_raw_proof_file_hex.as_deref() {
-                let tapd_bytes = decode_hex(tapd_hex)?;
-                let tapd_summary =
-                    decode_tapd_proof_file(&tapd_bytes).map_err(WalletError::TapdProof)?;
+            if let Some(tapd_summary) = tapd_summary {
                 let expected_digest = stored.tapd_raw_proof_file_digest.ok_or_else(|| {
                     WalletError::StorageInvariant(format!(
                         "proof {key} has tapd proof bytes without digest"
@@ -546,7 +569,9 @@ impl RegtestIssueRequest {
             amount: self.amount,
             script_key: self.script_key,
             tap_asset_root,
-            verification_scope: VerificationScope::BoundedAnchorOnly,
+            verification_scope: VerificationScope::SemanticAncestry,
+            network: ProofNetwork::Regtest,
+            asset_type: AssetType::Normal,
         })
     }
 }
@@ -571,20 +596,33 @@ pub struct TapdProofImportRequest {
 }
 
 impl TapdProofImportRequest {
-    fn build_bounded_proof(&self, tapd_proof_file_digest: Bytes32) -> ProofFile {
-        ProofFile {
+    fn build_semantic_proof(
+        &self,
+        proof_summary: &TapdProofFileSummary,
+    ) -> Result<ProofFile, WalletError> {
+        let leaf = proof_summary.latest_asset_leaf().ok_or(WalletError::Proof(
+            ProofError::BrokenAncestry("tapd proof missing asset leaf"),
+        ))?;
+        let asset_type = AssetType::from_u8(leaf.asset_type).map_err(WalletError::Asset)?;
+        let tap_asset_root = derive_hash_sum_root(&[AssetLeaf {
+            asset_id: self.asset_id,
+            script_key: self.script_key,
+            amount: self.amount,
+        }])
+        .map_err(WalletError::Asset)?;
+
+        Ok(ProofFile {
             version: 0,
             asset_id: self.asset_id,
             genesis_outpoint: self.genesis_outpoint.clone(),
             anchor_outpoint: self.anchor_outpoint.clone(),
             amount: self.amount,
             script_key: self.script_key,
-            tap_asset_root: RootHashSum {
-                hash: tapd_proof_file_digest,
-                sum: self.amount,
-            },
-            verification_scope: VerificationScope::BoundedAnchorOnly,
-        }
+            tap_asset_root,
+            verification_scope: VerificationScope::SemanticAncestry,
+            network: ProofNetwork::Regtest,
+            asset_type,
+        })
     }
 }
 
@@ -701,7 +739,9 @@ fn transfer_output_proof(
         amount,
         script_key,
         tap_asset_root,
-        verification_scope: VerificationScope::BoundedAnchorOnly,
+        verification_scope: VerificationScope::SemanticAncestry,
+        network: input_proof.network,
+        asset_type: input_proof.asset_type,
     })
 }
 
@@ -756,32 +796,37 @@ mod tests {
     };
 
     use super::*;
-    use crate::{asset::RootHashSum, proof::VerificationScope, tapd_proof};
+    use crate::tapd_proof;
 
     fn valid_proof() -> ProofFile {
+        let asset_id =
+            Bytes32::from_str("7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93")
+                .expect("asset id parses");
+        let script_key = CompressedKey::from_str(
+            "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+        )
+        .expect("script key parses");
+        let amount = AssetAmount::new(1_000_000);
+        let tap_asset_root = derive_hash_sum_root(&[AssetLeaf {
+            asset_id,
+            script_key,
+            amount,
+        }])
+        .expect("root derives");
+
         ProofFile {
             version: 0,
-            asset_id: Bytes32::from_str(
-                "7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93",
-            )
-            .expect("asset id parses"),
+            asset_id,
             genesis_outpoint: "9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0"
                 .to_owned(),
             anchor_outpoint: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1"
                 .to_owned(),
-            amount: AssetAmount::new(1_000_000),
-            script_key: CompressedKey::from_str(
-                "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
-            )
-            .expect("script key parses"),
-            tap_asset_root: RootHashSum {
-                hash: Bytes32::from_str(
-                    "3ed3ea50146d815594b28dc6bbff67dadf078ee245c10a1a06faeb5e8ff9c3c2",
-                )
-                .expect("root hash parses"),
-                sum: AssetAmount::new(1_000_000),
-            },
-            verification_scope: VerificationScope::BoundedAnchorOnly,
+            amount,
+            script_key,
+            tap_asset_root,
+            verification_scope: VerificationScope::SemanticAncestry,
+            network: ProofNetwork::Regtest,
+            asset_type: AssetType::Normal,
         }
     }
 
@@ -808,18 +853,11 @@ mod tests {
     #[test]
     fn tapd_proof_file_import_exports_raw_file_and_survives_restart() {
         let path = temp_wallet_path("tapd_restart");
-        let proof = valid_proof();
         let tapd_proof_file = tapd_proof_file_fixture();
+        let request = tapd_fixture_import_request(tapd_proof_file.clone());
         let mut wallet = WalletState::default();
         let outcome = wallet
-            .import_tapd_proof_file(TapdProofImportRequest {
-                asset_id: proof.asset_id,
-                genesis_outpoint: proof.genesis_outpoint,
-                anchor_outpoint: proof.anchor_outpoint,
-                amount: proof.amount,
-                script_key: proof.script_key,
-                tapd_proof_file: tapd_proof_file.clone(),
-            })
+            .import_tapd_proof_file(request)
             .expect("tapd proof file imports");
 
         assert_eq!(outcome.status(), "imported");
@@ -829,7 +867,10 @@ mod tests {
                 .expect("tapd proof exports"),
             tapd_proof_file
         );
-        assert_eq!(wallet.balances().expect("balances"), expected_balances());
+        assert_eq!(
+            wallet.balances().expect("balances"),
+            expected_tapd_balances()
+        );
 
         wallet.save_atomic(&path).expect("wallet saves");
         let loaded = WalletState::load(&path).expect("wallet reloads");
@@ -841,7 +882,7 @@ mod tests {
         );
         assert_eq!(
             loaded.balances().expect("loaded balances"),
-            expected_balances()
+            expected_tapd_balances()
         );
         fs::remove_file(path).ok();
     }
@@ -985,8 +1026,8 @@ mod tests {
 
     #[test]
     fn malformed_and_wrong_anchor_tapd_proofs_fail_before_state_advances() {
-        let proof = valid_proof();
         let tapd_proof_file = tapd_proof_file_fixture();
+        let request = tapd_fixture_import_request(tapd_proof_file.clone());
 
         let mut malformed = tapd_proof_file.clone();
         let last = malformed.last_mut().expect("fixture has checksum");
@@ -995,11 +1036,11 @@ mod tests {
         let mut wallet = WalletState::default();
         assert!(matches!(
             wallet.import_tapd_proof_file(TapdProofImportRequest {
-                asset_id: proof.asset_id,
-                genesis_outpoint: proof.genesis_outpoint.clone(),
-                anchor_outpoint: proof.anchor_outpoint.clone(),
-                amount: proof.amount,
-                script_key: proof.script_key,
+                asset_id: request.asset_id,
+                genesis_outpoint: request.genesis_outpoint.clone(),
+                anchor_outpoint: request.anchor_outpoint.clone(),
+                amount: request.amount,
+                script_key: request.script_key,
                 tapd_proof_file: malformed,
             }),
             Err(WalletError::TapdProof(
@@ -1011,11 +1052,11 @@ mod tests {
 
         assert!(matches!(
             wallet.import_tapd_proof_file(TapdProofImportRequest {
-                asset_id: proof.asset_id,
-                genesis_outpoint: proof.genesis_outpoint,
+                asset_id: request.asset_id,
+                genesis_outpoint: request.genesis_outpoint,
                 anchor_outpoint: "wrong-anchor-without-index".to_owned(),
-                amount: proof.amount,
-                script_key: proof.script_key,
+                amount: request.amount,
+                script_key: request.script_key,
                 tapd_proof_file,
             }),
             Err(WalletError::Proof(ProofError::MalformedOutpoint(
@@ -1051,6 +1092,13 @@ mod tests {
         }]
     }
 
+    fn expected_tapd_balances() -> Vec<AssetBalance> {
+        vec![AssetBalance {
+            asset_id: "941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1".to_owned(),
+            spendable: 600,
+        }]
+    }
+
     fn temp_wallet_path(name: &str) -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1069,5 +1117,19 @@ mod tests {
             .join("fixtures/lightning-labs/proof/testdata/proof-file.hex");
         let raw = fs::read_to_string(path).expect("tapd proof fixture reads");
         tapd_proof::decode_hex_text(&raw).expect("tapd proof fixture hex decodes")
+    }
+
+    fn tapd_fixture_import_request(tapd_proof_file: Vec<u8>) -> TapdProofImportRequest {
+        let summary = decode_tapd_proof_file(&tapd_proof_file).expect("tapd proof summary");
+        let leaf = summary.latest_asset_leaf().expect("latest asset leaf");
+        TapdProofImportRequest {
+            asset_id: leaf.asset_id,
+            genesis_outpoint: leaf.genesis.first_prev_out.clone(),
+            anchor_outpoint: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1"
+                .to_owned(),
+            amount: AssetAmount::new(leaf.amount),
+            script_key: leaf.script_key,
+            tapd_proof_file,
+        }
     }
 }

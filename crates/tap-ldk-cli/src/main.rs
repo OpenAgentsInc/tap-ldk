@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use tap_ldk_core::{
     ProjectInfo,
-    asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
+    asset::{AssetAmount, AssetType, Bytes32, CompressedKey, RootHashSum},
     asset_channel_funding::{AssetChannelStore, run_asset_channel_funding_smoke},
     asset_channel_negotiation::run_negotiation_smoke,
     asset_close::run_native_asset_close_smoke,
@@ -28,7 +28,7 @@ use tap_ldk_core::{
     },
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
-    proof::{ProofFile, VerificationScope},
+    proof::{ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
     rfq_quote_store::{RfqQuoteRequest, RfqQuoteStore},
@@ -727,9 +727,11 @@ fn main() {
                     process::exit(1);
                 }
             };
-            let proof = match ProofFile::decode(&encoded)
-                .and_then(|proof| proof.verify_bounded_anchor().map(|()| proof))
-            {
+            let proof = match ProofFile::decode(&encoded).and_then(|proof| {
+                proof
+                    .verify_semantic_ancestry(&ProofValidationContext::default())
+                    .map(|_| proof)
+            }) {
                 Ok(proof) => proof,
                 Err(err) => {
                     eprintln!("failed to verify proof file {proof_path}: {err}");
@@ -1220,6 +1222,8 @@ fn load_synthetic_proof_fixture(path: &str) -> Result<ProofFile, String> {
         },
         verification_scope: VerificationScope::from_str(&fixture.verification_scope)
             .map_err(|err| err.to_string())?,
+        network: ProofNetwork::from_str(&fixture.network).map_err(|err| err.to_string())?,
+        asset_type: AssetType::from_u8(fixture.asset_type).map_err(|err| err.to_string())?,
     })
 }
 
@@ -1232,6 +1236,8 @@ struct SyntheticProofFixture {
     script_key: String,
     tap_asset_root: SyntheticRoot,
     verification_scope: String,
+    network: String,
+    asset_type: u8,
 }
 
 #[derive(Debug, Deserialize)]

@@ -157,7 +157,8 @@ return payment settles into integrated `litd`, and the post-claim
 partial-signature transcript verifies. The #84 follow-up also fixes the stale
 funding-input control-block fallback symptom. The #58 issue-specific
 receive/restart proof and #59 completion report are now complete; the next live
-work is #60 semantic proof ancestry validation.
+proof gate is #60 semantic proof ancestry validation, which is now implemented
+and must stay green as a regression.
 
 ## What Works
 
@@ -461,8 +462,8 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #60, #61, #71, or #19 from fixture-only or readiness reports.
-Keep the closed #81, #57, #58, and #59 gates running as regressions.
+Do not close #61, #71, or #19 from fixture-only or readiness reports. Keep the
+closed #81, #57, #58, #59, and #60 gates running as regressions.
 
 Required live evidence before closure:
 
@@ -477,16 +478,15 @@ Required live evidence before closure:
 - wrong-asset, wrong-amount, stale-quote, and malformed-blob cases still fail
   closed.
 
-### Phase 7: Complete Proof Ancestry And Broader Protocol Work
+### Phase 7: Complete Broader Protocol Work
 
-After the bounded live payment path works, finish the remaining protocol
-surface:
+After the bounded live payment path and #60 proof boundary work, finish the
+remaining protocol surface:
 
-- full semantic proof ancestry validation;
 - partial split and change-output support;
 - STXO commitment leaves;
 - multi-input same-asset funding where required;
-- additional Taproot Asset proof-chain validation;
+- production full-history Taproot Asset proof-chain validation;
 - broader property/fuzz/formal coverage for amount conservation,
   persistence, quote lifecycle, and close/recovery.
 
@@ -512,7 +512,8 @@ move the remaining live-demo work forward:
 1. Preserve the latest bidirectional #57/#58 artifact with no post-claim
    signature, invalid-control-block, invalid-commitment, or force-close marker.
 2. Preserve the #59 Path B observed-balance completion report.
-3. Finish #60 semantic proof ancestry validation.
+3. Keep #60 semantic proof ancestry validation green while closing #61, #71,
+   and #19 in order.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

@@ -181,9 +181,9 @@ pub fn bind_live_tapd_proof(
         tapd_proof_file_len: proof_summary.raw_len,
         tapd_proof_file_digest: proof_summary.raw_digest.to_hex(),
         tapd_final_chain_checksum: proof_summary.final_chain_checksum.to_hex(),
-        verification_scope: "bounded_anchor_only".to_owned(),
+        verification_scope: "semantic_ancestry".to_owned(),
         fixture_only_path: false,
-        semantic_ancestry_validation: "deferred_to_issue_60".to_owned(),
+        semantic_ancestry_validation: "tap_ldk_core_semantic_ancestry".to_owned(),
     })
 }
 
@@ -216,15 +216,15 @@ mod tests {
     fn base_request() -> LiveTapdProofBindingRequest {
         LiveTapdProofBindingRequest {
             asset_id: Bytes32::from_str(
-                "7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93",
+                "941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1",
             )
             .expect("asset id"),
-            amount: AssetAmount::new(1_000_000),
+            amount: AssetAmount::new(600),
             owner_script_key: CompressedKey::from_str(
-                "02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f",
+                "0285a7e2dfcad008f54094005db2424aa23431cfb62535950a590957fa6c7cdb27",
             )
             .expect("owner key"),
-            genesis_outpoint: "9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0"
+            genesis_outpoint: "c181733565d1ddc83fbdc36d7ad630f0b1a497a5f4f4d57a0bf664bb95d59905:0"
                 .to_owned(),
             anchor_outpoint: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1"
                 .to_owned(),
@@ -243,11 +243,14 @@ mod tests {
         let report = bind_live_tapd_proof(&mut wallet, request).expect("live tapd proof binds");
 
         assert_eq!(report.status, "bound");
-        assert_eq!(report.amount, 1_000_000);
-        assert_eq!(report.wallet_balance, 1_000_000);
+        assert_eq!(report.amount, 600);
+        assert_eq!(report.wallet_balance, 600);
         assert!(report.tapd_proof_count > 0);
         assert!(!report.fixture_only_path);
-        assert_eq!(report.semantic_ancestry_validation, "deferred_to_issue_60");
+        assert_eq!(
+            report.semantic_ancestry_validation,
+            "tap_ldk_core_semantic_ancestry"
+        );
         assert!(
             wallet
                 .export_tapd_proof_file(&report.proof_id)

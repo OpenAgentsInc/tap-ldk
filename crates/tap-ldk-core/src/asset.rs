@@ -111,6 +111,14 @@ impl AssetType {
             Self::Collectible => 1,
         }
     }
+
+    pub fn from_u8(value: u8) -> Result<Self, AssetError> {
+        match value {
+            0 => Ok(Self::Normal),
+            1 => Ok(Self::Collectible),
+            other => Err(AssetError::UnsupportedAssetType(other)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -254,6 +262,7 @@ pub enum AssetError {
         input: u64,
         output: u64,
     },
+    UnsupportedAssetType(u8),
     EmptyInputSet,
     MismatchedAssetId {
         expected: Bytes32,
@@ -287,6 +296,9 @@ impl fmt::Display for AssetError {
                     f,
                     "asset amount not conserved: input {input}, output {output}"
                 )
+            }
+            Self::UnsupportedAssetType(value) => {
+                write!(f, "unsupported asset type {value}")
             }
             Self::EmptyInputSet => write!(f, "input set cannot be empty"),
             Self::MismatchedAssetId { expected, actual } => {

@@ -16,7 +16,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{AssetAmount, AssetError, AssetLeaf, Bytes32, CompressedKey, derive_hash_sum_root},
+    asset::{
+        AssetAmount, AssetError, AssetLeaf, AssetType, Bytes32, CompressedKey, derive_hash_sum_root,
+    },
     asset_channel_funding::AssetChannelFundingError,
     asset_commitment::{AssetCommitmentChannelState, AssetCommitmentError, AssetCommitmentStore},
     asset_htlc::{AssetHtlcError, AssetHtlcStore},
@@ -24,7 +26,7 @@ use crate::{
         NativeAssetPaymentError, NativeAssetPaymentRequest, NativeAssetPaymentStore,
         send_native_asset_payment,
     },
-    proof::{ProofError, ProofFile, VerificationScope},
+    proof::{ProofError, ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
     rfq_invoice::RfqInvoiceError,
     rfq_quote_store::RfqQuoteStore,
     wallet::{ImportOutcome, WalletError, WalletState},
@@ -410,7 +412,9 @@ fn build_close_proof(
         amount: asset_amount,
         script_key,
         tap_asset_root,
-        verification_scope: VerificationScope::BoundedAnchorOnly,
+        verification_scope: VerificationScope::SemanticAncestry,
+        network: ProofNetwork::Regtest,
+        asset_type: AssetType::Normal,
     })
 }
 
@@ -419,7 +423,6 @@ fn validate_close_proof(
     owner: CloseOwnerSide,
     proof: &ProofFile,
 ) -> Result<(), NativeAssetCloseError> {
-    proof.verify_bounded_anchor()?;
     let (expected_amount, expected_script_key) = match owner {
         CloseOwnerSide::Local => (close.local_amount, close.local_script_key),
         CloseOwnerSide::Remote => (close.remote_amount, close.remote_script_key),
@@ -432,6 +435,13 @@ fn validate_close_proof(
         expected_amount,
         expected_script_key,
     );
+    proof.verify_semantic_ancestry(&ProofValidationContext::for_close(
+        close.asset_id,
+        AssetAmount::new(expected_amount),
+        expected_script_key,
+        close_genesis_outpoint(close.asset_id),
+        expected_anchor.clone(),
+    ))?;
     if proof.asset_id != close.asset_id
         || proof.amount.value() != expected_amount
         || proof.script_key != expected_script_key

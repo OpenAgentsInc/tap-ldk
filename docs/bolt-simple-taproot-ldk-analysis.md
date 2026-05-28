@@ -20,10 +20,10 @@ Full Taproot Assets protocol semantics are still separate work. Real MS-SMT,
 `AssetCommitment`, `TapCommitment`, and first-demo TAP VM/virtual transition
 validation now exist in `tap-ldk-core`, and #75 now wires the bounded
 single-asset channel lifecycle through the rust-lightning
-`TaprootAssetChannelState`. Full proof ancestry and live Lightning Labs vectors
-now split differently: #60 owns semantic proof ancestry, while #57 through #59
-own live Lightning Labs settlement and observed balance reporting. #76 is
-implemented as consolidated vector and live-gate coverage. The BOLT draft
+`TaprootAssetChannelState`. The #60 semantic proof boundary now covers first-demo
+proof import and channel-state advancement, while #57 through #59 own live
+Lightning Labs settlement and observed balance reporting. #76 is implemented
+as consolidated vector and live-gate coverage. The BOLT draft
 transaction JSON currently differs from its script-vector section for some
 multi-HTLC output keys, so the fork asserts the
 unambiguous script vectors exactly and uses the transaction cases for output

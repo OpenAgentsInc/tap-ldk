@@ -58,5 +58,6 @@ documented gap until native post-close proof and balance observation exists.
 - #59 makes `live_daemon_gaps_remaining=false` impossible unless both live
   directions agree on asset ID, amount, payment state, proof reference, and
   balances.
-- #60 must replace shallow proof acceptance with semantic proof ancestry
-  validation before the full protocol epics close.
+- #60 replaces shallow proof acceptance with semantic proof ancestry validation
+  at the first-demo boundary; keep those tests green before closing the full
+  protocol epics.

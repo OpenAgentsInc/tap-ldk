@@ -29,7 +29,23 @@ fn lightning_labs_proof_file_fixture_decodes_and_validates_chain() {
         assert!(proof.raw_len > 0);
         assert!(proof.record_count > 0);
         assert_eq!(proof.transition_version, Some(0));
+        assert!(proof.has_prev_out);
+        assert!(proof.has_anchor_tx);
+        assert!(proof.has_asset_leaf);
+        assert!(proof.has_inclusion_proof);
     }
+
+    let latest = summary.latest_asset_leaf().expect("latest asset leaf");
+    assert_eq!(
+        latest.asset_id.to_hex(),
+        "941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1"
+    );
+    assert_eq!(latest.asset_type, 0);
+    assert_eq!(latest.amount, 600);
+    assert_eq!(
+        latest.script_key.to_hex(),
+        "0285a7e2dfcad008f54094005db2424aa23431cfb62535950a590957fa6c7cdb27"
+    );
 }
 
 #[test]

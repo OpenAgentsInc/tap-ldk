@@ -2,8 +2,8 @@ use std::{fs, path::Path, str::FromStr};
 
 use serde_json::Value;
 use tap_ldk_core::{
-    asset::{AssetAmount, Bytes32, CompressedKey, RootHashSum},
-    proof::{ProofError, ProofFile, VerificationScope},
+    asset::{AssetAmount, AssetType, Bytes32, CompressedKey, RootHashSum},
+    proof::{ProofError, ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
 };
 
 #[test]
@@ -13,7 +13,9 @@ fn proof_fixture_round_trips_and_verifies() {
     let decoded = ProofFile::decode(&encoded).expect("proof decodes");
 
     assert_eq!(decoded, proof);
-    decoded.verify_bounded_anchor().expect("proof verifies");
+    decoded
+        .verify_semantic_ancestry(&ProofValidationContext::default())
+        .expect("proof verifies");
 }
 
 #[test]
@@ -28,7 +30,9 @@ fn invalid_proof_fixtures_fail_closed() {
         let expected_error = required_str(case, "error");
         let mut proof = load_valid_proof();
         apply_mutation(&mut proof, &case["mutate"]);
-        let err = proof.verify_bounded_anchor().unwrap_err();
+        let err = proof
+            .verify_semantic_ancestry(&ProofValidationContext::default())
+            .unwrap_err();
 
         assert_eq!(
             classify_error(&err),
@@ -56,6 +60,9 @@ fn load_valid_proof() -> ProofFile {
         },
         verification_scope: VerificationScope::from_str(required_str(&value, "verification_scope"))
             .expect("scope parses"),
+        network: ProofNetwork::from_str(required_str(&value, "network")).expect("network parses"),
+        asset_type: AssetType::from_u8(required_u64(&value, "asset_type") as u8)
+            .expect("asset type parses"),
     }
 }
 
@@ -65,6 +72,18 @@ fn apply_mutation(proof: &mut ProofFile, mutation: &Value) {
     }
     if let Some(sum) = mutation.get("tap_asset_root_sum").and_then(Value::as_u64) {
         proof.tap_asset_root.sum = AssetAmount::new(sum);
+    }
+    if let Some(hash) = mutation.get("tap_asset_root_hash").and_then(Value::as_str) {
+        proof.tap_asset_root.hash = Bytes32::from_str(hash).expect("mutated root hash parses");
+    }
+    if let Some(anchor) = mutation.get("anchor_outpoint").and_then(Value::as_str) {
+        proof.anchor_outpoint = anchor.to_owned();
+    }
+    if let Some(genesis) = mutation.get("genesis_outpoint").and_then(Value::as_str) {
+        proof.genesis_outpoint = genesis.to_owned();
+    }
+    if let Some(scope) = mutation.get("verification_scope").and_then(Value::as_str) {
+        proof.verification_scope = VerificationScope::from_str(scope).expect("scope parses");
     }
 }
 
@@ -76,6 +95,17 @@ fn classify_error(err: &ProofError) -> &'static str {
         ProofError::ZeroAmount => "zero_amount",
         ProofError::UnsupportedVersion(_) => "unsupported_version",
         ProofError::MalformedOutpoint(_) => "malformed_outpoint",
+        ProofError::CommitmentRootMismatch { .. } => "commitment_root_mismatch",
+        ProofError::BrokenAncestry(_) => "broken_ancestry",
+        ProofError::StaleProof { .. } => "stale_proof",
+        ProofError::WrongAsset { .. } => "wrong_asset",
+        ProofError::WrongOwner { .. } => "wrong_owner",
+        ProofError::WrongAmount { .. } => "wrong_amount",
+        ProofError::WrongNetwork { .. } => "wrong_network",
+        ProofError::WrongAssetType { .. } => "wrong_asset_type",
+        ProofError::UnsupportedNetwork(_) => "unsupported_network",
+        ProofError::MissingTapdProofSummary => "missing_tapd_proof_summary",
+        ProofError::StaleTapdProof { .. } => "stale_tapd_proof",
         ProofError::Tlv(_) => "tlv",
         ProofError::Asset(_) => "asset",
         ProofError::MissingField(_) => "missing_field",

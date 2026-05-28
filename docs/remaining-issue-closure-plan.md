@@ -89,7 +89,7 @@ multi-funding simple-taproot paths. Broader BOLT conformance items are separate
 | Done | #57 Live `tap-ldk` pays Lightning Labs | `target/live-lightning-labs-outgoing-payment-issue57-final/report.json` completed with `issue_57_acceptance_met=true`: native LDK sends the returned asset to integrated `litd` with the canonical Taproot Asset HTLC blob, 354,000 msat BTC carrier amount, settled local-to-remote accounting, observed `litd` channel asset balance, and no invalid-commitment or counterparty force-close markers. | Closed; keep the live script green as the bidirectional regression gate. |
 | Done | #58 Live Lightning Labs pays `tap-ldk` | `target/live-lightning-labs-outgoing-payment-issue58-rerun/report.json` completed with `issue_58_acceptance_met=true`: integrated `litd` paid native LDK, native LDK recorded the settled remote-to-local asset payment, bounded incoming metadata failures stayed fail-closed, and the restart snapshot reloaded the received payment/balance checkpoint. | Closed; keep the live script green as the receiver/restart regression gate. |
 | Done | #59 Observed live balance reporting | `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json` completed with `path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`, fixture-only completion disabled, and expected-only balance completion disabled. | Closed; keep the Path B wrapper completion report green as the observed-balance regression. |
-| 1 | #60 Semantic proof ancestry validation | MS-SMT, `AssetCommitment`, `TapCommitment`, TAP VM, `TAPF` transport validation, and raw proof preservation exist; full semantic proof ancestry does not. | Validate asset identity, type, anchors, Taproot commitment roots, owner transitions, amount conservation, virtual transaction history, split/previous-witness ancestry, and failure cases. Route the same validation boundary through wallet import, funding, HTLC receipt, cooperative close, and recovery. |
+| Done | #60 Semantic proof ancestry validation | `tap-ldk-core::proof` now rejects shallow proof matches with `semantic-ancestry`, strict regtest outpoints, normal asset type, derived Taproot Asset root, expected asset/owner/amount checks, stale-anchor rejection, and Lightning Labs `TAPF` latest-asset-leaf validation. | Closed; production full-history virtual transaction, STXO, grouped-asset, and reorg-watcher proof replay remains #71 hardening. |
 | Done | #82 BOLT simple-taproot spec-compliance tracker | The audit has been split into focused issues so #81 stays narrow. Legacy signature-field zeroing/rejection, #83 post-claim transcript, #84 force-close funding-input witness, #85 public-channel rejection, #86 immediate nonce validation, #87 RAA/reestablish nonce-field selection, #88 BTC-only lifecycle gate, #89 cooperative-close proof, and #90 first-demo splice exclusion are fixed. | Closed for first-demo scope; production splice claims remain out of scope. |
 | 2 | #61 BTC simple-taproot LDK epic | Fork surfaces #62 through #70 and #75 are implemented and pinned, with vector and lifecycle smoke coverage. #88 proves BTC-only open, pay, reestablish, functional cooperative close, force-close, and legacy isolation; #89 strengthens cooperative-close close/restart evidence; #90 gates concurrent splicing out of first-demo scope; #82 is closed for first-demo scope. | Close only if the issue title/body/comment clearly avoid production splice claims and legacy channel behavior is unaffected. |
 | 3 | #71 Full Taproot Assets LDK epic | Native primitives, bounded channel state, fork hooks, and live interop scaffolding exist. | Close only after #57 through #60 pass and asset funding, commitment, HTLC, close, monitor, and recovery state are wired into the real simple-taproot LDK state machine without weakening BTC-only behavior. |
@@ -97,14 +97,11 @@ multi-funding simple-taproot paths. Broader BOLT conformance items are separate
 
 ## Engineering Path
 
-1. Keep #81, #57, #58, and #59 green as live settlement, receiver/restart, and
-   observed-balance regressions.
-2. Finish #60 by replacing the remaining proof-envelope boundary with semantic
-   proof ancestry validation, then wire that boundary into every path that can
-   accept or move asset state.
-4. Audit #61 with the first-demo splice exclusion explicit and production
+1. Keep #81, #57, #58, #59, and #60 green as live settlement,
+   receiver/restart, observed-balance, and semantic-proof regressions.
+2. Audit #61 with the first-demo splice exclusion explicit and production
    splice claims outside the close criteria.
-5. Audit #71 and #19 against their acceptance criteria. Do not close
+3. Audit #71 and #19 against their acceptance criteria. Do not close
    them until the live, semantic, and BOLT conformance checks above are
    complete.
 
@@ -114,5 +111,5 @@ For every issue, run the issue-specific live command, `cargo fmt --check`,
 `cargo test`, and `git diff --check`. For #57, #58, and #59, attach the
 non-secret live report summary showing asset ID, payment ID, amount, balance
 before/after, proof reference, and whether each side observed the same final
-state. For #60, include the semantic proof-validation coverage and negative
-fixture classes.
+state. Keep #60 covered by `cargo test --locked`, the live tapd proof binding
+path, and the semantic negative fixture classes.

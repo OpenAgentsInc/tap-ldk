@@ -29,7 +29,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     asset::{AssetAmount, AssetError, Bytes32, CompressedKey, RootHashSum},
-    proof::{ProofError, ProofFile},
+    proof::{ProofError, ProofFile, ProofValidationContext},
     tap_vm::{AssetVirtualTransition, TapVmError},
     taproot_commitment::{
         AssetVersion, TapAsset, TapCommitment, TapCommitmentVersion, TaprootCommitmentError,
@@ -875,7 +875,7 @@ fn validate_inputs(
     let mut validated = Vec::with_capacity(proofs.len());
     for proof in proofs {
         proof
-            .verify_bounded_anchor()
+            .verify_semantic_ancestry(&ProofValidationContext::for_asset(*asset_id))
             .map_err(AssetChannelFundingError::Proof)?;
         if proof.asset_id != *asset_id {
             return Err(AssetChannelFundingError::AssetIdMismatch {
@@ -1181,7 +1181,9 @@ mod tests {
         let mut store = AssetChannelStore::default();
         assert!(matches!(
             store.fund_channel(wrong_asset_request),
-            Err(AssetChannelFundingError::AssetIdMismatch { .. })
+            Err(AssetChannelFundingError::Proof(
+                ProofError::WrongAsset { .. }
+            ))
         ));
         assert!(store.channels.is_empty());
 

@@ -46,15 +46,16 @@ report observes the returned `litd` channel asset balance. The wrapper then
 writes `path-b-completion-report.json`, which sets
 `path_b_live_observed_balance_gate_met=true` only when #57 and #58 live
 observed-balance evidence is present, keeps fixture-only and expected-only
-completion disabled, and keeps `path_b_complete=false` until #60 is done.
+completion disabled, and can set `path_b_complete=true` once the live gate is
+green because #60 is now enforced.
 
 Current #59 status: complete. The latest passing wrapper artifact is
 `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json` with
 `path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`,
 `expected_only_balances_can_complete_path_b=false`, and
-`fixture_only_reports_can_complete_path_b=false`. The report still keeps
-`path_b_complete=false` because #60 semantic proof ancestry validation remains
-open.
+`fixture_only_reports_can_complete_path_b=false`. After #60, reruns should also
+set `semantic_proof_ancestry_complete=true` and may set `path_b_complete=true`
+when the live observed-balance gate remains green.
 
 The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
@@ -67,10 +68,10 @@ negotiation locally, observe remote simple-taproot and Taproot Asset channel
 support, reach typed asset-channel message/payment APIs, and complete the #81
 live Lightning Labs to native settlement gate, the #57 native-to-`litd`
 return payment gate, the #58 native receiver restart snapshot, and the #59
-observed-balance completion gate.
+observed-balance completion gate. Proof binding now also uses the #60 semantic
+proof boundary before native wallet state advances.
 
 Open issue path:
 
-1. #60: semantic proof ancestry validation replaces the remaining bounded
-   proof boundary.
-2. #19 closes only after those live and semantic gates pass.
+1. #19 closes only after the live and semantic gates pass in the wrapper
+   report.

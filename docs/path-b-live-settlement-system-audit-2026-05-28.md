@@ -300,7 +300,7 @@ Responsibilities:
 - keep the public state honest;
 - prevent fixture-backed expected balances from being described as live
   balances;
-- keep the completed #81, #57, #58, and #59 gates green and keep #60, #61,
+- keep the completed #81, #57, #58, #59, and #60 gates green and keep #61,
   #71, and #19 in the correct closure order.
 
 ### OpenAgentsInc `ldk-node`
@@ -427,8 +427,8 @@ Relevant Lightning Labs behavior:
 - Do not move settlement accounting into `tap-ldk` or `ldk-node` without the
   Rust Lightning commitment transcript being correct.
 - Do not depend on `tapd`, `litd`, or LND as a sidecar inside the wallet.
-- Do not close #60, #61, #71, or #19 from fixture-only reports.
-  #81, #57, #58, and #59 are closed only by live completed gates and remain
+- Do not close #61, #71, or #19 from fixture-only reports. #81, #57, #58,
+  #59, and #60 are closed only by live/proof completed gates and remain
   regressions.
 - Do not weaken runtime fail-closed policy to make a live harness report
   better.
@@ -595,11 +595,11 @@ Acceptance for this phase:
 - #57 can report `issue_57_acceptance_met=true`;
 - #58 can report durable native receiver balance after restart;
 - #59 requires observed live balances instead of expected-only balances;
-- #81, #57, #58, and #59 are closed; this phase now gates #60.
+- #81, #57, #58, #59, and #60 are closed and remain regression gates.
 
 ### Phase 6: Semantic Proof Validation
 
-After live settlement, #60 still needs the full proof-ancestry boundary:
+The #60 first-demo semantic proof boundary now enforces:
 
 - asset identity and genesis validation;
 - group key validation when present;
@@ -683,10 +683,9 @@ TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS=180 \
 
 Current open issue order remains:
 
-1. #60: semantic proof ancestry validation;
-2. #61: BOLT simple-taproot LDK epic;
-3. #71: full Taproot Assets LDK epic;
-4. #19: Path B Lightning Labs interop epic.
+1. #61: BOLT simple-taproot LDK epic;
+2. #71: full Taproot Assets LDK epic;
+3. #19: Path B Lightning Labs interop epic.
 
 Keep #81, #57, #58, and #59's live harness/reporting gates green as
 regressions. Do not close #61, #71, or #19

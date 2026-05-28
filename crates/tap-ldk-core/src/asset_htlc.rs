@@ -472,6 +472,28 @@ pub fn validate_final_hop(
     })
 }
 
+pub fn validate_final_hop_against_proof_root(
+    records: &AssetHtlcCustomRecords,
+    invoice: &crate::rfq_invoice::QuoteBoundInvoice,
+    authorization: &RfqHtlcAuthorization,
+    expected_proof_root_hash: Bytes32,
+    expected_proof_root_sum: u64,
+    now_unix_seconds: u64,
+) -> Result<AssetHtlcValidation, AssetHtlcError> {
+    let validation = validate_final_hop(records, invoice, authorization, now_unix_seconds)?;
+    if records.proof_root_hash != expected_proof_root_hash
+        || records.proof_root_sum != expected_proof_root_sum
+    {
+        return Err(AssetHtlcError::ProofRootMismatch {
+            expected_hash: expected_proof_root_hash,
+            actual_hash: records.proof_root_hash,
+            expected_sum: expected_proof_root_sum,
+            actual_sum: records.proof_root_sum,
+        });
+    }
+    Ok(validation)
+}
+
 pub fn run_asset_htlc_smoke()
 -> Result<(AssetHtlcStore, AssetCommitmentStore, AssetHtlcSmokeReport), AssetHtlcError> {
     let (mut commitment_store, mut commitment_state) = initialized_commitment_store()?;
@@ -499,7 +521,14 @@ pub fn run_asset_htlc_smoke()
                 TaprootAssetHtlcMetadataError::MissingAcceptedQuote
             ))
         );
-    let validation = validate_final_hop(&decoded, &settle_invoice, &settle_authorization, 1_002)?;
+    let validation = validate_final_hop_against_proof_root(
+        &decoded,
+        &settle_invoice,
+        &settle_authorization,
+        proof_root_hash,
+        proof_root_sum,
+        1_002,
+    )?;
 
     let mut wrong = decoded.clone();
     wrong.asset_amount += 1;
@@ -532,8 +561,14 @@ pub fn run_asset_htlc_smoke()
         proof_root_hash,
         proof_root_sum,
     )?;
-    let fail_validation =
-        validate_final_hop(&fail_records, &fail_invoice, &fail_authorization, 1_002)?;
+    let fail_validation = validate_final_hop_against_proof_root(
+        &fail_records,
+        &fail_invoice,
+        &fail_authorization,
+        proof_root_hash,
+        proof_root_sum,
+        1_002,
+    )?;
     let failed_offer = htlc_store.add_htlc(&channel_id, fail_validation)?;
     let failed = htlc_store.fail_htlc(&failed_offer.htlc_id)?;
     let btc_only_unaffected = matches!(
@@ -591,6 +626,12 @@ pub enum AssetHtlcError {
     ScidAliasMismatch,
     PaymentHashMismatch,
     FinalHopDigestMismatch,
+    ProofRootMismatch {
+        expected_hash: Bytes32,
+        actual_hash: Bytes32,
+        expected_sum: u64,
+        actual_sum: u64,
+    },
     StorageInvariant(String),
 }
 
@@ -636,6 +677,17 @@ impl fmt::Display for AssetHtlcError {
             Self::ScidAliasMismatch => write!(f, "asset HTLC SCID alias mismatch"),
             Self::PaymentHashMismatch => write!(f, "asset HTLC payment hash mismatch"),
             Self::FinalHopDigestMismatch => write!(f, "asset HTLC final-hop digest mismatch"),
+            Self::ProofRootMismatch {
+                expected_hash,
+                actual_hash,
+                expected_sum,
+                actual_sum,
+            } => write!(
+                f,
+                "asset HTLC proof root mismatch: expected {}:{expected_sum}, got {}:{actual_sum}",
+                expected_hash.to_hex(),
+                actual_hash.to_hex()
+            ),
             Self::StorageInvariant(message) => {
                 write!(f, "asset HTLC storage invariant failed: {message}")
             }
@@ -924,6 +976,17 @@ mod tests {
     fn final_hop_validation_rejects_wrong_and_stale_metadata() {
         let (records, invoice, authorization) = records();
         assert!(validate_final_hop(&records, &invoice, &authorization, 1_002).is_ok());
+        assert!(
+            validate_final_hop_against_proof_root(
+                &records,
+                &invoice,
+                &authorization,
+                records.proof_root_hash,
+                records.proof_root_sum,
+                1_002,
+            )
+            .is_ok()
+        );
 
         let mut wrong_asset = records.clone();
         wrong_asset.asset_id = Bytes32([99; 32]);
@@ -954,6 +1017,26 @@ mod tests {
                 invoice.quote_expiry_unix_seconds + 1
             ),
             Err(AssetHtlcError::StaleHtlc)
+        ));
+
+        let wrong_root_records = AssetHtlcCustomRecords::from_authorization_with_proof_root(
+            &invoice,
+            &authorization,
+            Bytes32([88; 32]),
+            records.proof_root_sum + 1,
+        )
+        .expect("wrong-root records still build");
+        assert!(validate_final_hop(&wrong_root_records, &invoice, &authorization, 1_002).is_ok());
+        assert!(matches!(
+            validate_final_hop_against_proof_root(
+                &wrong_root_records,
+                &invoice,
+                &authorization,
+                records.proof_root_hash,
+                records.proof_root_sum,
+                1_002,
+            ),
+            Err(AssetHtlcError::ProofRootMismatch { .. })
         ));
     }
 
@@ -987,7 +1070,17 @@ mod tests {
         .expect("records build");
         records.asset_amount += 1;
 
-        assert!(validate_final_hop(&records, &invoice, &authorization, 1_002).is_err());
+        assert!(
+            validate_final_hop_against_proof_root(
+                &records,
+                &invoice,
+                &authorization,
+                state.monitor_blob.proof_root_hash,
+                state.total_amount,
+                1_002,
+            )
+            .is_err()
+        );
         let unchanged = commitment_store
             .channel_state(&state.channel_id)
             .expect("state remains");
@@ -1002,8 +1095,15 @@ mod tests {
             state.total_amount,
         )
         .expect("valid records");
-        let validation =
-            validate_final_hop(&valid_records, &invoice, &authorization, 1_002).expect("valid");
+        let validation = validate_final_hop_against_proof_root(
+            &valid_records,
+            &invoice,
+            &authorization,
+            state.monitor_blob.proof_root_hash,
+            state.total_amount,
+            1_002,
+        )
+        .expect("valid");
         let update = build_commitment_update(&state, validation.asset_amount, 0, Bytes32([12; 32]))
             .expect("update builds");
         commitment_store

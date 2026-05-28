@@ -233,9 +233,9 @@ Asset-channel funding now derives its funding root and output commitment from a
 commitments. It validates generated TAP BIP issuance, transfer, split, hash
 lock, and signature witness cases; rejects generated invalid cases; and gives
 channel funding and commitment updates deterministic virtual IDs and witness
-digests only after amount and witness validation. This is still not complete
-proof ancestry or full on-chain anchor validation; those remain #60 and the
-live interop issues.
+digests only after amount and witness validation. The first-demo semantic proof
+boundary is now enforced by #60; production full-history virtual transaction,
+STXO, grouped-asset, and reorg hardening remain #71 work.
 
 ## TLV Layer
 
@@ -258,9 +258,10 @@ Lightning Labs RFQ payloads, and `tapd` proof-file parsing.
 
 There are two proof paths.
 
-### Native bounded proof path
+### Native semantic proof path
 
-`proof.rs` defines a small bounded proof file:
+`proof.rs` defines the native proof record accepted by the wallet and channel
+state:
 
 - version;
 - asset ID;
@@ -270,12 +271,20 @@ There are two proof paths.
 - script key;
 - root hash;
 - root sum;
-- verification scope.
+- verification scope;
+- network;
+- asset type.
 
-The only current verification scope is `bounded-anchor-only`. It checks that
-the proof is structurally valid, nonzero, sum-conserving, and tied to plausible
-outpoint strings. This is enough for the local demo. It is not full Taproot
-Assets proof ancestry verification.
+The accepted verification scope is now `semantic-ancestry`. The validator
+rejects shallow field matches: it requires regtest scope, normal asset type for
+the demo stablecoin path, strict `<txid>:<vout>` outpoints, nonzero asset and
+amount fields, root sum conservation, a derived Taproot Asset root hash for the
+accepted asset leaf, expected asset/owner/amount checks when supplied by the
+call site, and stale-anchor rejection.
+
+HTLC receipt does not accept an independently invented proof root. The
+final-hop metadata must validate normally and match the proof root hash and sum
+already committed in the channel monitor blob before settlement can advance.
 
 ### Lightning Labs proof path
 
@@ -289,15 +298,20 @@ Assets proof ancestry verification.
 - chained proof checksums;
 - strict inner proof TLVs;
 - known required proof records;
+- latest asset-leaf TLV fields;
+- Taproot Assets genesis-derived asset ID;
 - optional unknown odd records.
 
-`wallet.rs` can import a Lightning Labs `TAPF` proof file by preserving the raw
-proof-file bytes and digest alongside a bounded local proof record. Export
-returns the exact raw bytes when present.
+`wallet.rs` imports a Lightning Labs `TAPF` proof file only after the latest
+`TAPP` asset leaf agrees with the local proof record's asset ID, normal asset
+type, amount, owner script key, and genesis outpoint. The raw proof-file bytes
+and digest are still preserved alongside the native proof record so export
+returns the exact accepted bytes.
 
-Current limitation: the code preserves and checks the `TAPF` envelope and TLV
-transport, but it does not yet verify complete semantic proof ancestry,
-on-chain anchors, or complete proof-chain virtual transaction history.
+Remaining production hardening after #60 is narrower: full Bitcoin anchor
+transaction/merkle validation, full proof-chain virtual transaction replay,
+grouped/collectible/reissuance paths, STXO/split/change proof replay, reorg
+watcher integration, and production proof-courier policy remain #71 work.
 
 ## Wallet Storage
 
@@ -550,8 +564,8 @@ a real live demo:
   success/timeout path. Initial support landed in
   `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
   single-asset lifecycle state on top of these surfaces, while live
-  channel-manager and interop exercises continue in #60 and the epics #61,
-  #71, and #19.
+  channel-manager and interop exercises continue in the epics #61, #71, and
+  #19.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
@@ -977,7 +991,11 @@ That belongs in the live daemon path.
 
 `tapd_proof.rs` and `wallet.rs` preserve Lightning Labs proof-file bytes.
 Single `TAPP` proofs can be wrapped into `TAPF` proof files for tooling
-compatibility. Full semantic proof ancestry remains open.
+compatibility. Proof import now requires the #60 semantic boundary: latest
+Lightning Labs `TAPF` asset leaf, asset ID, normal demo asset type, amount,
+script key, genesis outpoint, anchor staleness, and the native proof root must
+agree before wallet state advances. Production full-history proof replay,
+STXO/grouped-asset handling, and reorg hardening remain #71 work.
 
 ### Payment reports
 
@@ -1297,7 +1315,9 @@ It does not prove:
 - reserve management;
 - compliance;
 - live Lightning Labs routing;
-- full semantic Taproot Assets proof ancestry validation;
+- production-complete Taproot Assets proof history replay for grouped assets,
+  STXO/split/change paths, reorg watcher handling, and every historical virtual
+  transaction witness;
 - live on-chain force-close recovery.
 - concurrent simple-taproot splicing or splice/RBF asset-channel candidates.
 
@@ -1307,32 +1327,22 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. Monitor-update completion and held-message release after valid
-   `commitment_signed` on the live asset-channel payment path.
-2. Dynamic Taproot Asset commitment output construction in Rust Lightning for
-   later asset HTLC and change outputs.
-3. Native receiver-side asset-balance persistence after live keysend
-   settlement.
-4. Real Lightning wire custom-message exchange through LDK/rust-lightning over
-   the connected independent `litd` peer beyond funding.
-5. Real RFQ exchange with Lightning Labs peer/session semantics.
-6. Real payment from `tap-ldk` to Lightning Labs.
-7. Real payment from Lightning Labs to `tap-ldk`.
-8. Observed post-settlement balance checks from both live sides.
-8. Full semantic proof ancestry validation.
-9. Live force-close and sweep recovery.
-
-Until those are done, Track B must keep saying:
-
-```json
-"live_daemon_gaps_remaining": true
-```
+1. Audit #61 against the first-demo simple-taproot scope and the explicit
+   production-splice exclusion.
+2. Audit #71 against the native Taproot Assets implementation scope now that
+   semantic proof validation, bidirectional live payments, and observed
+   balances are in place.
+3. Audit #19 against the Path B completion report. The report may only pass
+   when the live gate stays green; fixture-only or expected-only values still
+   cannot complete Path B.
+4. Live force-close and sweep recovery remain future hardening outside the
+   first public demo claim.
 
 ## How To Make Path B Fully Work
 
 The shortest path is now the open issue sequence:
 
-1. Keep #81, #57, #58, and #59 green as regressions.
+1. Keep #81, #57, #58, #59, and #60 green as regressions.
    - #81 proves Lightning Labs to native settlement.
    - #57 proves native to Lightning Labs settlement over the same integrated
      `litd` asset channel.
@@ -1340,20 +1350,14 @@ The shortest path is now the open issue sequence:
      restart.
    - #59 proves the wrapper-level Path B completion report cannot pass from
      fixture-only or expected-only balances.
+   - #60 proves imported proof material passes the semantic proof boundary
+     before wallet or channel state advances.
    - The live script is
      `./scripts/live-lightning-labs-outgoing-payment.sh`.
    - The wrapper completion report is
      `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json`.
 
-2. Finish #60: semantic proof ancestry.
-   - Replace the current `TAPF` envelope/raw-byte preservation boundary with
-     semantic validation of asset leaves, anchors, virtual transaction
-     history, owner transitions, split/previous-witness ancestry, and amount
-     conservation.
-   - Use the same validation boundary in wallet import, funding, HTLC receipt,
-     cooperative close, and recovery.
-
-3. Close #61, #71, and #19 only after their acceptance criteria are actually
+2. Close #61, #71, and #19 only after their acceptance criteria are actually
    met. The issue-by-issue closeout table lives in
    `docs/remaining-issue-closure-plan.md`.
 

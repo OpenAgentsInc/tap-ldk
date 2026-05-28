@@ -1,21 +1,25 @@
 # tapd Proof Import/Export
 
 `tap-ldk` can now parse Lightning Labs `TAPF` proof files, validate the
-version-0 proof-file envelope, verify each chained checksum, and decode each
+version-0 proof-file envelope, verify each chained checksum, decode each
 contained `TAPP` proof as a strict TLV stream with known required proof record
-types. Imported `TAPF` bytes are stored byte-for-byte with the wallet proof
-record, survive restart, and can be exported as raw proof-file bytes for
-Lightning Labs `tapcli proofs verify --proof_file <file>` or equivalent API
-tooling.
+types, and parse the latest Taproot Assets asset leaf.
 
-The current wallet import remains deliberately bounded: the caller supplies the
-demo asset ID, genesis outpoint, anchor outpoint, amount, and owner script key,
-and `tap-ldk` binds those fields to the verified `TAPF` file digest in its
-local proof record. Malformed proof files, unsupported proof-file versions,
-checksum failures, malformed supplied anchors/genesis values, and storage
-digest mismatches fail before wallet state advances. Full semantic validation
-of the asset leaf, virtual transaction, Taproot proof, and full proof ancestry
-is still later Track B work.
+Wallet import now rejects shallow caller-supplied proof metadata. The latest
+`TAPP` asset leaf must derive the same Taproot Assets asset ID from genesis and
+must match the local proof record's asset type, amount, owner script key, and
+genesis outpoint before wallet state advances. Imported `TAPF` bytes are still
+stored byte-for-byte with the wallet proof record, survive restart, and can be
+exported as raw proof-file bytes for Lightning Labs `tapcli proofs verify
+--proof_file <file>` or equivalent API tooling.
+
+Malformed proof files, unsupported proof-file versions, checksum failures,
+malformed supplied anchors/genesis values, wrong asset, wrong owner, wrong
+amount, wrong asset type, stale proof digests, and storage digest mismatches
+fail before wallet state advances. Production full-history proof replay,
+including every Bitcoin anchor transaction, virtual transaction witness,
+STXO/split/change path, grouped asset path, and reorg watcher policy remains
+future #71 hardening.
 
 For the first demo, the local proof/universe courier is mocked infrastructure:
 the Lightning Labs side can mint or receive the asset, export a proof file,
@@ -25,8 +29,8 @@ not production proof-discovery infrastructure.
 
 ```bash
 cargo run -p tap-ldk-cli -- lightning-labs-proof-fixture-smoke fixtures/lightning-labs/proof/testdata
-cargo run -p tap-ldk-cli -- wallet-import-tapd-proof-file target/tapd-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f 9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1
-cargo run -p tap-ldk-cli -- live-tapd-proof-bind target/live-tapd-proof-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 7a3811630bb33503c6536c3a223d3caecb93fe55f4b3439528edf27b10d38e93 1000000 02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f 9673b7a0ff70658b94b29c7719af53ba52fe624c330f1db166a221898f343a7d:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1 target/live-tapd-proof-binding.json
+cargo run -p tap-ldk-cli -- wallet-import-tapd-proof-file target/tapd-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1 600 0285a7e2dfcad008f54094005db2424aa23431cfb62535950a590957fa6c7cdb27 c181733565d1ddc83fbdc36d7ad630f0b1a497a5f4f4d57a0bf664bb95d59905:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1
+cargo run -p tap-ldk-cli -- live-tapd-proof-bind target/live-tapd-proof-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1 600 0285a7e2dfcad008f54094005db2424aa23431cfb62535950a590957fa6c7cdb27 c181733565d1ddc83fbdc36d7ad630f0b1a497a5f4f4d57a0bf664bb95d59905:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1 target/live-tapd-proof-binding.json
 cargo run -p tap-ldk-cli -- wallet-export-tapd-proof-file target/tapd-wallet.json '<proof-id>' target/exported.tapf
 ./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 ```

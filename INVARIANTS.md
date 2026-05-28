@@ -66,6 +66,14 @@ regression test or a documented model-boundary exception.
   local database names.
 - Proof import, export, and verification must preserve enough data for restart,
   close, and interop checks.
+- Accepted native proof records must use `semantic-ancestry`, strict regtest
+  outpoints, the first-demo normal asset type, derived Taproot Asset root
+  hash/sum, and fail-closed expected asset, owner, amount, anchor, and stale
+  proof checks before wallet or channel state advances.
+- Lightning Labs `TAPF` imports must validate the proof-file envelope, chained
+  checksums, strict `TAPP` TLVs, latest asset-leaf genesis-derived asset ID,
+  asset type, amount, owner script key, and genesis outpoint before wallet
+  state advances.
 - Local asset balances are derived from verified proofs and committed channel
   state, not from displayed counters alone.
 - Normal BTC Lightning behavior remains isolated from experimental asset
@@ -495,31 +503,23 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- The remaining open issue sequence is #57, #58, #59, #60, then epics #61,
-  #71, and #19. #81 is complete and remains a live Lightning Labs to native
-  settlement regression gate. #57 currently reaches live proof binding,
-  native payment-session readiness, integrated `litd` readiness, fork-backed
-  LDK-to-`litd` peer connection, and a pre-settlement Lightning Labs
-  current-balance observation. It now enables opt-in simple-taproot and
-  Taproot Asset channel negotiation through `ldk-node`, confirms remote
-  support from integrated `litd`, and exposes the live asset-channel
-  message/payment API surface, but it is not complete until native `tap-ldk`
-  runs asset-channel funding/payment over that connected peer with a recorded
-  post-settlement Lightning Labs receiver balance.
+- The remaining open issue sequence is epics #61, #71, and #19. #81, #57,
+  #58, #59, and #60 are complete and remain live settlement, bidirectional
+  payment, restart, observed-balance, and semantic-proof regression gates.
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
   proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
   construction, bounded synthetic asset identity/hash+sum conservation helpers,
   native virtual transition/TAP VM validation for generated TAP BIP fixture
-  cases and demo channel funding/commitment updates, and bounded proof-anchor
-  import, export, and verification helpers exist. Bounded Taproot Asset address
+  cases and demo channel funding/commitment updates, and semantic proof import,
+  export, and verification helpers exist. Bounded Taproot Asset address
   encode/decode and virtual PSBT summary validation exist for the first-demo
-  fixture surface, but complete asset-leaf TLV semantics, full proof-chain
-  virtual transaction history, and full-history proof validation are not
-  implemented.
-- Lightning Labs `TAPF` proof-file transport validation and exact raw proof
-  preservation exist for imported fixtures. Full semantic verification of
-  asset leaves, Taproot proofs, proof-chain virtual transactions, and proof
-  ancestry is not implemented.
+  fixture surface, but production full-history proof replay for every virtual
+  transaction witness, STXO/split/change path, grouped asset, and reorg watcher
+  policy is not implemented.
+- Lightning Labs `TAPF` proof-file transport validation, latest asset-leaf
+  semantic validation, genesis-derived asset ID checks, and exact raw proof
+  preservation exist for imported fixtures and live proof binding. Production
+  full-history proof-chain replay remains #71 hardening.
 - Lightning Labs funding interop fixture reconciliation exists for asset ID,
   funded amount, and initial local/remote allocation. Live LND/`tapd` channel
   funding, funding outpoint binding, and proof-to-output verification are not

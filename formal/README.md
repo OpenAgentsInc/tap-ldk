@@ -2,8 +2,8 @@
 
 This directory contains bounded formal models for the protocol surfaces that
 are most likely to break the Tap-LDK demo claim: asset-channel funding,
-commitment/HTLC state, RFQ expiry/replay, close/recovery, and interop
-handshakes.
+commitment/HTLC state, proof validation, RFQ expiry/replay, close/recovery,
+and interop handshakes.
 
 Do not try to prove Bitcoin, Lightning, Taproot Assets, or Rust Lightning as a
 whole. Each model should cover one narrow production contract, document its
@@ -61,6 +61,12 @@ formal/
       assumptions.md
       boundaries.md
       invariants.md
+    proof_validation/
+      assumptions.md
+      boundaries.md
+      invariants.md
+      counterexamples/
+        README.md
 scripts/
   formal-check.sh
 ```

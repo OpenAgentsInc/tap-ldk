@@ -32,8 +32,15 @@ invalid Taproot control-block failure, invalid commitment failure, or
 counterparty force-close. #81, #57, #58, and #59 are completed regression
 gates. The Path B wrapper now writes a completion report that sets
 `path_b_live_observed_balance_gate_met=true` only from live observed balances
-and keeps `path_b_complete=false` until semantic proof ancestry validation
-(#60) is complete.
+and can mark `path_b_complete=true` once the live observed-balance gate is
+green because semantic proof ancestry validation (#60) is now enforced.
+
+Proof import no longer accepts shallow field matches. Native proof records must
+use the `semantic-ancestry` scope, strict regtest outpoints, normal-asset demo
+type, derived Taproot Asset root, expected owner/amount/asset checks, and stale
+anchor rejection. Lightning Labs `TAPF` import decodes the latest `TAPP` asset
+leaf, derives the Taproot Assets asset ID from genesis, and checks asset ID,
+type, amount, owner script key, and genesis before wallet state advances.
 
 Spec-compliance work is split out of #81. #82 is complete for the first-demo
 BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close
@@ -122,6 +129,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Live Asset Payment Session](docs/live-asset-payment-session.md)
 - [Live litd Peer Preflight](docs/live-litd-peer-preflight.md)
 - [Live tapd Proof Binding](docs/live-tapd-proof-binding.md)
+- [Semantic Proof Ancestry Validation](docs/semantic-proof-ancestry-validation.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Funding Interop](docs/lightning-labs-funding-interop.md)

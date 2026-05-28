@@ -26,7 +26,7 @@ use crate::{
     },
     asset_htlc::{
         AssetHtlcCustomRecords, AssetHtlcDecode, AssetHtlcError, AssetHtlcStatus, AssetHtlcStore,
-        decode_custom_records, validate_final_hop,
+        decode_custom_records, validate_final_hop_against_proof_root,
     },
     asset_payment::{
         NativeAssetPaymentError, NativeAssetPaymentRequest, NativeAssetPaymentStatus,
@@ -462,11 +462,13 @@ fn recover_after_quote_acceptance()
 fn recover_after_htlc_add() -> Result<NativeAssetRecoveryStageReport, NativeAssetRecoveryError> {
     let (_channel_store, commitment_store, state) = initialized_commitment_store()?;
     let mut rfq_store = RfqQuoteStore::default();
-    let prepared = prepare_recovery_htlc(&mut rfq_store, state.asset_id, 60, 1_000)?;
-    let validation = validate_final_hop(
+    let prepared = prepare_recovery_htlc(&mut rfq_store, &state, 60, 1_000)?;
+    let validation = validate_final_hop_against_proof_root(
         &prepared.records,
         &prepared.invoice,
         &prepared.authorization,
+        state.monitor_blob.proof_root_hash,
+        state.monitor_blob.proof_root_sum,
         1_004,
     )?;
     let mut htlc_store = AssetHtlcStore::default();
@@ -494,11 +496,13 @@ fn recover_after_commitment_sign()
 -> Result<NativeAssetRecoveryStageReport, NativeAssetRecoveryError> {
     let (_channel_store, mut commitment_store, state) = initialized_commitment_store()?;
     let mut rfq_store = RfqQuoteStore::default();
-    let prepared = prepare_recovery_htlc(&mut rfq_store, state.asset_id, 70, 1_000)?;
-    let validation = validate_final_hop(
+    let prepared = prepare_recovery_htlc(&mut rfq_store, &state, 70, 1_000)?;
+    let validation = validate_final_hop_against_proof_root(
         &prepared.records,
         &prepared.invoice,
         &prepared.authorization,
+        state.monitor_blob.proof_root_hash,
+        state.monitor_blob.proof_root_sum,
         1_004,
     )?;
     let mut htlc_store = AssetHtlcStore::default();
@@ -783,13 +787,13 @@ struct PreparedRecoveryHtlc {
 
 fn prepare_recovery_htlc(
     rfq_store: &mut RfqQuoteStore,
-    asset_id: Bytes32,
+    state: &AssetCommitmentChannelState,
     seed: u8,
     now_unix_seconds: u64,
 ) -> Result<PreparedRecoveryHtlc, NativeAssetRecoveryError> {
     let accept = accept_quote(
         rfq_store,
-        asset_id,
+        state.asset_id,
         25,
         Bytes32([seed; 32]),
         Bytes32([seed + 1; 32]),
@@ -800,7 +804,7 @@ fn prepare_recovery_htlc(
             invoice: format!("lnbcrt1recovery{}", seed),
             payment_hash: Bytes32([seed + 2; 32]),
             peer: "alice".to_owned(),
-            asset_id,
+            asset_id: state.asset_id,
             asset_amount: accept.asset_amount,
             btc_msat: accept.btc_msat,
             invoice_context: accept.invoice_context,
@@ -809,8 +813,12 @@ fn prepare_recovery_htlc(
         },
     )?;
     let payment = pay_quote_bound_invoice(rfq_store, invoice, now_unix_seconds + 2)?;
-    let records =
-        AssetHtlcCustomRecords::from_authorization(&payment.invoice, &payment.authorization)?;
+    let records = AssetHtlcCustomRecords::from_authorization_with_proof_root(
+        &payment.invoice,
+        &payment.authorization,
+        state.monitor_blob.proof_root_hash,
+        state.monitor_blob.proof_root_sum,
+    )?;
     let encoded = records.encode_tlv()?;
     let records = match decode_custom_records(&encoded)? {
         AssetHtlcDecode::Asset(records) => records,
@@ -1140,12 +1148,13 @@ mod tests {
         let (_channel_store, commitment_store, state) =
             initialized_commitment_store().expect("state initializes");
         let mut rfq_store = RfqQuoteStore::default();
-        let prepared =
-            prepare_recovery_htlc(&mut rfq_store, state.asset_id, 90, 1_000).expect("prepared");
-        let validation = validate_final_hop(
+        let prepared = prepare_recovery_htlc(&mut rfq_store, &state, 90, 1_000).expect("prepared");
+        let validation = validate_final_hop_against_proof_root(
             &prepared.records,
             &prepared.invoice,
             &prepared.authorization,
+            state.monitor_blob.proof_root_hash,
+            state.monitor_blob.proof_root_sum,
             1_004,
         )
         .expect("valid");

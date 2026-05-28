@@ -39,4 +39,5 @@ verifies the received payment/balance checkpoint reloads. The latest #58 run is
 #58 and #59 are complete. The consolidated Path B completion report consumes
 the observed live balances and non-secret proof/payment references from #57 and
 #58 instead of allowing expected-only fixture values to read as live interop
-success. #60 now owns semantic proof ancestry validation.
+success. #60 now enforces the semantic proof ancestry boundary and must stay
+green as a regression.

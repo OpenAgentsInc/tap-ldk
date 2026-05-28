@@ -17,11 +17,14 @@ cargo run -p tap-ldk-cli -- live-tapd-proof-bind <wallet.json> <tapd-proof-file>
 ```
 
 The report records the live asset id, amount, wallet balance, proof id, anchor
-outpoint, proof digest, and owner script key. It does not record private keys,
-macaroon bytes, wallet passwords, or Bitcoin RPC passwords.
+outpoint, proof digest, owner script key, and `semantic_ancestry_validation`.
+The binding rejects stale proof digests, wrong expected asset IDs, wrong owner
+keys, malformed `TAPF` files, and asset-leaf metadata that does not match the
+native proof record. It does not record private keys, macaroon bytes, wallet
+passwords, or Bitcoin RPC passwords.
 
 If the daemon runtime is unavailable, the script writes a `blocked` report with
 the host prerequisite. Fixture proof import remains available through
 `wallet-import-tapd-proof-file`; this live command is the daemon-backed path.
-Full semantic proof ancestry validation is still tracked separately in issue
-#60.
+Production full-history proof replay for grouped assets, STXO/split/change
+paths, and reorg watcher policy remains #71 hardening work.

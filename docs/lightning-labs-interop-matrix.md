@@ -43,7 +43,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Commitment blob shape | `tapchannelmsg/testdata/commitment-blob.hexdump`; `tapchannelmsg/records.go`; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps local/remote/outgoing/incoming asset output sections, aux leaves, optional STXO, and raw digest. Full commitment-number integration remains required. | Partially implemented |
 | HTLC blob shape | `tapchannelmsg/testdata/htlc-blob.hexdump`; `tapchannelmsg/wire_msgs_test.go`; `rfqmsg` tests; `docs/lightning-labs-blob-fixtures.md` | Fixture-backed decoder maps asset balances when present, RFQ id, available RFQ ids, noop flag, and visible optional odd records. Rust Lightning also decodes the live `litd` asset-id/amount HTLC payload, rejects malformed blobs at `update_add_htlc`, persists them through channel state, and re-emits them on outbound `update_add_htlc`. Full per-commitment asset-state application remains required. | Partially implemented |
 | Asset signatures | `tapchannelmsg/records.go`; `tapchannel/aux_leaf_signer_test.go` | Maintain asset-level signing/nonce context separate from BTC-level signatures. | Required |
-| Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go`; `docs/tapd-proof-import-export.md` | Fixture-backed `TAPF`/`TAPP` decoder validates version/checksum/TLV transport, stores raw proof files across restart, and exports raw proof bytes for Lightning Labs verification tooling. Full semantic proof ancestry remains required. | Partially implemented |
+| Proof file import/export | `../projects/lightninglabs/repos/taproot-assets/proof`; `proof/append.go`; `proof/file.go`; `proof/tx.go`; `docs/tapd-proof-import-export.md` | `TAPF`/`TAPP` decoder validates version/checksum/TLV transport, decodes the latest asset leaf, derives the Taproot Assets asset ID from genesis, checks asset type/amount/owner/genesis against the native proof record, stores raw proof files across restart, and exports raw proof bytes for Lightning Labs verification tooling. Production full-history proof replay remains #71 hardening. | Implemented for first-demo semantic boundary |
 | Address encoding | `../projects/lightninglabs/repos/bips/bip-tap-addr.mediawiki`; `address/address.go`; `address/encoding.go` | Native address encode/decode already passes imported TAP BIP vectors; still needs wallet integration. | Partially implemented |
 | Virtual PSBT / TAP VM | `../projects/lightninglabs/repos/bips/bip-tap-psbt.mediawiki`; `tappsbt/interface.go`; `tappsbt/decode.go`; `fixtures/tap-bips/psbt_encoding_generated.json`; `fixtures/tap-bips/vm_validation_generated.json` | Native `tap_vm` validates generated TAP BIP issuance, transfer, split, hash-lock, signature, and negative vectors, and channel funding/commitment updates derive virtual IDs only after validation. Full VPacket signing and proof-chain ancestry remain required. | Partially implemented |
 | Issuance and proof sync | `itest/assets_test.go`; `itest/mint_fund_seal_test.go`; `proof` package; `scripts/live-tapd-proof-bind.sh`; `crates/tap-ldk-core/src/live_tapd_proof.rs` | Live command path can mint `OPENUSD` through `tapcli`, mine confirmations, export TAPF proof material, and bind it into native `tap-ldk` wallet state when the Lightning Labs daemon is reachable. The #57 gate has reached `proof_binding_status=bound` in a live run. | Partially implemented |
@@ -78,10 +78,7 @@ the live report now proves native receiver settlement plus restart persistence.
 
 Close the remaining issues in this order:
 
-1. #60: extend proof import/export from byte-compatible `TAPF` preservation to
-   full semantic proof ancestry validation and wire it into funding, HTLC,
-   close, and recovery.
-2. Close #19 only when Path B reports live settlement in both directions and
+1. Close #19 only when Path B reports live settlement in both directions and
    any mismatch is a failing compatibility gap, not a partial success.
 
 ## Current Known Gaps
@@ -90,9 +87,10 @@ Close the remaining issues in this order:
   virtual transition validation, and a fork-backed simple-taproot
   asset-channel lifecycle smoke. The #81 and #57 gates now settle both live
   directions over fork-backed `ldk-node` and integrated `litd`.
-- `tap-ldk` preserves and exports `tapd` proof files, but does not yet verify
-  full proof ancestry, proof-chain virtual transactions, or on-chain anchor
-  semantics.
+- `tap-ldk` semantically validates imported `tapd` proof asset leaves against
+  native proof metadata and preserves raw proof files, but production full
+  proof-history replay, STXO/split/change paths, grouped assets, and reorg
+  watcher policy remain #71 hardening.
 - `tap-ldk` parses fixture-backed Lightning Labs funding/HTLC/commitment blob
   field maps. The fork validates the live HTLC blob at `update_add_htlc`, but
   does not yet apply the full blob set to live interop channel state.
