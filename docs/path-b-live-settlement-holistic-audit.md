@@ -36,6 +36,13 @@ Latest live run artifact:
 The transcript from this run is recorded in
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
+Follow-up after this artifact: the current code is now pinned to
+`OpenAgentsInc/rust-lightning@7f72bfb48f56d729abac5f488923389034f8f1b3` and
+`OpenAgentsInc/ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e`. That pin
+keeps the failing transcript as a regression fixture and adds the Lightning
+Labs second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields.
+The next required step is a live rerun against this pin.
+
 The important fact is that funding succeeds and `litd` believes the channel is
 usable for asset keysend. The first payment-time commitment update reaches
 Rust Lightning, but Rust Lightning rejects the peer HTLC Schnorr signature:
@@ -59,9 +66,9 @@ payment-time commitment path gets farther.
 
 - `tap-ldk` consumes the OpenAgentsInc `ldk-node` fork.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
-- After the diagnostic pin update, all `lightning*` packages in `tap-ldk`
-  resolve to
-  `OpenAgentsInc/rust-lightning@85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`.
+- After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
+  to
+  `OpenAgentsInc/rust-lightning@7f72bfb48f56d729abac5f488923389034f8f1b3`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel
@@ -77,7 +84,9 @@ payment-time commitment path gets farther.
   not as an ECDSA wrapper.
 - The latest rust-lightning pin treats simple-taproot HTLC second-level
   signing like the Lightning Labs anchor path:
-  `SIGHASH_SINGLE|ANYONECANPAY` and input sequence `1`.
+  `SIGHASH_SINGLE|ANYONECANPAY` and input sequence `1`, and encodes
+  Lightning Labs virtual lock fields in second-level Taproot Asset HTLC aux
+  leaves.
 
 ## What Is Still Broken
 
@@ -105,10 +114,12 @@ a bounded single-asset/no-split template rather than porting the exact
 Lightning Labs allocation path.
 
 The 2026-05-28 diagnostic run captured the exact mismatch: Rust's second-level
-aux leaf contains local root/script-key material that does not match the
-Lightning Labs `tapchannel`/`tapsend` second-level allocation trace. The next
-implementation step is now a fixture-backed port of that bounded single-asset
-allocation path.
+aux leaf contained local root/script-key material that did not match the
+Lightning Labs `tapchannel`/`tapsend` second-level allocation trace. The
+current pin fixes one concrete cause, the missing virtual lock fields. If the
+next live rerun still fails, the remaining work is a fixture-backed port of the
+bounded single-asset allocation path, not another isolated sighash or key
+guess.
 
 ## Relevant Files Audited
 

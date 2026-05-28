@@ -386,12 +386,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`
+- current revision: `7f72bfb48f56d729abac5f488923389034f8f1b3`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "7f72bfb48f56d729abac5f488923389034f8f1b3", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -464,8 +464,10 @@ cooperative close allocation validation, and proof-ownership recovery checks.
 It now also strictly decodes the live Lightning Labs Taproot Asset HTLC blob,
 persists that blob through inbound/outbound HTLC state and holding-cell
 serialization, re-emits it on outbound `update_add_htlc`, and carries optional
-asset aux leaves into simple-taproot HTLC output construction; live #81 still
-has to derive those leaves dynamically from per-commitment asset state.
+asset aux leaves into simple-taproot HTLC output construction. The current
+fork pin also encodes Lightning Labs second-level HTLC virtual lock fields.
+Live #81 still has to prove the full transcript against `litd`, then fix any
+remaining per-commitment asset-state or witness/control-block deltas.
 
 Rust Lightning uses `bitcoin::secp256k1`, the rust-bitcoin wrapper around
 libsecp256k1. The fork does not call raw libsecp APIs directly. The #63 TLV
@@ -570,8 +572,11 @@ a real live demo:
   decoding of Lightning Labs `commitment_signed` TLV 65537 asset-signature
   blobs plus Lightning Labs commitment aux-leaf scripts, including HTLC-count
   validation for Taproot Asset channels. Revision
-  `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1` adds trace diagnostics for the
-  rejected simple-taproot HTLC signature transcript.
+  `c94f4570587e94e89740f5126a5fa70021b58de2` adds trace diagnostics and a
+  regression fixture for the rejected simple-taproot HTLC signature
+  transcript. Revision `7f72bfb48f56d729abac5f488923389034f8f1b3` adds the
+  first transcript fix from that audit by encoding Lightning Labs
+  second-level virtual lock fields in Taproot Asset HTLC aux leaves.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.

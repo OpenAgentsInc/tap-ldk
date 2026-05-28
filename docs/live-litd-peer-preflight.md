@@ -25,8 +25,8 @@ artifact as `native-ldk-litd-peer-preflight.json`.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1` and
-`OpenAgentsInc/ldk-node@c5ae040bf84225922c5213d9acb077e031076a9c`, the
+`OpenAgentsInc/rust-lightning@7f72bfb48f56d729abac5f488923389034f8f1b3` and
+`OpenAgentsInc/ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live
@@ -35,8 +35,9 @@ readiness into integrated `litd` issuance, live asset-channel funding,
 channel confirmation, and a keysend-usable local asset balance on `litd`.
 Issue #81 still remains open because the live asset keysend stays `IN_FLIGHT`
 after Rust Lightning closes on `Invalid simple-taproot HTLC signature from
-peer`. The current fork pin attempts the first full-channel HTLC aux-leaf path
-and treats the peer HTLC signature bytes as BIP340 Schnorr, but the latest live
-run proves that the selected Lightning Labs HTLC signature leaf, sighash, or
-key still does not match the peer's signed view. The current #57 report treats
-this as a readiness and partial-live gate, not as live settlement.
+peer` in the previous live run. The current fork pin attempts the first
+full-channel HTLC aux-leaf path, treats the peer HTLC signature bytes as BIP340
+Schnorr, keeps the failing transcript as a regression fixture, and adds the
+Lightning Labs second-level virtual-lock asset-leaf fields. The current #57
+report treats this as a readiness and partial-live gate until the live rerun
+settles and records observed balances.

@@ -12,11 +12,12 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
 Path B is live-funded but not live-settled. The harness connects to
 independent `litd`, observes taproot features, issues an asset, completes
-asset-channel funding, reaches `channel_ready`, and attempts asset keysend.
-The current blocker is exact Lightning Labs Taproot Asset commitment and
-second-level HTLC transcript matching: Rust Lightning still rejects the peer
-HTLC Schnorr signature, and the force-close witness/control-block path is not
-valid yet. The next work is captured in #81 and the settlement audits.
+asset-channel funding, reaches `channel_ready`, and attempts asset keysend. The
+previous live run rejected the peer HTLC Schnorr signature and exposed an
+invalid force-close control block. The current fork pins include a regression
+fixture for that transcript plus the first concrete fix for Lightning Labs
+second-level virtual lock fields; #81 remains open until the live rerun settles
+or identifies the next exact transcript delta.
 
 Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
 is not done until both payment directions settle against Lightning Labs with

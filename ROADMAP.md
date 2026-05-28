@@ -41,15 +41,18 @@ Last updated: 2026-05-28
   witness/control-block path and observed-balance settlement. The 2026-05-28
   diagnostic run in
   `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md` captures the
-  concrete transcript mismatch. The detailed system audit in
+  concrete transcript mismatch. The current fork pin turns that mismatch into
+  a Rust Lightning regression fixture and adds the Lightning Labs second-level
+  virtual `lock_time`/`relative_lock_time` asset-leaf fields for the next live
+  rerun. The detailed system audit in
   `docs/path-b-live-settlement-system-audit-2026-05-28.md` is the current
-  file-level map for #81: make the mismatch a regression fixture, port the
+  file-level map for #81: keep the mismatch fixture-backed, port any remaining
   bounded Lightning Labs `tapchannel`/`tapsend` allocation semantics into Rust
   Lightning, then wire that exact transcript through HTLC signing and
   force-close before recording observed balances.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1` and the OpenAgentsInc
-  `ldk-node` fork at `c5ae040bf84225922c5213d9acb077e031076a9c`. BOLT
+  `7f72bfb48f56d729abac5f488923389034f8f1b3` and the OpenAgentsInc
+  `ldk-node` fork at `7a9bfa11b70a9233eff959169864885a685c0f7e`. BOLT
   simple-taproot issues #62 through #70 are implemented: negotiation, TLVs,
   MuSig2 primitives, P2TR
   funding, P2TR commitment outputs/control-block data, and commitment
@@ -58,7 +61,7 @@ Last updated: 2026-05-28
   coverage for those surfaces. This pin also keeps Lightning Labs' zero-CSV
   behavior for Taproot Asset allocation/script-key derivation while using the
   negotiated channel CSV delay for the actual Bitcoin commitment to-local aux
-  output.
+  output, and includes the first second-level HTLC virtual-lock asset-leaf fix.
 - #72 is implemented in `tap-ldk-core::mssmt`: native MS-SMT root calculation,
   inclusion/exclusion proofs, compressed proof encoding, overflow rejection,
   and Lightning Labs fixture replay now replace the old root hash-list
@@ -322,8 +325,8 @@ evidence changes the dependency graph.
 | Done | #77 | Fork `ldk-node` for the live runtime | `OpenAgentsInc/ldk-node` exists and is documented as the owned live node implementation home. | Closed. |
 | Done | #78 | Patch `ldk-node` to use the OpenAgentsInc `rust-lightning` fork | Implemented in `OpenAgentsInc/ldk-node` at `4b7d8de974a8b08ee8bfee94450dc5c332fe596c`; `tap-ldk` consumes the fork line and reports the OpenAgentsInc `rust-lightning` revision from `ldk_node::provenance`. | Closed. |
 | Done | #79 | Expose simple-taproot and Taproot Asset channel config in `ldk-node` | Implemented in `OpenAgentsInc/ldk-node` at `0faa999235050a17b198e6bbfa63c2f19aac4cc6`; BTC-only defaults remain unchanged, Taproot Asset negotiation fails closed without simple taproot, and `tap-ldk` live preflight reports both opt-in flags. | Closed. |
-| Done | #80 | Wire Taproot Asset messages and payment APIs through `ldk-node` | Implemented in `OpenAgentsInc/ldk-node` at `da05c714be061706806bc8757ee74b4709d5a8ef`, with live-feature negotiation fixes, the current rust-lightning HTLC aux-leaf derivation pin, and proof-derived channel-template binding carried through `c5ae040bf84225922c5213d9acb077e031076a9c`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, Lightning Labs aux Init feature bits, and remote taproot feature reporting. The fork now advertises Lightning Labs no-op HTLC aux support and does not advertise STXO until native STXO commitment leaves are implemented. | Closed. |
-| 1 | #81 | Use fork-backed `ldk-node` for live Lightning Labs settlement | The live harness now connects to `litd`, observes both taproot feature sets, issues an asset, completes live asset-channel funding, confirms the channel, and sees `litd` report it usable for asset keysend. Rust Lightning stores the proof-derived channel template, attempts a full-channel HTLC aux leaf, and verifies the peer HTLC signature as BIP340 Schnorr, but the current live run still closes on `Invalid simple-taproot HTLC signature from peer` and `litd` leaves the keysend `IN_FLIGHT`. The diagnostic run captured the exact transcript mismatch for a fixture-backed fix. | The live Path B scripts settle an asset payment over fork-backed `ldk-node`, verify Lightning Labs HTLC signatures and force-close witnesses, and record post-settlement balances. |
+| Done | #80 | Wire Taproot Asset messages and payment APIs through `ldk-node` | Implemented in `OpenAgentsInc/ldk-node` at `da05c714be061706806bc8757ee74b4709d5a8ef`, with live-feature negotiation fixes, the current rust-lightning HTLC aux-leaf derivation pin, and proof-derived channel-template binding carried through `7a9bfa11b70a9233eff959169864885a685c0f7e`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, Lightning Labs aux Init feature bits, and remote taproot feature reporting. The fork now advertises Lightning Labs no-op HTLC aux support and does not advertise STXO until native STXO commitment leaves are implemented. | Closed. |
+| 1 | #81 | Use fork-backed `ldk-node` for live Lightning Labs settlement | The live harness now connects to `litd`, observes both taproot feature sets, issues an asset, completes live asset-channel funding, confirms the channel, and sees `litd` report it usable for asset keysend. Rust Lightning stores the proof-derived channel template, attempts a full-channel HTLC aux leaf, and verifies the peer HTLC signature as BIP340 Schnorr, but the previous live run still closes on `Invalid simple-taproot HTLC signature from peer` and `litd` leaves the keysend `IN_FLIGHT`. The diagnostic run captured the exact transcript mismatch; the current fork pin adds a regression fixture and the first second-level virtual-lock fix for the next live rerun. | The live Path B scripts settle an asset payment over fork-backed `ldk-node`, verify Lightning Labs HTLC signatures and force-close witnesses, and record post-settlement balances. |
 | 2 | #57 | Live `tap-ldk` pays Lightning Labs asset payment | Harness reaches live `tapd` proof binding, ordered native asset-payment session readiness, standalone current-balance observation, integrated `litd` readiness, and fork-backed `ldk-node` peer connection/API preflight to `litd` with opt-in asset-channel negotiation enabled and remote feature support observed. | `tap-ldk` pays an independent `litd` receiver over the fork-backed live asset-channel path and records observed post-settlement Lightning Labs receiver balance plus updated sender state. |
 | 3 | #58 | Live Lightning Labs pays `tap-ldk` asset payment | Receiver-side artifacts exist for buy-direction RFQ, quote-bound receive invoice, final-hop HTLC metadata, expected deltas, restart, and rejection cases. | Independent Lightning Labs node pays `tap-ldk`; `tap-ldk` validates the asset metadata, persists the received balance/proof reference, survives restart, and both sides report expected live balances. |
 | 4 | #59 | Replace Path B documented gaps with observed live balance checks | Reports distinguish fixture-backed expected balances from live gates and still keep `live_daemon_gaps_remaining=true`. | Path B cannot report completion without observed post-settlement balances and compatible payment/proof state in both live directions. |
@@ -342,7 +345,7 @@ evidence changes the dependency graph.
 | Done | #72 | MS-SMT hash-sum tree | Implemented in `tap-ldk-core::mssmt`; Lightning Labs root/proof fixtures, inclusion/exclusion proofs, compressed proof round trips, conservation, and overflow rejection pass. | Closed. |
 | Done | #73 | `AssetCommitment` and `TapCommitment` layers | Implemented in `tap-ldk-core::taproot_commitment`; funding roots consume TapCommitment data, tap leaf fixture parsing passes, and wrong output roots fail closed. | Closed. |
 | Done | #74 | Virtual transaction and TAP VM validation | Implemented in `tap-ldk-core::tap_vm`; TAP BIP generated valid/error vectors pass, channel funding and commitment updates consume native virtual transition validation, and invalid witnesses/amounts fail closed. | Closed. |
-| Done | #75 | Full Taproot Asset channel state in simple-taproot LDK channels | Implemented in `OpenAgentsInc/rust-lightning` at `99fee582d4061af4b0a030353b0a409ee542e064` and extended through `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1` for live HTLC blob validation, HTLC blob channel-state persistence, outbound HTLC blob re-emission, HTLC aux-leaf output plumbing, live `commitment_signed` asset-signature blob decoding, Lightning Labs commitment aux-leaf script decoding, proof-derived single-asset channel-template persistence, first full-channel HTLC aux-leaf derivation, and transcript diagnostics for the rejected live HTLC signature path; funding, commitments, HTLCs, close, monitor, recovery, restart, and BTC-only isolation pass through the fork lifecycle state. | Closed. |
+| Done | #75 | Full Taproot Asset channel state in simple-taproot LDK channels | Implemented in `OpenAgentsInc/rust-lightning` at `99fee582d4061af4b0a030353b0a409ee542e064` and extended through `7f72bfb48f56d729abac5f488923389034f8f1b3` for live HTLC blob validation, HTLC blob channel-state persistence, outbound HTLC blob re-emission, HTLC aux-leaf output plumbing, live `commitment_signed` asset-signature blob decoding, Lightning Labs commitment aux-leaf script decoding, proof-derived single-asset channel-template persistence, first full-channel HTLC aux-leaf derivation, transcript diagnostics/fixture coverage for the rejected live HTLC signature path, and second-level virtual-lock asset-leaf encoding; funding, commitments, HTLCs, close, monitor, recovery, restart, and BTC-only isolation pass through the fork lifecycle state. | Closed. |
 | Done | #76 | Lightning Labs `tapd`/`litd` vectors for simple-taproot asset channels | Implemented in `tap-ldk-core::lightning_labs_interop_checks`; consolidated checks cover funding, HTLC RFQ metadata, RFQ message types, TAPF proof vectors, lifecycle state, close/proof recovery, restart round trips, and observed-balance gates. | Closed. |
 
 The parent Path B epic #19 closes last, after #81, #57, #58, #59, and #60
