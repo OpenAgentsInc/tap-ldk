@@ -564,10 +564,10 @@ a real live demo:
   spends, and build the correct witness stack for each offered/accepted
   success/timeout path. Initial support landed in
   `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
-  single-asset lifecycle state on top of these surfaces, while live
-  channel-manager and interop exercises continue in the Path B epic #19, and
-  #61 plus #71 stay as first-demo simple-taproot and Taproot Assets-over-LDK
-  regression gates.
+  single-asset lifecycle state on top of these surfaces. The live
+  channel-manager and interop exercises are closed for first-demo scope in the
+  Path B epic #19, while #61 plus #71 stay as first-demo simple-taproot and
+  Taproot Assets-over-LDK regression gates.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
@@ -1323,21 +1323,21 @@ It does not prove:
 - live on-chain force-close recovery.
 - concurrent simple-taproot splicing or splice/RBF asset-channel candidates.
 
-## What Does Not Work Yet
+## Future Hardening
 
-The live Lightning Labs demo is incomplete.
+The first-demo live Lightning Labs interop path is complete.
 
-Missing pieces:
+Still outside the first public demo claim:
 
-1. Audit #19 against the Path B completion report. The report may only pass
-   when the live gate stays green; fixture-only or expected-only values still
-   cannot complete Path B.
-2. Live force-close and sweep recovery remain future hardening outside the
-   first public demo claim.
+1. Live force-close and sweep recovery.
+2. Live post-close Taproot Asset proof and balance observation.
+3. Production proof-history replay, STXO/split/change, grouped assets, reorg
+   watchers, proof courier policy, and concurrent splice/RBF asset-channel
+   candidates.
 
-## How To Make Path B Fully Work
+## How To Keep Path B Working
 
-The shortest path is now the open issue sequence:
+The first-demo regression set is now:
 
 1. Keep #81, #57, #58, #59, #60, #61, and #71 green as regressions.
    - #81 proves Lightning Labs to native settlement.
@@ -1357,11 +1357,10 @@ The shortest path is now the open issue sequence:
      proof validation, and BTC-only behavior stay green.
    - The live script is
      `./scripts/live-lightning-labs-outgoing-payment.sh`.
+   - #19 proves the live Path B wrapper completes from observed balances and
+     semantic proof validation, not fixture-only or expected-only reports.
    - The wrapper completion report is
-     `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json`.
-
-2. Close #19 only after its acceptance criteria are actually met. The
-   issue-by-issue closeout table lives in `docs/remaining-issue-closure-plan.md`.
+     `target/path-b-lightning-labs-demo-issue71/path-b-completion-report.json`.
 
 ## Design Boundaries
 

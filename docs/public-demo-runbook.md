@@ -29,9 +29,9 @@ live report has `issue_81_acceptance_met=true`, `issue_57_acceptance_met=true`,
 and `issue_58_acceptance_met=true` with no invalid-commitment or counterparty
 force-close markers. The Path B wrapper completion report now has
 `path_b_live_observed_balance_gate_met=true` and `live_daemon_gaps_remaining=false`
-from observed live balances. Path B also requires the semantic proof ancestry
-gate to stay green; #60 now enforces that boundary before native wallet state
-advances.
+from observed live balances and `path_b_complete=true` after semantic proof
+ancestry validation. #19 is closed for the first-demo Path B scope; future
+production hardening should be tracked separately.
 
 Concurrent simple-taproot splicing is not part of the first public demo. The
 demo keeps one funding outpoint from open through payment, restart, close, and

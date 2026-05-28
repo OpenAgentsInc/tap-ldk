@@ -36,6 +36,6 @@ interop run. It proves the native peer process can run, accept a connection,
 use the rust-lightning fork negotiation surface, and move encoded asset custom
 messages over a socket. The ordered payment-session smoke proves the native
 message sequence can run over that live transport, but it is still localhost
-`tap-ldk` to `tap-ldk`. The remaining Path B work is to replace the loopback
+`tap-ldk` to `tap-ldk`. The completed Path B work replaces the loopback
 peer with real Lightning wire peer management, the Lightning Labs LND/`tapd`
 counterparty, and observed live balance checks.

@@ -49,13 +49,13 @@ observed-balance evidence is present, keeps fixture-only and expected-only
 completion disabled, and can set `path_b_complete=true` once the live gate is
 green because #60 is now enforced.
 
-Current #59 status: complete. The latest passing wrapper artifact is
-`target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json` with
-`path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`,
+Current #19 status: complete for first-demo interop scope. The latest passing
+wrapper artifact is
+`target/path-b-lightning-labs-demo-issue71/path-b-completion-report.json` with
+`path_b_complete=true`, `path_b_live_observed_balance_gate_met=true`,
+`live_daemon_gaps_remaining=false`, `semantic_proof_ancestry_complete=true`,
 `expected_only_balances_can_complete_path_b=false`, and
-`fixture_only_reports_can_complete_path_b=false`. After #60, reruns should also
-set `semantic_proof_ancestry_complete=true` and may set `path_b_complete=true`
-when the live observed-balance gate remains green.
+`fixture_only_reports_can_complete_path_b=false`.
 
 The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
@@ -71,7 +71,7 @@ return payment gate, the #58 native receiver restart snapshot, and the #59
 observed-balance completion gate. Proof binding now also uses the #60 semantic
 proof boundary before native wallet state advances.
 
-Open issue path:
+Issue path:
 
-1. #19 closes only after the live and semantic gates pass in the wrapper
-   report.
+1. #19 is closed for first-demo scope once the live and semantic gates pass in
+   the wrapper report.

@@ -76,10 +76,9 @@ the live report now proves native receiver settlement plus restart persistence.
 
 ## Follow-Up Implementation Issues
 
-Close the remaining issues in this order:
-
-1. Close #19 only when Path B reports live settlement in both directions and
-   any mismatch is a failing compatibility gap, not a partial success.
+The first-demo issue path is closed. Keep #19 green only when Path B reports
+live settlement in both directions and any mismatch is a failing compatibility
+gap, not a partial success.
 
 ## Current Known Gaps
 

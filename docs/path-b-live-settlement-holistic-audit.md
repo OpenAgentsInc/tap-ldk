@@ -462,10 +462,11 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #19 from fixture-only or readiness reports. Keep the
-closed #81, #57, #58, #59, #60, and #61 gates running as regressions.
+#19 is closed from live observed balances and semantic proof validation, not
+from fixture-only or readiness reports. Keep the closed #81, #57, #58, #59,
+#60, #61, #71, and #19 gates running as regressions.
 
-Required live evidence before closure:
+Required live evidence for closure:
 
 - `tap-ldk` pays Lightning Labs and the payment reaches a terminal successful
   state;
@@ -513,7 +514,7 @@ move the remaining live-demo work forward:
    signature, invalid-control-block, invalid-commitment, or force-close marker.
 2. Preserve the #59 Path B observed-balance completion report.
 3. Keep #60 semantic proof ancestry validation and #61 simple-taproot coverage
-   green while closing #19.
+   green as #19's regression evidence.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

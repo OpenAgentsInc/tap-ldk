@@ -29,10 +29,10 @@ Concurrent simple-taproot splicing is explicitly excluded from the first public
 demo until bounded splice nonce-map tests are added.
 The latest live run no longer logs the post-claim partial-signature failure,
 invalid Taproot control-block failure, invalid commitment failure, or
-counterparty force-close. #81, #57, #58, #59, #60, #61, and #71 are completed
-regression gates for the first-demo scope. The Path B wrapper now writes a
-completion report that sets `path_b_live_observed_balance_gate_met=true` only
-from live observed balances and marks `path_b_complete=true` when the live
+counterparty force-close. #81, #57, #58, #59, #60, #61, #71, and #19 are
+completed regression gates for the first-demo scope. The Path B wrapper now
+writes a completion report that sets `path_b_live_observed_balance_gate_met=true`
+only from live observed balances and marks `path_b_complete=true` when the live
 observed-balance gate and semantic proof ancestry validation are both green.
 
 Proof import no longer accepts shallow field matches. Native proof records must
@@ -47,9 +47,9 @@ BOLT simple-taproot scope, and #71 is complete for the first-demo native
 Taproot Assets-over-LDK scope. Remaining production hardening includes full
 proof-history replay, grouped/multi-asset paths, STXO/split/change proof
 replay, reorg watchers, proof courier policy, live force-close/sweep recovery,
-and concurrent simple-taproot splice/RBF asset-channel candidates. Path B's
-remaining open work is the final #19 closure audit against the live completion
-report.
+and concurrent simple-taproot splice/RBF asset-channel candidates. The
+first-demo issue queue is closed; future work should be opened as production
+hardening, not as a claim that the first-demo interop path is still incomplete.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
@@ -133,6 +133,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Live tapd Proof Binding](docs/live-tapd-proof-binding.md)
 - [Semantic Proof Ancestry Validation](docs/semantic-proof-ancestry-validation.md)
 - [Taproot Assets LDK Issue 71 Closure Audit](docs/taproot-assets-ldk-issue-71-closure-audit-2026-05-28.md)
+- [Path B Issue 19 Closure Audit](docs/path-b-issue-19-closure-audit-2026-05-28.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Funding Interop](docs/lightning-labs-funding-interop.md)

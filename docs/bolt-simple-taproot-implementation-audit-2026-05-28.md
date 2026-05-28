@@ -44,7 +44,7 @@ and the RAA/reestablish nonce field path:
 The audit result is therefore: **first-demo scoped, not production splice
 complete**. The #81 live settlement blocker is now cleared; keep the #81, #57,
 #58, #59, #60, and #61 live/proof/reporting/simple-taproot gates green as
-regressions while the remaining Path B work moves through #19. The
+regressions for the completed Path B first-demo work. The
 rest of the BOLT
 conformance work is split into the issue set in
 `docs/bolt-simple-taproot-spec-compliance-issues.md`.
@@ -166,8 +166,8 @@ Remaining work that should be tracked outside #81 before #61 closes:
 ## Closure Rule
 
 #81 may close from the current pin plus the completed live rerun at
-`target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json`. Do not
-close #19 from that gate alone. #61 is closed for first-demo scope, but
+`target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json`. #61 is
+closed for first-demo scope, but
 must not be described as production-complete simple-taproot support until
 bounded splice nonce-map vectors replace the first-demo splice exclusion. Keep
 #60, #61, and #71 green as semantic proof, simple-taproot, and first-demo

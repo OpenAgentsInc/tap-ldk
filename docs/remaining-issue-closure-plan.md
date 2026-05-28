@@ -2,19 +2,19 @@
 
 Date: 2026-05-26
 
-This is the current path from the open issue list to a fully closed demo
-track. Do not close the epics from fixture-backed reports, expected balances,
-or local loopback smokes. Close them only when the issue-specific live and
-semantic checks below pass.
+This records the path from the former open issue list to the fully closed
+first-demo track. The epics were not closed from fixture-backed reports,
+expected balances, or local loopback smokes; they close only where the
+issue-specific live and semantic checks below pass.
 
 The holistic settlement audit is
 `docs/path-b-live-settlement-holistic-audit.md`. Treat it as the historical
 guide for the completed #81 settlement blocker and as regression context for
-the remaining Path B work.
+Path B.
 The detailed system audit is
 `docs/path-b-live-settlement-system-audit-2026-05-28.md`. Treat it as the
-file-level implementation map for the #81 regression gate and remaining #57
-work.
+file-level implementation map for the #81/#57/#58/#59/#60/#61/#71/#19
+regression gates.
 The 2026-05-28 diagnostic transcript is
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 The BOLT simple-taproot implementation audit is
@@ -36,8 +36,8 @@ OpenAgentsInc `rust-lightning` revision,
 `8a54739ac030ba3e439496eacb7e1c1216e11c6f`, so later issue verification does
 not fail against the older proof-ownership-only fork revision.
 
-Path B now has one live settlement direction. The completed #81 gate
-reaches:
+Path B now has both live settlement directions. The completed #81, #57, #58,
+#59, #60, #61, #71, and #19 gates reach:
 
 - live `tapd` proof binding;
 - ordered native asset-payment session readiness;
@@ -85,7 +85,7 @@ hardening items are not #81 closure criteria.
 | Done | #88 BTC-only simple-taproot conformance gate | `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f` adds a BTC-only simple-taproot lifecycle test for open, payment, reconnect/reestablish, functional cooperative close, force-close key-path funding witness shape, and legacy P2WSH isolation; `tap-ldk` exposes it through `./scripts/check-btc-simple-taproot-conformance.sh`. | Closed. |
 | Done | #89 Cooperative close proof | `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f` asserts the cooperative-close final transaction has a one-element 64-byte P2TR key-path funding witness; `tap-ldk-core` verifies latest Taproot Asset close allocation and close-store restart preservation; the live `litd` close command exists and the missing native post-close observer is documented instead of claimed. | Closed. |
 | Done | #90 Splice nonce-map policy | `tap-ldk-core::demo_scope`, `tap-ldk-cli first-demo-scope`, and `./scripts/check-simple-taproot-splice-policy.sh` explicitly exclude concurrent simple-taproot splicing from the first public demo while still running the pinned fork's simple-taproot and splicing filters. Production/simple-taproot-complete claims must replace this with bounded splice nonce-map coverage. | Closed. |
-| Done | #81 Fork-backed Lightning Labs settlement | `target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json` completed with `issue_81_acceptance_met=true`: integrated `litd` funded the asset channel, sent the asset keysend, reported `SUCCEEDED`, native LDK claimed the HTLC, `ldk-node` recorded local receiver balance `125`, and no invalid commitment, partial-signature, control-block, or counterparty force-close logs were observed. | Closed; keep this command green as a regression while completing the remaining Path B issues. |
+| Done | #81 Fork-backed Lightning Labs settlement | `target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json` completed with `issue_81_acceptance_met=true`: integrated `litd` funded the asset channel, sent the asset keysend, reported `SUCCEEDED`, native LDK claimed the HTLC, `ldk-node` recorded local receiver balance `125`, and no invalid commitment, partial-signature, control-block, or counterparty force-close logs were observed. | Closed; keep this command green as a Path B regression. |
 | Done | #57 Live `tap-ldk` pays Lightning Labs | `target/live-lightning-labs-outgoing-payment-issue57-final/report.json` completed with `issue_57_acceptance_met=true`: native LDK sends the returned asset to integrated `litd` with the canonical Taproot Asset HTLC blob, 354,000 msat BTC carrier amount, settled local-to-remote accounting, observed `litd` channel asset balance, and no invalid-commitment or counterparty force-close markers. | Closed; keep the live script green as the bidirectional regression gate. |
 | Done | #58 Live Lightning Labs pays `tap-ldk` | `target/live-lightning-labs-outgoing-payment-issue58-rerun/report.json` completed with `issue_58_acceptance_met=true`: integrated `litd` paid native LDK, native LDK recorded the settled remote-to-local asset payment, bounded incoming metadata failures stayed fail-closed, and the restart snapshot reloaded the received payment/balance checkpoint. | Closed; keep the live script green as the receiver/restart regression gate. |
 | Done | #59 Observed live balance reporting | `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json` completed with `path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`, fixture-only completion disabled, and expected-only balance completion disabled. | Closed; keep the Path B wrapper completion report green as the observed-balance regression. |
@@ -93,15 +93,15 @@ hardening items are not #81 closure criteria.
 | Done | #82 BOLT simple-taproot spec-compliance tracker | The audit has been split into focused issues so #81 stays narrow. Legacy signature-field zeroing/rejection, #83 post-claim transcript, #84 force-close funding-input witness, #85 public-channel rejection, #86 immediate nonce validation, #87 RAA/reestablish nonce-field selection, #88 BTC-only lifecycle gate, #89 cooperative-close proof, and #90 first-demo splice exclusion are fixed. | Closed for first-demo scope; production splice claims remain out of scope. |
 | Done | #61 BTC simple-taproot LDK epic | Fork surfaces #62 through #70 and #75 are implemented and pinned, with vector and lifecycle smoke coverage. #88 proves BTC-only open, pay, reestablish, functional cooperative close, force-close, and legacy isolation; #89 strengthens cooperative-close close/restart evidence; #90 gates concurrent splicing out of first-demo scope; #82 is closed for first-demo scope. | Closed for first-demo scope after `check-btc-simple-taproot-conformance`, `check-simple-taproot-cooperative-close`, and `check-simple-taproot-splice-policy` passed against `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`. |
 | Done | #71 Full Taproot Assets LDK epic | `target/path-b-lightning-labs-demo-issue71/path-b-completion-report.json` completed with `path_b_complete=true`, `live_daemon_gaps_remaining=false`, `semantic_proof_ancestry_complete=true`, `issue_57_acceptance_met=true`, `issue_58_acceptance_met=true`, observed native receiver balance `125`, and observed Lightning Labs receiver channel balance `125`. | Closed for first-demo scope; production proof-history replay, grouped/multi-asset paths, STXO/split/change proof replay, reorg watchers, production proof courier policy, live force-close/sweep recovery, and concurrent splice/RBF asset-channel candidates remain future hardening. |
-| 1 | #19 Path B Lightning Labs interop epic | Fixture-backed interop checks, live readiness gates, live observed-balance gates, semantic proof validation, and first-demo Taproot Assets-over-LDK coverage are green. | Close only after the Path B completion report is audited against both live payment directions, observed balances, semantic proof validation, and `live_daemon_gaps_remaining=false`. |
+| Done | #19 Path B Lightning Labs interop epic | `target/path-b-lightning-labs-demo-issue71/path-b-completion-report.json` completed with `path_b_complete=true`, `path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`, `semantic_proof_ancestry_complete=true`, `issue_57_acceptance_met=true`, and `issue_58_acceptance_met=true`. | Closed for first-demo scope after both live payment directions, observed balances, semantic proof validation, and `live_daemon_gaps_remaining=false` were audited. |
 
 ## Engineering Path
 
 1. Keep #81, #57, #58, #59, #60, #61, and #71 green as live settlement,
    receiver/restart, observed-balance, semantic-proof, first-demo
    simple-taproot, and first-demo Taproot Assets-over-LDK regressions.
-2. Audit #19 against its acceptance criteria. Do not close it until the live,
-   semantic, and BOLT conformance checks above are complete.
+2. Keep the Path B wrapper completion report green as the first-demo interop
+   regression gate.
 
 ## Verification Before Closing Issues
 

@@ -106,5 +106,5 @@ These are still required before any production/simple-taproot-complete claim:
 - #61 is closed for first-demo scope. Do not describe it as
   production-complete simple-taproot support until splice nonce-map vectors
   replace the first-demo exclusion.
-- Do not close #19 until the simple-taproot base is clean enough for the
+- Keep #19 closed only while the simple-taproot base is clean enough for the
   Taproot Asset overlay claims made by the demo.

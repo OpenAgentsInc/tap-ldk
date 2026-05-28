@@ -300,8 +300,8 @@ Responsibilities:
 - keep the public state honest;
 - prevent fixture-backed expected balances from being described as live
   balances;
-- keep the completed #81, #57, #58, #59, #60, #61, and #71 gates green while
-  #19 is audited for final closure.
+- keep the completed #81, #57, #58, #59, #60, #61, #71, and #19 gates green as
+  regressions.
 
 ### OpenAgentsInc `ldk-node`
 
@@ -427,9 +427,9 @@ Relevant Lightning Labs behavior:
 - Do not move settlement accounting into `tap-ldk` or `ldk-node` without the
   Rust Lightning commitment transcript being correct.
 - Do not depend on `tapd`, `litd`, or LND as a sidecar inside the wallet.
-- Do not close #19 from fixture-only reports. #81, #57, #58, #59, #60, #61,
-  and #61 are closed only by live/proof/simple-taproot completed gates and
-  remain regressions.
+- #19 must stay closed only while the wrapper report is not fixture-only. #81,
+  #57, #58, #59, #60, #61, and #71 are closed only by live/proof/simple-taproot
+  completed gates and remain regressions.
 - Do not weaken runtime fail-closed policy to make a live harness report
   better.
 
@@ -681,10 +681,8 @@ TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS=180 \
 
 ## Issue Closure Rules
 
-Current open issue order remains:
-
-1. #19: Path B Lightning Labs interop epic.
+Current first-demo issue order is complete.
 
 Keep #81, #57, #58, #59, #60, #61, and #71 live/proof/simple-taproot/asset
-gates green as regressions. Do not close #19 while any concrete child issue
-above remains open.
+gates green as regressions. Keep #19 green through the Path B completion
+report.
