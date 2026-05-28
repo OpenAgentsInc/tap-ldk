@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `73b720ca6f88dc3f1304fd30fa54215b337ce0ba`
+  `ce6319df7220aa39cd561fee50ea7115a0b7dd73`
 - Current `rust-lightning` fork commit:
-  `a626a77d951bbc069ce1c299a448d1bf3403bc0f`
+  `5cee3fd83db4822eb7b05a5779aa4149d228238f`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `73b720ca6f88dc3f1304fd30fa54215b337ce0ba` pin
-   `OpenAgentsInc/rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`,
+   `ce6319df7220aa39cd561fee50ea7115a0b7dd73` pin
+   `OpenAgentsInc/rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -50,13 +50,15 @@ coverage.
    HTLC transcript fixture coverage, and second-level virtual-lock asset-leaf
    encoding, full counterparty commitment monitor persistence, and exact
    previous-output-bound second-level HTLC aux leaves from the Rust Lightning
-   fork. The fork does not advertise STXO support until native STXO commitment
-   leaves are implemented and verified.
+   fork. It also reports the claimed-HTLC balance-output fix in the runtime
+   provenance path. The fork does not advertise STXO support until native STXO
+   commitment leaves are implemented and verified.
 5. #81 now uses fork-backed live settlement against independent integrated
-   Lightning Labs `litd`. The current live run settles the Lightning Labs to
-   native direction and records native receiver balance, but #81 remains open
-   until the post-success `invalid commitment` force-close and on-chain
-   HTLC-success fallback path are fixed and verified.
+   Lightning Labs `litd`. The latest completed live run settled the Lightning
+   Labs to native direction and recorded native receiver balance. The current
+   pin adds post-claim balance-output aux-leaf placement for claimed
+   full-amount asset HTLCs; #81 remains open until that rerun proves the
+   post-success transcript and on-chain HTLC-success fallback.
 
 ## Invariants
 

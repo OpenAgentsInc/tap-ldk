@@ -95,13 +95,14 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`
+- `OpenAgentsInc/rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`
   applies the current concrete fixes from this audit: second-level Taproot
   Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields, full Taproot Asset counterparty commitments are
-  persisted through monitor updates, and outgoing HTLC signatures use exact
-  previous-output-bound second-level aux leaves.
-- `OpenAgentsInc/ldk-node@73b720ca6f88dc3f1304fd30fa54215b337ce0ba` pins that
+  persisted through monitor updates, outgoing HTLC signatures use exact
+  previous-output-bound second-level aux leaves, and post-claim commitments
+  move claimed full-amount asset HTLCs into the rightful balance output.
+- `OpenAgentsInc/ldk-node@ce6319df7220aa39cd561fee50ea7115a0b7dd73` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The latest completed live rerun before the exact-leaf pin produced:
@@ -123,11 +124,12 @@ commitment_signed from peer`, `Completed off-chain monitor update 1`, and
 `Enqueueing message RevokeAndACK`, then signs the remote HTLC transaction. The
 peer responds with `rejected commitment: commit_height=1, invalid_htlc_sig=...`.
 This does not close #81. The next honest gate is to rerun with
-`rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`, which derives exact
-previous-output-bound second-level aux leaves before signing. If a later rerun
-exposes another signature or force-close transcript delta, compare it against
-the fixture and port the remaining bounded `tapchannel`/`tapsend` allocation
-semantics before touching unrelated signing policy.
+`rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`, which now includes
+both exact previous-output-bound second-level aux leaves and dynamic
+post-claim balance-output aux-leaf placement. If a later rerun exposes another
+signature or force-close transcript delta, compare it against the fixture and
+port the remaining bounded `tapchannel`/`tapsend` allocation semantics before
+touching unrelated signing policy.
 
 ## Failing Transcript
 
@@ -494,12 +496,14 @@ Acceptance for this phase:
 The latest completed live run failed after Phase 3B when `litd` rejected our
 outgoing HTLC signature. The current pin changes the signing transcript by
 rewriting nondust HTLC state to the exact previous-output-bound Taproot Asset
-second-level aux leaf after commitment txid/output index assignment.
+second-level aux leaf after commitment txid/output index assignment, and it
+also moves claimed full-amount asset HTLCs into the correct post-claim balance
+output.
 
 Acceptance for this phase:
 
 - rerun the live harness with
-  `rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`;
+  `rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`;
 - the live log no longer contains `invalid_htlc_sig` for our outgoing HTLC
   signature;
 - if `litd` still rejects the signature, capture the new commitment tx,

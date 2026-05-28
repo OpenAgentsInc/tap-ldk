@@ -40,14 +40,15 @@ The transcript from this run is recorded in
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 Follow-up after this artifact: the current code is now pinned to
-`OpenAgentsInc/rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f` and
-`OpenAgentsInc/ldk-node@73b720ca6f88dc3f1304fd30fa54215b337ce0ba`. That line
+`OpenAgentsInc/rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f` and
+`OpenAgentsInc/ldk-node@ce6319df7220aa39cd561fee50ea7115a0b7dd73`. That line
 keeps the failing transcripts as regression fixtures, adds the Lightning Labs
 second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields, full
 counterparty commitment monitor persistence, exact previous-output-bound
 second-level HTLC aux leaves before signing outgoing HTLC transactions, native
-receiver-side asset payment accounting, and the zero-HTLC asset
-commitment-sig blob on the post-claim `commitment_signed`.
+receiver-side asset payment accounting, the zero-HTLC asset commitment-sig blob
+on the post-claim `commitment_signed`, and dynamic post-claim balance-output
+aux-leaf placement for claimed full-amount asset HTLCs.
 
 Historical outgoing-signature rerun artifact:
 
@@ -106,7 +107,7 @@ Latest completed live rerun artifact:
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
-  `a626a77d951bbc069ce1c299a448d1bf3403bc0f`
+  `5cee3fd83db4822eb7b05a5779aa4149d228238f`
 - `integrated_litd_asset_channel_fund_status`: `completed`
 - `integrated_litd_asset_channel_usable_for_keysend`: `true`
 - `integrated_litd_asset_payment_status`: `completed`
@@ -125,12 +126,13 @@ Latest completed live rerun artifact:
 
 The new result changes the live diagnosis again. The bounded Lightning Labs to
 native direction now settles and persists receiver balance. The post-claim log
-also confirms that `rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`
+also confirms that `rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`
 sends `taproot_asset_commitment_sig_blob: Some([0])` when there are no HTLC
-signatures left on the post-claim `commitment_signed`. `litd` still rejects the
-post-claim commitment as `invalid commitment`, so the remaining mismatch is
-not simply a missing no-HTLC asset signature TLV. The next patch needs to
-compare the post-claim commitment transaction, signature, and single-asset
+signatures left on the post-claim `commitment_signed`. The current pin now
+also derives the claimed asset balance-output aux leaf from the previous HTLC
+output instead of carrying a stale no-asset output leaf. The next live rerun
+must prove whether that closes the `invalid commitment` gap; if not, compare
+the remaining post-claim commitment transaction, signature, and single-asset
 allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
 
 ## What Works
@@ -139,7 +141,7 @@ allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
 - After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
   to
-  `OpenAgentsInc/rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`.
+  `OpenAgentsInc/rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel

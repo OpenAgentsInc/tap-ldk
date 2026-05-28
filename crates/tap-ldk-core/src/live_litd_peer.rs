@@ -304,7 +304,7 @@ fn build_report(
     let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
         "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
     } else {
-        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live outgoing-payment gate is beyond readiness: integrated litd fundchannel completes, Lightning Labs to native keysend settles, and ldk-node records the native receiver asset balance. #81 now needs the post-success invalid-commitment force-close and on-chain HTLC-success fallback path fixed."
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live outgoing-payment gate is beyond readiness: integrated litd fundchannel completes, Lightning Labs to native keysend settles, and ldk-node records the native receiver asset balance. #81 is now verifying the post-claim balance-output aux-leaf fix against the invalid-commitment force-close and on-chain HTLC-success fallback path."
     };
 
     LiveLitdPeerPreflightReport {
@@ -643,7 +643,7 @@ mod tests {
         assert!(provenance.uses_openagents_rust_lightning_fork);
         assert_eq!(
             provenance.rust_lightning_fork_rev,
-            "a626a77d951bbc069ce1c299a448d1bf3403bc0f"
+            "5cee3fd83db4822eb7b05a5779aa4149d228238f"
         );
         assert_eq!(
             provenance.ldk_node_fork_url,
