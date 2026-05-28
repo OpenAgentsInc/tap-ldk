@@ -462,7 +462,7 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #71 or #19 from fixture-only or readiness reports. Keep the
+Do not close #19 from fixture-only or readiness reports. Keep the
 closed #81, #57, #58, #59, #60, and #61 gates running as regressions.
 
 Required live evidence before closure:
@@ -513,7 +513,7 @@ move the remaining live-demo work forward:
    signature, invalid-control-block, invalid-commitment, or force-close marker.
 2. Preserve the #59 Path B observed-balance completion report.
 3. Keep #60 semantic proof ancestry validation and #61 simple-taproot coverage
-   green while closing #71 and #19 in order.
+   green while closing #19.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

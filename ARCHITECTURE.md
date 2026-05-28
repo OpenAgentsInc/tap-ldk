@@ -235,7 +235,7 @@ lock, and signature witness cases; rejects generated invalid cases; and gives
 channel funding and commitment updates deterministic virtual IDs and witness
 digests only after amount and witness validation. The first-demo semantic proof
 boundary is now enforced by #60; production full-history virtual transaction,
-STXO, grouped-asset, and reorg hardening remain #71 work.
+STXO, grouped-asset, and reorg hardening remain future production work.
 
 ## TLV Layer
 
@@ -311,7 +311,8 @@ returns the exact accepted bytes.
 Remaining production hardening after #60 is narrower: full Bitcoin anchor
 transaction/merkle validation, full proof-chain virtual transaction replay,
 grouped/collectible/reissuance paths, STXO/split/change proof replay, reorg
-watcher integration, and production proof-courier policy remain #71 work.
+watcher integration, and production proof-courier policy remain future
+production work.
 
 ## Wallet Storage
 
@@ -564,8 +565,9 @@ a real live demo:
   success/timeout path. Initial support landed in
   `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
   single-asset lifecycle state on top of these surfaces, while live
-  channel-manager and interop exercises continue in the epics #71 and #19,
-  while #61 stays as the first-demo simple-taproot regression gate.
+  channel-manager and interop exercises continue in the Path B epic #19, and
+  #61 plus #71 stay as first-demo simple-taproot and Taproot Assets-over-LDK
+  regression gates.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
@@ -995,7 +997,7 @@ compatibility. Proof import now requires the #60 semantic boundary: latest
 Lightning Labs `TAPF` asset leaf, asset ID, normal demo asset type, amount,
 script key, genesis outpoint, anchor staleness, and the native proof root must
 agree before wallet state advances. Production full-history proof replay,
-STXO/grouped-asset handling, and reorg hardening remain #71 work.
+STXO/grouped-asset handling, and reorg hardening remain future production work.
 
 ### Payment reports
 
@@ -1327,20 +1329,17 @@ The live Lightning Labs demo is incomplete.
 
 Missing pieces:
 
-1. Audit #71 against the native Taproot Assets implementation scope now that
-   semantic proof validation, bidirectional live payments, and observed
-   balances are in place.
-2. Audit #19 against the Path B completion report. The report may only pass
+1. Audit #19 against the Path B completion report. The report may only pass
    when the live gate stays green; fixture-only or expected-only values still
    cannot complete Path B.
-3. Live force-close and sweep recovery remain future hardening outside the
+2. Live force-close and sweep recovery remain future hardening outside the
    first public demo claim.
 
 ## How To Make Path B Fully Work
 
 The shortest path is now the open issue sequence:
 
-1. Keep #81, #57, #58, #59, #60, and #61 green as regressions.
+1. Keep #81, #57, #58, #59, #60, #61, and #71 green as regressions.
    - #81 proves Lightning Labs to native settlement.
    - #57 proves native to Lightning Labs settlement over the same integrated
      `litd` asset channel.
@@ -1353,14 +1352,16 @@ The shortest path is now the open issue sequence:
    - #61 proves the first-demo BOLT simple-taproot base opens, pays,
      reestablishes, cooperatively closes, force-closes, and leaves legacy P2WSH
      channels unaffected.
+   - #71 proves first-demo Taproot Assets-over-LDK primitives and channel state
+     are layered onto the simple-taproot base while Path A, Path B, semantic
+     proof validation, and BTC-only behavior stay green.
    - The live script is
      `./scripts/live-lightning-labs-outgoing-payment.sh`.
    - The wrapper completion report is
      `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json`.
 
-2. Close #71 and #19 only after their acceptance criteria are actually
-   met. The issue-by-issue closeout table lives in
-   `docs/remaining-issue-closure-plan.md`.
+2. Close #19 only after its acceptance criteria are actually met. The
+   issue-by-issue closeout table lives in `docs/remaining-issue-closure-plan.md`.
 
 ## Design Boundaries
 

@@ -8,4 +8,5 @@
 - The bounded first-demo model has one normal regtest asset and one latest
   proof state.
 - Production reorg handling, grouped assets, collectibles, reissuance, and
-  full STXO/split/change replay are outside this model and remain #71 work.
+  full STXO/split/change replay are outside this model and remain future
+  production work.

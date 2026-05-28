@@ -245,14 +245,16 @@ spends the P2TR funding output with a one-element 64-byte key-path Schnorr
 witness. It also carries the #90 first-demo splice policy: concurrent
 simple-taproot splicing is explicitly out of the first public demo until
 bounded nonce-map vectors exist.
-Partial split/change-output support remains later #71 work after the bounded
-live path settles.
+Partial split/change-output support remains future production work after the
+bounded live path settles.
 
 Issue #61 is closed for the first-demo BOLT simple-taproot scope: #62 through
 #70 and #75 are implemented, the #82 tracker is closed, and #90 records the
 concurrent-splice exclusion. Do not describe that as production-complete splice
-support. Issue #71 remains open until the Taproot Assets overlay is wired
-through those live paths and Path B interop records observed live balances.
+support. Issue #71 is closed for the first-demo Taproot Assets-over-LDK scope:
+the overlay is wired through the live paths and Path B interop records observed
+live balances. Production split/change, grouped-asset, reorg, proof-courier,
+force-close/sweep, and concurrent-splice work remains future hardening.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

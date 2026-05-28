@@ -27,4 +27,4 @@ If the daemon runtime is unavailable, the script writes a `blocked` report with
 the host prerequisite. Fixture proof import remains available through
 `wallet-import-tapd-proof-file`; this live command is the daemon-backed path.
 Production full-history proof replay for grouped assets, STXO/split/change
-paths, and reorg watcher policy remains #71 hardening work.
+paths, and reorg watcher policy remains future production hardening work.

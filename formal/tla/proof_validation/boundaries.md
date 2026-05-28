@@ -15,4 +15,4 @@ This model covers the policy enforced by
 
 The model does not prove Bitcoin transaction inclusion, script execution,
 Taproot control-block validity, or historical proof-chain replay. Those are
-protocol-vector and #71 production-hardening surfaces.
+protocol-vector and future production-hardening surfaces.

@@ -29,11 +29,11 @@ Concurrent simple-taproot splicing is explicitly excluded from the first public
 demo until bounded splice nonce-map tests are added.
 The latest live run no longer logs the post-claim partial-signature failure,
 invalid Taproot control-block failure, invalid commitment failure, or
-counterparty force-close. #81, #57, #58, and #59 are completed regression
-gates. The Path B wrapper now writes a completion report that sets
-`path_b_live_observed_balance_gate_met=true` only from live observed balances
-and can mark `path_b_complete=true` once the live observed-balance gate is
-green because semantic proof ancestry validation (#60) is now enforced.
+counterparty force-close. #81, #57, #58, #59, #60, #61, and #71 are completed
+regression gates for the first-demo scope. The Path B wrapper now writes a
+completion report that sets `path_b_live_observed_balance_gate_met=true` only
+from live observed balances and marks `path_b_complete=true` when the live
+observed-balance gate and semantic proof ancestry validation are both green.
 
 Proof import no longer accepts shallow field matches. Native proof records must
 use the `semantic-ancestry` scope, strict regtest outpoints, normal-asset demo
@@ -43,11 +43,13 @@ leaf, derives the Taproot Assets asset ID from genesis, and checks asset ID,
 type, amount, owner script key, and genesis before wallet state advances.
 
 Spec-compliance work is split out of #81. #61 is complete for the first-demo
-BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close
-paths are covered, legacy P2WSH channels stay isolated, and concurrent
-splicing is explicitly out of scope until bounded splice nonce-map vectors are
-added. Path B is not done until both payment directions stay green against
-Lightning Labs with observed post-settlement channel balances.
+BOLT simple-taproot scope, and #71 is complete for the first-demo native
+Taproot Assets-over-LDK scope. Remaining production hardening includes full
+proof-history replay, grouped/multi-asset paths, STXO/split/change proof
+replay, reorg watchers, proof courier policy, live force-close/sweep recovery,
+and concurrent simple-taproot splice/RBF asset-channel candidates. Path B's
+remaining open work is the final #19 closure audit against the live completion
+report.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
@@ -130,6 +132,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Live litd Peer Preflight](docs/live-litd-peer-preflight.md)
 - [Live tapd Proof Binding](docs/live-tapd-proof-binding.md)
 - [Semantic Proof Ancestry Validation](docs/semantic-proof-ancestry-validation.md)
+- [Taproot Assets LDK Issue 71 Closure Audit](docs/taproot-assets-ldk-issue-71-closure-audit-2026-05-28.md)
 - [Lightning Labs Interop Matrix](docs/lightning-labs-interop-matrix.md)
 - [Lightning Labs Blob Fixtures](docs/lightning-labs-blob-fixtures.md)
 - [Lightning Labs Funding Interop](docs/lightning-labs-funding-interop.md)

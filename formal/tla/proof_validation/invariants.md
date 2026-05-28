@@ -10,5 +10,5 @@
   amount, owner script key, and genesis outpoint.
 - Recovery handoff cannot claim proof recovery unless the latest committed
   proof root and commitment number match the expected asset-channel state.
-- Counterexamples must become Rust regression tests or explicit #71 boundary
-  notes; the model must not weaken runtime validation policy.
+- Counterexamples must become Rust regression tests or explicit production
+  boundary notes; the model must not weaken runtime validation policy.

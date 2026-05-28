@@ -49,5 +49,5 @@ proof verification. Still out of scope:
 - full split/change/STXO inclusion and exclusion proof replay;
 - reorg watcher integration and production proof courier/universe policy.
 
-Those items remain #71 production-hardening work, not a reason to accept shallow
-proof fields in the demo wallet.
+Those items remain future production-hardening work, not a reason to accept
+shallow proof fields in the demo wallet.

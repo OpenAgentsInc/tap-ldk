@@ -503,10 +503,10 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- The remaining open issue sequence is epics #71 and #19. #81, #57, #58, #59,
-  #60, and #61 are complete and remain live settlement, bidirectional payment,
-  restart, observed-balance, semantic-proof, and first-demo simple-taproot
-  regression gates.
+- The remaining open issue sequence is epic #19. #81, #57, #58, #59, #60,
+  #61, and #71 are complete and remain live settlement, bidirectional payment,
+  restart, observed-balance, semantic-proof, first-demo simple-taproot, and
+  first-demo Taproot Assets-over-LDK regression gates.
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
   proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
   construction, bounded synthetic asset identity/hash+sum conservation helpers,
@@ -520,7 +520,7 @@ Do not claim these guarantees until implementation and verification exist:
 - Lightning Labs `TAPF` proof-file transport validation, latest asset-leaf
   semantic validation, genesis-derived asset ID checks, and exact raw proof
   preservation exist for imported fixtures and live proof binding. Production
-  full-history proof-chain replay remains #71 hardening.
+  full-history proof-chain replay remains future production hardening.
 - Lightning Labs funding interop fixture reconciliation exists for asset ID,
   funded amount, and initial local/remote allocation. Live LND/`tapd` channel
   funding, funding outpoint binding, and proof-to-output verification are not

@@ -19,7 +19,7 @@ amount, wrong asset type, stale proof digests, and storage digest mismatches
 fail before wallet state advances. Production full-history proof replay,
 including every Bitcoin anchor transaction, virtual transaction witness,
 STXO/split/change path, grouped asset path, and reorg watcher policy remains
-future #71 hardening.
+future production hardening.
 
 For the first demo, the local proof/universe courier is mocked infrastructure:
 the Lightning Labs side can mint or receive the asset, export a proof file,
