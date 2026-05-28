@@ -10,6 +10,10 @@ Lightning Labs `litd` asset channel and attempts a real asset keysend. It
 fails because the Rust implementation is still approximating parts of the
 Lightning Labs Taproot Asset commitment and second-level HTLC transcript.
 
+The more detailed file-level audit and implementation map is
+`docs/path-b-live-settlement-system-audit-2026-05-28.md`. Use that document for
+the current #81 coding sequence.
+
 ## Current Live Result
 
 Latest live run artifact:

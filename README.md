@@ -16,7 +16,7 @@ asset-channel funding, reaches `channel_ready`, and attempts asset keysend.
 The current blocker is exact Lightning Labs Taproot Asset commitment and
 second-level HTLC transcript matching: Rust Lightning still rejects the peer
 HTLC Schnorr signature, and the force-close witness/control-block path is not
-valid yet. The next work is captured in #81 and the holistic audit.
+valid yet. The next work is captured in #81 and the settlement audits.
 
 Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
 is not done until both payment directions settle against Lightning Labs with
@@ -78,6 +78,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
 - [Path B Live Settlement Holistic Audit](docs/path-b-live-settlement-holistic-audit.md)
+- [Path B Live Settlement System Audit](docs/path-b-live-settlement-system-audit-2026-05-28.md)
 - [Path B Live Settlement Diagnostic Run](docs/path-b-live-settlement-diagnostic-run-2026-05-28.md)
 - [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
 - [OpenAgentsInc LDK Node Fork](docs/openagents-ldk-node-fork.md)

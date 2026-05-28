@@ -41,8 +41,12 @@ Last updated: 2026-05-28
   witness/control-block path and observed-balance settlement. The 2026-05-28
   diagnostic run in
   `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md` captures the
-  concrete transcript mismatch that #81 must now turn into a regression
-  fixture and implementation fix.
+  concrete transcript mismatch. The detailed system audit in
+  `docs/path-b-live-settlement-system-audit-2026-05-28.md` is the current
+  file-level map for #81: make the mismatch a regression fixture, port the
+  bounded Lightning Labs `tapchannel`/`tapsend` allocation semantics into Rust
+  Lightning, then wire that exact transcript through HTLC signing and
+  force-close before recording observed balances.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
   `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1` and the OpenAgentsInc
   `ldk-node` fork at `c5ae040bf84225922c5213d9acb077e031076a9c`. BOLT
@@ -93,6 +97,8 @@ Last updated: 2026-05-28
   Lightning Terminal nodes.
 - `docs/lightning-labs-interop-matrix.md`: Track B compatibility matrix for
   the independent Lightning Labs counterparty path.
+- `docs/path-b-live-settlement-system-audit-2026-05-28.md`: current detailed
+  #81 audit and implementation sequence for the live settlement blocker.
 - Any required forks of upstream dependencies, including `rust-lightning` and
   `ldk-node`,
   should be created in the `OpenAgentsInc` GitHub organization and referenced

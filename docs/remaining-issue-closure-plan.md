@@ -10,6 +10,9 @@ semantic checks below pass.
 The holistic settlement audit is
 `docs/path-b-live-settlement-holistic-audit.md`. Treat it as the current
 technical guide for #81 before making more Path B settlement patches.
+The detailed system audit is
+`docs/path-b-live-settlement-system-audit-2026-05-28.md`. Treat it as the
+file-level implementation map for the remaining #81 work.
 The 2026-05-28 diagnostic transcript is
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
