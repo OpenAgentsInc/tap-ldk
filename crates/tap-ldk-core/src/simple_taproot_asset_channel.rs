@@ -52,6 +52,8 @@ pub struct SimpleTaprootAssetChannelIntegrationReport {
     pub restart_reestablish_survived: bool,
     pub cooperative_close_exported: bool,
     pub cooperative_close_allocation_validated_by_ldk: bool,
+    pub cooperative_close_preserved_latest_asset_allocation: bool,
+    pub cooperative_close_restart_preserved_asset_allocation: bool,
     pub force_close_proof_ownership_validated_by_ldk: bool,
     pub btc_only_baseline_unaffected: bool,
 }
@@ -166,6 +168,17 @@ pub fn run_simple_taproot_asset_channel_integration_smoke()
     .map_err(SimpleTaprootAssetChannelIntegrationError::LdkCloseAllocation)?;
     ldk_state.validate_cooperative_close(Some(&close_allocation))?;
     let cooperative_close_allocation_validated_by_ldk = ldk_state.closed;
+    let cooperative_close_preserved_latest_asset_allocation = close.commitment_number
+        == latest_state.latest_commitment_number
+        && close.local_amount == latest_state.local_balance
+        && close.remote_amount == latest_state.remote_balance
+        && close.total_amount == latest_state.total_amount
+        && close.proof_root_hash == latest_state.monitor_blob.proof_root_hash
+        && close.proof_root_sum == latest_state.monitor_blob.proof_root_sum;
+    let recovered_close_store = roundtrip(&close_store)?;
+    let recovered_close = recovered_close_store.inspect_close(&close.close_id)?;
+    let cooperative_close_restart_preserved_asset_allocation =
+        recovered_close == close && cooperative_close_preserved_latest_asset_allocation;
 
     let proof_ownership = TaprootAssetProofOwnershipState::new(
         parse_channel_id(&close.channel_id)?,
@@ -189,7 +202,7 @@ pub fn run_simple_taproot_asset_channel_integration_smoke()
         && roundtrip(&commitment_store)?.validate().is_ok()
         && roundtrip(&htlc_store)?.validate().is_ok()
         && roundtrip(&payment_store)?.validate().is_ok()
-        && roundtrip(&close_store)?.validate().is_ok();
+        && recovered_close_store.validate().is_ok();
     let btc_only_baseline = BaselineBtcSmokeState::run_btc_only_smoke()?;
     let btc_only_baseline_unaffected =
         !btc_only_baseline.asset_channel_features_enabled && btc_only_baseline.validate().is_ok();
@@ -218,6 +231,8 @@ pub fn run_simple_taproot_asset_channel_integration_smoke()
         cooperative_close_exported: !close.local_proof_tlv_hex.is_empty()
             && !close.remote_proof_tlv_hex.is_empty(),
         cooperative_close_allocation_validated_by_ldk,
+        cooperative_close_preserved_latest_asset_allocation,
+        cooperative_close_restart_preserved_asset_allocation,
         force_close_proof_ownership_validated_by_ldk: true,
         btc_only_baseline_unaffected,
     })
@@ -389,6 +404,8 @@ mod tests {
         assert!(report.restart_reestablish_survived);
         assert!(report.cooperative_close_exported);
         assert!(report.cooperative_close_allocation_validated_by_ldk);
+        assert!(report.cooperative_close_preserved_latest_asset_allocation);
+        assert!(report.cooperative_close_restart_preserved_asset_allocation);
         assert!(report.force_close_proof_ownership_validated_by_ldk);
         assert!(report.btc_only_baseline_unaffected);
         assert_eq!(

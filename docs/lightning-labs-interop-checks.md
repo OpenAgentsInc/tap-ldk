@@ -25,10 +25,10 @@ asset-payment-session smoke, connect fork-backed `ldk-node` to integrated
 `litd`, exercise the fork-backed asset message/channel/payment APIs, settle
 Lightning Labs to native asset keysend, and record the native receiver asset
 balance. It still does not have the true native-to-Lightning Labs receiver
-balance delta, and the post-success zero-HTLC commitment partial-signature plus
-force-close control-block path remains open. #59
-should only flip the Path B completion flag after #57 and #58 both record
-observed post-settlement balances.
+balance delta, and it still records live cooperative close as a documented gap
+until native post-close proof and balance observation exists. #59 should only
+flip the Path B completion flag after #57 and #58 both record observed
+post-settlement balances.
 
 ## Checks
 
@@ -42,10 +42,11 @@ observed post-settlement balances.
 - Both payment directions use the funding asset ID and conserve expected
   balances.
 - The simple-taproot asset-channel lifecycle, cooperative close proof export,
-  and proof-ownership recovery checks pass through the OpenAgentsInc
-  rust-lightning fork state.
+  latest allocation preservation, close-store restart, and proof-ownership
+  recovery checks pass through the OpenAgentsInc rust-lightning fork state.
 - Wrong, stale, malformed, and replayed payment metadata checks remain true.
-- Live observed balance gaps are recorded as documented gaps, not success.
+- Live observed balance gaps and live Lightning Labs cooperative-close
+  post-close observation are recorded as documented gaps, not success.
 
 ## Closure Gate
 

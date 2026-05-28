@@ -9,6 +9,7 @@ enabled.
 ```bash
 ./scripts/lightning-labs-litd-counterparty.sh start
 ./scripts/lightning-labs-litd-counterparty.sh balance '<asset-id>'
+./scripts/lightning-labs-litd-counterparty.sh close-asset-channel '<txid:index>' false
 ```
 
 This is different from the standalone LND/`tapd` harness. The standalone
@@ -26,12 +27,16 @@ In the current #57 gate this reaches `integrated_litd_counterparty_ready=true`
 and `native_litd_peer_connected=true`, with the fork-backed asset-channel
 message/payment APIs reachable. It does not mark a `tap-ldk` to Lightning Labs
 payment complete; #81 now completes live asset-channel funding, confirms the
-channel, and sees `litd` report a keysend-usable asset balance. The latest
-completed rerun accepts the peer `commitment_signed`, completes monitor update
-`1`, releases `revoke_and_ack`, and then `litd` rejects our outgoing HTLC
-signature. The current fork pin derives exact previous-output-bound
-second-level HTLC aux leaves before signing; #81 must rerun that path before
-it can settle and record the post-settlement receiver balance.
+channel, settles the Lightning Labs to native keysend direction, and records
+the native receiver balance through fork-backed `ldk-node`. The true native to
+Lightning Labs payment direction remains #57.
+
+`close-asset-channel` wraps the integrated LND `closechannel` RPC for a channel
+point returned by `asset-channel-status`. It records exit status, stdout,
+stderr, and parsed JSON output when available. This is the live peer operation
+needed for cooperative-close testing, but the Path B report still needs native
+post-close Taproot Asset proof and balance observation before claiming live
+cooperative close success.
 
 The harness mines a fresh regtest block before the LND sync checks, and again
 after the wallet-funding step, so a persisted regtest chain with an old tip

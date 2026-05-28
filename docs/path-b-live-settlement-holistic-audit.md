@@ -39,8 +39,8 @@ The transcript from this run is recorded in
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 Follow-up after this artifact: the current code is now pinned to
-`OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a` and
-`OpenAgentsInc/ldk-node@766104066e8813e0108a80c98b98f2026a933d20`. That line
+`OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c` and
+`OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0`. That line
 keeps the failing transcripts as regression fixtures, adds the Lightning Labs
 second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields, full
 counterparty commitment monitor persistence, exact previous-output-bound
@@ -120,7 +120,7 @@ Latest completed live rerun artifact:
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
-  `7150b421954d655d8e1a61612639f6987388a25a`
+  `0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
 - `integrated_litd_asset_channel_fund_status`: `completed`
 - `integrated_litd_asset_channel_usable_for_keysend`: `true`
 - `integrated_litd_asset_payment_status`: `completed`
@@ -150,7 +150,7 @@ set.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
 - After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
   to
-  `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`.
+  `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel
@@ -223,6 +223,7 @@ isolated sighash, TLV, or key guess.
 - `scripts/lightning-labs-litd-counterparty.sh`
 - `scripts/check-openagents-rust-lightning.sh`
 - `scripts/check-btc-simple-taproot-conformance.sh`
+- `scripts/check-simple-taproot-cooperative-close.sh`
 - `crates/tap-ldk-core/src/live_litd_peer.rs`
 - `crates/tap-ldk-core/src/lightning_labs_blob.rs`
 - `crates/tap-ldk-core/src/lightning_labs_payment.rs`

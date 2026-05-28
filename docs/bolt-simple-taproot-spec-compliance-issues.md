@@ -9,8 +9,8 @@ before the project claims simple-taproot support is complete.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
-- `OpenAgentsInc/ldk-node@766104066e8813e0108a80c98b98f2026a933d20`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0`
 
 The current fork line fixes the completed audit gaps so far: simple-taproot
 `funding_created`, `funding_signed`, and `commitment_signed` now serialize the
@@ -48,6 +48,13 @@ one-element key-path funding witness, and proves legacy P2WSH channels remain
 unaffected. Run it from `tap-ldk` with
 `./scripts/check-btc-simple-taproot-conformance.sh`.
 
+It also closes #89: native simple-taproot cooperative close now asserts a
+single 64-byte Taproot key-path funding witness, the Taproot Asset
+asset-channel smoke confirms the latest close allocation survives restart, and
+`tap-ldk` exposes both `./scripts/check-simple-taproot-cooperative-close.sh`
+and a live `litd` close command. The live Lightning Labs post-close proof and
+balance observer is still a documented Path B boundary, not a claimed success.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
@@ -59,7 +66,7 @@ unaffected. Run it from `tap-ldk` with
 | #86 | Done | Fail `open_channel` / `accept_channel` immediately on missing simple-taproot nonces | Closed after fork pin and docs update |
 | #87 | Done | Make type-22 nonce maps authoritative and prove reconnect retransmission | Closed after fork pin and docs update |
 | #88 | Done | Add a BTC-only simple-taproot end-to-end conformance gate | Closed after fork pin and docs update |
-| #89 | BOLT compliance | Live-prove cooperative close for simple-taproot channels | #61, #71 |
+| #89 | Done | Prove native/fixture cooperative close and document the live Lightning Labs close boundary | Closed after fork pin and docs update |
 | #90 | BOLT compliance | Cover splice nonce maps or explicitly gate splicing out of the first demo | #61, #71 |
 
 ## Before #61 Can Close
@@ -67,9 +74,7 @@ unaffected. Run it from `tap-ldk` with
 These are required for BOLT simple-taproot completion but do not need to be
 stuffed into #81:
 
-1. Prove cooperative close in the live/simple-taproot path before using it as a
-   demo claim.
-2. Either add bounded splice nonce-map coverage or explicitly mark concurrent
+1. Either add bounded splice nonce-map coverage or explicitly mark concurrent
    splicing out of the first demo's acceptance criteria.
 
 ## Closure Policy

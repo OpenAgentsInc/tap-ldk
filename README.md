@@ -23,14 +23,19 @@ path and regenerate retransmitted partial signatures from fresh nonce-map
 material. A BTC-only simple-taproot conformance gate now covers open, payment,
 reconnect/reestablish, functional cooperative close, force-close, P2TR funding
 witnesses, and legacy P2WSH isolation.
+Native cooperative-close coverage now also asserts the final close transaction
+uses a one-element 64-byte Taproot key-path witness and the asset-channel smoke
+proves the latest asset allocation survives close-store restart. The live
+Lightning Labs cooperative-close command is available, but Path B still needs
+native post-close proof and balance observation before claiming live close.
 The latest live run no longer logs the post-claim partial-signature failure or
 invalid Taproot control-block failure. Path B still needs the true native
 `tap-ldk` to Lightning Labs payment direction.
 
 Spec-compliance work is now split out of #81. #81 stays focused on the live
 settlement gate; broader BOLT simple-taproot conformance is tracked in #82 and
-#89 through #90 before #61 can close. Path B is not done until both payment
-directions settle against Lightning Labs with observed post-settlement balances.
+#90 before #61 can close. Path B is not done until both payment directions
+settle against Lightning Labs with observed post-settlement balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
@@ -42,6 +47,7 @@ Run the current setup checks from the repo root:
 cargo fmt --check
 cargo test
 ./scripts/check-btc-simple-taproot-conformance.sh
+./scripts/check-simple-taproot-cooperative-close.sh
 cargo run -p tap-ldk-cli -- --help
 cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
@@ -50,6 +56,7 @@ cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config
 ./scripts/lightning-labs-counterparty.sh tapd-balance '<asset-id>'
 ./scripts/lightning-labs-litd-counterparty.sh start
 ./scripts/lightning-labs-litd-counterparty.sh balance '<asset-id>'
+./scripts/lightning-labs-litd-counterparty.sh close-asset-channel '<txid:index>' false
 ./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 cargo run -p tap-ldk-cli -- ldk-baseline-plan target/ldk-baseline
 cargo run -p tap-ldk-cli -- ldk-baseline-smoke target/ldk-baseline-smoke.json
@@ -93,6 +100,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Path B Live Settlement Diagnostic Run](docs/path-b-live-settlement-diagnostic-run-2026-05-28.md)
 - [BOLT Simple Taproot Implementation Audit](docs/bolt-simple-taproot-implementation-audit-2026-05-28.md)
 - [BOLT Simple Taproot Spec Compliance Issue Plan](docs/bolt-simple-taproot-spec-compliance-issues.md)
+- [Simple Taproot Cooperative Close Proof](docs/simple-taproot-cooperative-close-2026-05-28.md)
 - [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
 - [OpenAgentsInc LDK Node Fork](docs/openagents-ldk-node-fork.md)
 - [Protocol References](docs/protocol-references.md)

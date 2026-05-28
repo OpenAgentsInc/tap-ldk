@@ -52,6 +52,8 @@ Commands:
              Wait until the matching litd asset channel is active and funded
   send-asset-keysend <peer-pubkey> <asset-id> <asset-amount> [payment-timeout]
              Send a Taproot Asset keysend payment from integrated litd to a peer
+  close-asset-channel <channel-point> [force] [sat-per-vbyte]
+             Ask integrated litd/LND to cooperatively close a Taproot Asset channel
   mine <blocks>
              Mine regtest blocks with the shared Bitcoin Core wallet
   balance <asset-id>
@@ -1061,6 +1063,112 @@ send_asset_keysend() {
     }'
 }
 
+close_asset_channel() {
+  local channel_point="${1:-}"
+  local force="${2:-false}"
+  local sat_per_vbyte="${3:-$LITD_FEE_RATE_SAT_PER_VBYTE}"
+  if [ -z "$channel_point" ]; then
+    echo "lightning-labs-litd-counterparty: close-asset-channel requires channel point txid:index." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$channel_point" | grep -Eq '^[0-9a-fA-F]{64}:[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: channel point must be txid:index." >&2
+    exit 2
+  fi
+  if ! printf '%s' "$sat_per_vbyte" | grep -Eq '^[0-9]+$'; then
+    echo "lightning-labs-litd-counterparty: sat-per-vbyte must be a non-negative integer." >&2
+    exit 2
+  fi
+
+  require_container_runtime
+
+  local funding_txid output_index stdout_file stderr_file status stdout stderr raw_result
+  local pid start now elapsed force_flag
+  funding_txid="${channel_point%%:*}"
+  output_index="${channel_point##*:}"
+  force_flag=""
+  case "$force" in
+    true|1|yes) force="true"; force_flag="--force" ;;
+    false|0|no) force="false" ;;
+    *)
+      echo "lightning-labs-litd-counterparty: force must be true or false." >&2
+      exit 2
+      ;;
+  esac
+
+  stdout_file="$(mktemp)"
+  stderr_file="$(mktemp)"
+  set +e
+  if [ -n "$force_flag" ]; then
+    litd_ln_cli closechannel \
+      --funding_txid "$funding_txid" \
+      --output_index "$output_index" \
+      --sat_per_vbyte "$sat_per_vbyte" \
+      "$force_flag" >"$stdout_file" 2>"$stderr_file" &
+  else
+    litd_ln_cli closechannel \
+      --funding_txid "$funding_txid" \
+      --output_index "$output_index" \
+      --sat_per_vbyte "$sat_per_vbyte" >"$stdout_file" 2>"$stderr_file" &
+  fi
+  pid=$!
+  start="$(date +%s)"
+  while kill -0 "$pid" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$CONTAINER_RUN_TIMEOUT_SECONDS" ]; then
+      kill "$pid" 2>/dev/null || true
+      sleep 1
+      kill -9 "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      status=124
+      printf 'timed out waiting for litd closechannel after %ss\n' "$CONTAINER_RUN_TIMEOUT_SECONDS" >>"$stderr_file"
+      break
+    fi
+    sleep 1
+  done
+  if [ "${status:-}" = "" ]; then
+    wait "$pid"
+    status=$?
+  fi
+  set -e
+  stdout="$(cat "$stdout_file")"
+  stderr="$(cat "$stderr_file")"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ -n "$stdout" ] && printf '%s' "$stdout" | jq -s -e . >/dev/null 2>&1; then
+    raw_result="$(printf '%s' "$stdout" | jq -sc .)"
+  else
+    raw_result="null"
+  fi
+
+  jq -n \
+    --arg source "lightning-labs-litd-counterparty-close-asset-channel" \
+    --arg channel_point "$channel_point" \
+    --arg funding_txid "$funding_txid" \
+    --arg output_index "$output_index" \
+    --arg force "$force" \
+    --arg sat_per_vbyte "$sat_per_vbyte" \
+    --arg stdout "$stdout" \
+    --arg stderr "$stderr" \
+    --argjson status "$status" \
+    --argjson raw_result "$raw_result" \
+    '{
+      schema_version: 1,
+      source: $source,
+      status: (if $status == 0 then "completed" elif $status == 124 then "timed_out" else "failed" end),
+      exit_code: $status,
+      channel_point: $channel_point,
+      funding_txid: $funding_txid,
+      output_index: ($output_index | tonumber),
+      force: ($force == "true"),
+      sat_per_vbyte: ($sat_per_vbyte | tonumber),
+      raw_result: $raw_result,
+      stdout: $stdout,
+      stderr: $stderr
+    }'
+}
+
 mine() {
   local blocks="${1:-}"
   if [ -z "$blocks" ] || ! printf '%s' "$blocks" | grep -Eq '^[0-9]+$'; then
@@ -1090,6 +1198,7 @@ case "${1:-}" in
   asset-channel-status) asset_channel_status "${2:-}" "${3:-}" "${4:-1}" ;;
   wait-asset-channel-active) wait_asset_channel_active "${2:-}" "${3:-}" "${4:-1}" ;;
   send-asset-keysend) send_asset_keysend "${2:-}" "${3:-}" "${4:-}" "${5:-15s}" ;;
+  close-asset-channel) close_asset_channel "${2:-}" "${3:-false}" "${4:-$LITD_FEE_RATE_SAT_PER_VBYTE}" ;;
   mine) mine "${2:-}" ;;
   balance) balance "${2:-}" ;;
   smoke) smoke ;;

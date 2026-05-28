@@ -249,6 +249,19 @@ pub fn run_lightning_labs_interop_check_smoke(
         &simple_taproot,
         &report_artifact("simple_taproot_asset_channel"),
     );
+    checks.push(LightningLabsInteropCheck {
+        name: "live Lightning Labs cooperative close remains documented gap".to_owned(),
+        status: LightningLabsInteropCheckStatus::DocumentedGap,
+        side: "both".to_owned(),
+        field: "litd_closechannel_post_close_asset_balances".to_owned(),
+        expected:
+            "litd CloseChannel with native post-close Taproot Asset proof and balance observation"
+                .to_owned(),
+        actual: "fixture-boundary-only".to_owned(),
+        artifact_path: report_artifact("litd_cooperative_close.documented_gap"),
+        detail: "Lightning Labs exposes LND CloseChannel for asset channels through taproot-assets AuxChanCloser/ShutdownBlob/FinalizeClose, and tap-ldk exposes a litd close command; the live harness still needs native post-close proof and balance observation before claiming live close completion."
+            .to_owned(),
+    });
 
     checks.push(LightningLabsInteropCheck {
         name: "outgoing live receiver balance remains documented gap".to_owned(),
@@ -558,7 +571,7 @@ fn record_simple_taproot_checks(
             expected: "true".to_owned(),
             actual: close_and_recovery_vectors_passed(simple_taproot).to_string(),
             artifact_path: artifact_path.to_owned(),
-            detail: "cooperative close proof export and force-close proof-ownership recovery are exercised through the rust-lightning fork state",
+            detail: "cooperative close proof export, latest-allocation preservation, restart recovery, and force-close proof-ownership recovery are exercised through the rust-lightning fork state",
         },
     );
 }
@@ -578,6 +591,8 @@ fn simple_taproot_lifecycle_passed(report: &SimpleTaprootAssetChannelIntegration
 fn close_and_recovery_vectors_passed(report: &SimpleTaprootAssetChannelIntegrationReport) -> bool {
     report.cooperative_close_exported
         && report.cooperative_close_allocation_validated_by_ldk
+        && report.cooperative_close_preserved_latest_asset_allocation
+        && report.cooperative_close_restart_preserved_asset_allocation
         && report.force_close_proof_ownership_validated_by_ldk
 }
 
@@ -837,6 +852,10 @@ mod tests {
         assert!(report.checks.iter().any(|check| {
             check.name == "simple-taproot close and recovery vectors pass"
                 && check.status == LightningLabsInteropCheckStatus::Passed
+        }));
+        assert!(report.checks.iter().any(|check| {
+            check.name == "live Lightning Labs cooperative close remains documented gap"
+                && check.status == LightningLabsInteropCheckStatus::DocumentedGap
         }));
     }
 

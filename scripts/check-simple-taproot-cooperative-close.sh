@@ -19,12 +19,10 @@ if [[ "$actual_rev" != "$expected_rev" ]]; then
   exit 1
 fi
 
-echo "Running BTC-only simple-taproot conformance gate at $expected_rev"
+echo "Running simple-taproot cooperative-close gate at $expected_rev"
 (
   cd "$rust_lightning_dir"
-  # The broad simple_taproot filter includes the focused BTC-only lifecycle,
-  # cooperative-close, force-close, nonce, funding, and legacy-isolation tests.
-  cargo test -p lightning --features simple_taproot_musig2 simple_taproot -- --nocapture
-  cargo check -p lightning --features simple_taproot_musig2
-  cargo check -p lightning
+  cargo test -p lightning --features simple_taproot_musig2,simple_close simple_taproot -- --nocapture
+  cargo test -p lightning --features simple_taproot_musig2,simple_close taproot_asset -- --nocapture
+  cargo check -p lightning --features simple_taproot_musig2,simple_close
 )

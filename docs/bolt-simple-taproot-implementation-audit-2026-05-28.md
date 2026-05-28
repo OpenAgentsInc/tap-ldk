@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
-- `OpenAgentsInc/ldk-node@766104066e8813e0108a80c98b98f2026a933d20`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0`
 - `tap-ldk` pinned to those forks
 
 ## Summary
@@ -44,7 +44,7 @@ stay limited to the live settlement blocker. The rest of the BOLT conformance
 work is split into the issue set in
 `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
-Follow-up update: `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+Follow-up update: `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
 now serializes 64 zero bytes for the legacy `signature` field when a
 simple-taproot MuSig2 partial-signature TLV is present in `funding_created`,
 `funding_signed`, or `commitment_signed`, rejects non-zero legacy fields on
@@ -52,7 +52,7 @@ decode, derives post-claim Taproot Asset balance script keys with the real CSV
 delay, includes a live `litd` zero-HTLC post-claim transcript regression, and
 persists the aggregate holder commitment Schnorr signature needed for
 simple-taproot key-path force-close broadcast.
-`OpenAgentsInc/ldk-node@766104066e8813e0108a80c98b98f2026a933d20` pins those
+`OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0` pins those
 fixes for the live runtime.
 The same current fork line also enforces the draft private-channel rule:
 simple-taproot and Taproot Asset outbound opens do not set `announce_channel`,
@@ -106,44 +106,49 @@ blocks.
 | Anchor outputs | Anchor internal key is local delayed key or remote payment key; script is `16 CSV`; omit anchor if corresponding output absent and no HTLCs. | `chan_utils.rs` emits simple-taproot anchors under the BOLT conditions. | Implemented | Add/keep regression for no-output/no-HTLC anchor omission. |
 | HTLC outputs | Offered/accepted HTLCs are P2TR with revocation internal key and split timeout/success leaves. | `simple_taproot_htlc_spend_info_with_aux_leaf_for_variant` implements final and staging variants and can include Taproot Asset aux leaves. | Partial | The base is covered, but live asset aux-leaf transcript must remain fixture-backed for both directions. |
 | Second-level HTLCs | Version 2, sequence 1, zero-fee semantics, SIGHASH_SINGLE|ANYONECANPAY, one delayed output. | `build_htlc_transaction`, `simple_taproot_htlc_sighash_type`, and package/signing code use sequence 1 and `SinglePlusAnyoneCanPay` for simple-taproot/Taproot Asset HTLCs. | Implemented for current path | Keep previous-output-bound Taproot Asset aux-leaf regressions. |
-| Cooperative close | `shutdown`, `closing_complete`, and `closing_sig` carry MuSig2 nonces/partials; aggregate final Schnorr signature; rotate closee nonces for RBF. | Message structs and channel logic exist behind `simple_close` plus `simple_taproot_musig2`; shutdown nonce persistence exists. | Partial | Run native and `litd` cooperative close coverage before closing #61 or #71. |
-| Formal/spec vectors | BOLT vectors should cover TLVs, scripts, commitments, HTLCs, signatures, and trimming. | Vector replay exists for implemented base surfaces. The live post-claim zero-HTLC transcript is fixture-backed. #84 adds a stable holder force-close funding-input witness assertion for the one-element key-path Schnorr witness. #88 adds a BTC-only simple-taproot lifecycle gate covering open, payment, reconnect/reestablish, functional cooperative close, force-close funding witness shape, and legacy P2WSH isolation. | Partial | Add live cooperative-close proof and splice-boundary coverage before closing #61. |
+| Cooperative close | `shutdown`, `closing_complete`, and `closing_sig` carry MuSig2 nonces/partials; aggregate final Schnorr signature; rotate closee nonces for RBF. | Message structs and channel logic exist behind `simple_close` plus `simple_taproot_musig2`; shutdown nonce persistence exists. #89 asserts that native cooperative close broadcasts the same final tx on both peers and spends the P2TR funding input with one 64-byte Schnorr witness. Taproot Asset close checks preserve the latest asset allocation across close-store restart. | Implemented for native and fixture boundary | Live Lightning Labs post-close proof/balance observation remains a Path B documented gap, not a BOLT base blocker. |
+| Formal/spec vectors | BOLT vectors should cover TLVs, scripts, commitments, HTLCs, signatures, and trimming. | Vector replay exists for implemented base surfaces. The live post-claim zero-HTLC transcript is fixture-backed. #84 adds a stable holder force-close funding-input witness assertion for the one-element key-path Schnorr witness. #88 adds a BTC-only simple-taproot lifecycle gate covering open, payment, reconnect/reestablish, functional cooperative close, force-close funding witness shape, and legacy P2WSH isolation. #89 adds a cooperative-close gate with `simple_close`. | Partial | Add splice-boundary coverage before closing #61. |
 
 ## Required Work From This Audit
 
 Completed follow-up from this audit:
 
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
   adds a focused regression for simple-taproot legacy signature zeroing and
   non-zero legacy signature rejection in `funding_created`, `funding_signed`,
   and `commitment_signed`.
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
   also persists the aggregate simple-taproot holder commitment signature in
   `HolderCommitmentTransaction`, uses it in the on-chain holder funding-output
   package path, and asserts that the latest holder commitment transaction spends
   the P2TR funding output with exactly one 64-byte Schnorr witness element.
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
   enforces private-only simple-taproot and Taproot Asset channel opens while
   preserving legacy public BTC channel behavior.
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
   rejects missing type-4 `next_local_nonce` during simple-taproot and Taproot
   Asset `open_channel`/`accept_channel` handling before channel state advances.
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
   makes type-22 `next_local_nonces` authoritative for RAA and reestablish,
   rejects the legacy scalar fallback after simple-taproot funding exists, and
   proves retransmitted commitment partials change when the peer advertises a
   fresh nonce map.
-- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
   adds a BTC-only simple-taproot conformance gate for open, P2TR funding,
   payments across reconnect/reestablish, functional cooperative close,
   force-close key-path funding witness shape, and legacy P2WSH channel
   isolation. `tap-ldk` wraps that gate in
   `./scripts/check-btc-simple-taproot-conformance.sh`.
+- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+  also asserts the cooperative-close final transaction's P2TR funding input has
+  a single 64-byte key-path witness. `tap-ldk-core` records that Taproot Asset
+  cooperative close preserves the latest allocation across close-store restart,
+  and `tap-ldk` wraps the native gate in
+  `./scripts/check-simple-taproot-cooperative-close.sh`.
 
 Remaining work that should be tracked outside #81 before #61 closes:
 
-1. Live-prove cooperative close for simple-taproot channels.
-2. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
+1. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
    out of the first demo's acceptance criteria.
 
 ## Closure Rule
