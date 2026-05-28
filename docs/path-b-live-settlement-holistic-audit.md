@@ -14,11 +14,11 @@ Lightning Labs Taproot Asset commitment and second-level HTLC transcript.
 
 Latest live run artifact:
 
-- `target/live-lightning-labs-outgoing-payment-anchor/report.json`
+- `target/live-lightning-labs-outgoing-payment-diagnostic/report.json`
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
-  `4761230b3d8a2732d379087a5510456a13b86c29`
+  `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`
 - `live_node_runtime`: `ldk-node 0.8.0+git`
   from `https://github.com/OpenAgentsInc/ldk-node`
 - `integrated_litd_asset_channel_fund_status`: `completed`
@@ -28,6 +28,9 @@ Latest live run artifact:
 - `integrated_litd_asset_payment_wire_status`: `IN_FLIGHT`
 - `integrated_litd_post_payment_balance`: `999875`
 - `asset_channel_settlement_ready`: `false`
+
+The transcript from this run is recorded in
+`docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 The important fact is that funding succeeds and `litd` believes the channel is
 usable for asset keysend. The first payment-time commitment update reaches
@@ -96,6 +99,12 @@ for both first-level and second-level HTLC outputs and tweaks asset-layer
 script keys before producing the aux leaves. Rust still reconstructs this from
 a bounded single-asset/no-split template rather than porting the exact
 Lightning Labs allocation path.
+
+The 2026-05-28 diagnostic run captured the exact mismatch: Rust's second-level
+aux leaf contains local root/script-key material that does not match the
+Lightning Labs `tapchannel`/`tapsend` second-level allocation trace. The next
+implementation step is now a fixture-backed port of that bounded single-asset
+allocation path.
 
 ## Relevant Files Audited
 
@@ -373,15 +382,13 @@ Close live issues only from observed settlement and observed balance state.
 The next code change should make the live mismatch measurable before changing
 more behavior:
 
-1. Add rust-lightning diagnostics or a checked fixture helper around the
-   simple-taproot HTLC signature verification path.
-2. Capture the exact payment-time transcript listed in Phase 1.
-3. Add a regression test that fails against the current bounded aux-leaf path.
-4. Port the exact single-asset `CreateSecondLevelHtlcTx` equivalent from
+1. Add a regression test from the 2026-05-28 captured transcript that fails
+   against the current bounded aux-leaf path.
+2. Port the exact single-asset `CreateSecondLevelHtlcTx` equivalent from
    Lightning Labs `tapchannel/commitment.go`.
-5. Replace the bounded second-level aux-leaf approximation with that exact
+3. Replace the bounded second-level aux-leaf approximation with that exact
    model.
-6. Rerun the live `litd` settlement harness.
+4. Rerun the live `litd` settlement harness.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

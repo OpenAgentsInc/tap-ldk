@@ -274,7 +274,7 @@ write_report() {
       native_ldk_litd_peer_preflight_gap: ($native_ldk_litd_peer_preflight_gap | if length > 0 then . else null end),
       issue_57_acceptance_met: false,
       next_required_work: [
-        "capture the exact Lightning Labs payment-time HTLC transcript used by the rejected peer Schnorr signature",
+        "turn the captured Lightning Labs payment-time HTLC transcript into a regression fixture",
         "replace the bounded full-channel aux-leaf approximation with exact single-asset Lightning Labs tapchannel/tapsend allocation and commitment construction",
         "match Lightning Labs second-level HTLC transaction, aux leaf, tapleaf, sighash, output, and key selection so live asset keysend verifies",
         "fix simple-taproot HTLC witness/control-block construction for force-close broadcasts",

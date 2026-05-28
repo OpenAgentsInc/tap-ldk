@@ -78,6 +78,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
 - [Path B Live Settlement Holistic Audit](docs/path-b-live-settlement-holistic-audit.md)
+- [Path B Live Settlement Diagnostic Run](docs/path-b-live-settlement-diagnostic-run-2026-05-28.md)
 - [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
 - [OpenAgentsInc LDK Node Fork](docs/openagents-ldk-node-fork.md)
 - [Protocol References](docs/protocol-references.md)

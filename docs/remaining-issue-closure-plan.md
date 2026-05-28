@@ -10,6 +10,8 @@ semantic checks below pass.
 The holistic settlement audit is
 `docs/path-b-live-settlement-holistic-audit.md`. Treat it as the current
 technical guide for #81 before making more Path B settlement patches.
+The 2026-05-28 diagnostic transcript is
+`docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 ## Current State
 
@@ -46,6 +48,11 @@ Taproot Asset commitment allocation and second-level HTLC transcript. #81
 remains open until the fork matches that transcript, fixes the HTLC
 witness/control-block path, and both directions observe post-settlement
 balances from real live Lightning Labs funding/payment.
+
+The next #81 step is to turn the captured 2026-05-28 transcript into a
+regression fixture, then replace the bounded second-level aux-leaf derivation
+with the exact bounded single-asset Lightning Labs `tapchannel`/`tapsend`
+allocation model.
 
 ## Closure Sequence
 
