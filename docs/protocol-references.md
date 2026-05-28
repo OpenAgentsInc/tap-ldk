@@ -12,15 +12,15 @@ reference repos.
 | BLIP-TAP PR #29 capture | https://github.com/lightning/blips/pull/29 | `../stablecoins/blip-tap-pr-29.md` | workspace doc |
 | Stablecoins transcript | local transcript source | `../stablecoins/stablecoins-may25-transcript.md` | workspace doc |
 | Tap-LDK analysis | local planning source | `../stablecoins/tap-ldk-proof-of-concept-analysis.md` | workspace doc |
-| BOLT simple taproot channels | https://github.com/lightning/bolts/blob/master/bolt-simple-taproot.md | upstream BOLTs draft | reviewed 2026-05-26 |
+| BOLT simple taproot channels | https://github.com/lightning/bolts/blob/master/bolt-simple-taproot.md | upstream BOLTs draft; local audit in `docs/bolt-simple-taproot-implementation-audit-2026-05-28.md` | reviewed 2026-05-28 |
 | TAP BIPs draft source | https://github.com/Roasbeef/bips | `../projects/lightninglabs/repos/bips` | `bd3cdc153bea` |
 | BLIPs repo | https://github.com/lightning/blips | `../projects/lightninglabs/repos/blips` | `27c0ea5be60b` |
 | Taproot Assets reference implementation | https://github.com/lightninglabs/taproot-assets | `../projects/lightninglabs/repos/taproot-assets` | `743db21da57b` |
 | LND reference implementation | https://github.com/lightningnetwork/lnd | `../projects/lightninglabs/repos/lnd` | `9f03672bdaba` |
 | Rust Lightning / LDK | https://github.com/lightningdevkit/rust-lightning | `../projects/ldk/repos/rust-lightning` | `0c37f08a55c0` |
-| OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `15710fb516e8` |
+| OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `0d587fbe4259` |
 | LDK Node upstream | https://github.com/lightningdevkit/ldk-node | `../projects/ldk/repos/ldk-node` | reference |
-| OpenAgentsInc ldk-node fork | https://github.com/OpenAgentsInc/ldk-node | owned fork | `9fdb7cff9f47` |
+| OpenAgentsInc ldk-node fork | https://github.com/OpenAgentsInc/ldk-node | owned fork | `38f53969c90f` |
 | Polar regtest reference | https://github.com/jamaljsr/polar | `../projects/repos/polar` | `ee3ae493d613` |
 
 ## Reference Rules

@@ -49,8 +49,14 @@ The Lightning Labs path is not a live payment yet:
   OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset channel
   hooks.
 - It completes live funding and the Lightning Labs to native settlement
-  direction. It still fails the post-success force-close path because `litd`
-  force-closes with `invalid commitment`.
+  direction. It still fails after settlement because native LDK rejects
+  `litd`'s zero-HTLC post-claim commitment with `Invalid simple-taproot
+  commitment partial signature`, and the local force-close commitment
+  broadcast fails Taproot control-block validation.
+- The 2026-05-28 BOLT simple-taproot audit confirms the fork is not yet spec
+  complete: native simple-taproot funding and commitment messages still need
+  legacy signature-field zeroing/rejection, plus a live-proven post-claim
+  signature transcript and broadcast-clean force-close witness.
 - It records the live native receiver balance after settlement; the reverse
   native to Lightning Labs direction and Lightning Labs receiver balance delta
   remain #57 work.
@@ -385,12 +391,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `5cee3fd83db4822eb7b05a5779aa4149d228238f`
+- current revision: `0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "5cee3fd83db4822eb7b05a5779aa4149d228238f", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "0d587fbe4259145dd576fd5255ac9acc4b06a0f4", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -494,7 +500,10 @@ a real live demo:
 - BOLT simple taproot wire messages: native lifecycle messages must carry the
   MuSig2 nonce and partial-signature TLVs without changing legacy messages.
   Initial TLV codec and message validation support landed in
-  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`.
+  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. The current audit still
+  requires zeroing legacy ECDSA signature fields for simple-taproot
+  `funding_created`, `funding_signed`, and `commitment_signed`, and rejecting
+  non-zero peer legacy fields.
 - BOLT simple taproot MuSig2 signer state: simple-taproot funding keys must
   aggregate with BIP-327 sorting, public nonces and partial signatures must
   verify, final Schnorr signatures must aggregate, and nonce-use state must
@@ -514,6 +523,8 @@ a real live demo:
   tweaks, and control blocks that can be reconstructed after restart. Initial
   support landed in `b0b952531329a31265f8de28752ee5334d9d9d4f`; MuSig2
   commitment signing/reestablish moved in #67 and HTLC scripts landed in #69.
+  The current live force-close path still fails with an invalid Taproot
+  control block, so this surface is not complete for #81 closure.
 - BOLT simple taproot commitment update/reestablish state: channel-ready,
   commitment-signed, revoke-and-ack, and channel-reestablish paths must carry
   next-local nonces, preserve sent partial signatures for retransmission, and
@@ -573,7 +584,7 @@ a real live demo:
   validation for Taproot Asset channels. Revision
   `c94f4570587e94e89740f5126a5fa70021b58de2` adds trace diagnostics and a
   regression fixture for the rejected simple-taproot HTLC signature
-  transcript. Revision `5cee3fd83db4822eb7b05a5779aa4149d228238f` adds the
+  transcript. Revision `0d587fbe4259145dd576fd5255ac9acc4b06a0f4` adds the
   current transcript fixes from that audit by encoding Lightning Labs
   second-level virtual lock fields in Taproot Asset HTLC aux leaves, persisting
   full Taproot Asset counterparty commitments through monitor updates, and
@@ -1087,10 +1098,10 @@ runs the fork-backed `ldk-node` to `litd` path. It now reaches live
 asset-channel funding, confirms the channel, sees `litd` report the channel
 usable for asset keysend, settles a Lightning Labs to native asset keysend, and
 records the native receiver balance through fork-backed `ldk-node`. It still
-blocks at `live_asset_channel_payment_settlement` because after success
-Lightning Labs force-closes with `invalid commitment`, and the on-chain
-HTLC-success fallback/broadcast path fails with local commitment replacement
-and Taproot control-block errors.
+blocks at `live_asset_channel_payment_settlement` because after success native
+LDK rejects `litd`'s zero-HTLC post-claim commitment with `Invalid
+simple-taproot commitment partial signature`, and the local force-close
+commitment broadcast fails with Taproot control-block errors.
 
 Artifacts land in:
 
@@ -1295,8 +1306,8 @@ The shortest path is now the open issue sequence:
 
 1. Finish #81: the fork-backed live runtime already settles Lightning Labs to
    native and records native receiver balance. The remaining work is the
-   post-success `invalid commitment` force-close transcript plus on-chain
-   HTLC-success fallback/control-block path.
+   post-success zero-HTLC commitment partial-signature transcript plus
+   force-close commitment control-block path.
 
 2. Finish #57: live `tap-ldk` pays Lightning Labs.
    - Use `scripts/lightning-labs-counterparty.sh` for standalone proof/balance

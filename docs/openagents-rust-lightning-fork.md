@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `5cee3fd83db4822eb7b05a5779aa4149d228238f`
+- Current `tap-ldk` revision: `0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "5cee3fd83db4822eb7b05a5779aa4149d228238f"
+rev = "0d587fbe4259145dd576fd5255ac9acc4b06a0f4"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,7 +205,7 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Revision `5cee3fd83db4822eb7b05a5779aa4149d228238f` adds the current concrete
+Revision `0d587fbe4259145dd576fd5255ac9acc4b06a0f4` adds the current concrete
 transcript fixes from that audit: second-level Taproot Asset HTLC aux leaves
 encode the Lightning Labs virtual `lock_time` and `relative_lock_time` fields,
 full counterparty commitments are persisted through monitor updates, outgoing
@@ -213,13 +213,14 @@ HTLC signatures use exact previous-output-bound second-level aux leaves, and
 the post-claim commitment moves a claimed full-amount asset HTLC into the
 rightful balance output by deriving its aux leaf from the previous HTLC output.
 
-With `ldk-node@ce6319df7220aa39cd561fee50ea7115a0b7dd73`, the current pin has
+With `ldk-node@38f53969c90f0f3178d0617a212d77b7ea2316f1`, the current pin has
 now been rerun live. It still settles the Lightning Labs to native payment and
 records native receiver balance, but the claimed-balance-output fix did not
-close #81: `litd` rejects the post-claim commitment with `invalid commitment`,
-and the fallback HTLC claim against the counterparty commitment fails with an
-invalid Taproot control block. #81 remains open until that post-claim
-transcript, witness/control-block recovery, and observed balance path pass.
+close #81: native LDK now rejects `litd`'s zero-HTLC post-claim commitment
+with `Invalid simple-taproot commitment partial signature`, and the local
+force-close commitment broadcast fails with an invalid Taproot control block.
+#81 remains open until that post-claim signature transcript,
+witness/control-block recovery, and observed balance path pass.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 

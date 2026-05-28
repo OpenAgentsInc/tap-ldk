@@ -51,10 +51,11 @@ whether `litd` advertised the taproot features needed for asset channels. It
 now completes live asset-channel funding, settles a Lightning Labs to native
 asset keysend, logs native `PaymentClaimed`, and records the native receiver
 asset balance in fork-backed `ldk-node`. It still stops at
-`live_asset_channel_payment_settlement` because after successful claim
-Lightning Labs force-closes with `invalid commitment`, and the HTLC-success
-fallback/broadcast path still fails its Taproot control block. The current
-#57 gate remains false because the true native `tap-ldk` to Lightning Labs
+`live_asset_channel_payment_settlement` because after successful claim native
+LDK rejects `litd`'s zero-HTLC post-claim commitment with `Invalid
+simple-taproot commitment partial signature`, and the local force-close
+commitment broadcast still fails its Taproot control block. The current #57
+gate remains false because the true native `tap-ldk` to Lightning Labs
 direction has not settled yet.
 
 The current consolidated report can pass fixture-backed checks while still

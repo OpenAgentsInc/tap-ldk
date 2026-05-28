@@ -121,7 +121,10 @@ write_report() {
   local native_asset_receiver_payment_status native_asset_receiver_payment_recorded native_asset_receiver_channel_id
   local native_asset_receiver_local_balance_after native_asset_receiver_remote_balance_after native_asset_receiver_amount
   local native_ldk_payment_claimable_logged native_ldk_payment_claimed_logged native_ldk_counterparty_force_closed_logged
-  local native_ldk_invalid_commitment_logged native_ldk_onchain_htlc_claim_logged native_ldk_empty_asset_commit_sig_blob_logged native_ldk_log
+  local native_ldk_invalid_commitment_logged native_ldk_invalid_simple_taproot_partial_sig_logged
+  local native_ldk_invalid_simple_taproot_commitment_partial_sig_logged native_ldk_invalid_simple_taproot_htlc_sig_logged
+  local native_ldk_invalid_taproot_control_block_logged native_ldk_onchain_htlc_claim_logged
+  local native_ldk_empty_asset_commit_sig_blob_logged native_ldk_log
   payment_id="$(jq -r '.payment_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_id="$(jq -r '.asset_id // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
   asset_amount="$(jq -r '.asset_amount // empty' "$BOUNDED_REPORT" 2>/dev/null || true)"
@@ -186,6 +189,10 @@ write_report() {
   native_ldk_payment_claimed_logged="false"
   native_ldk_counterparty_force_closed_logged="false"
   native_ldk_invalid_commitment_logged="false"
+  native_ldk_invalid_simple_taproot_partial_sig_logged="false"
+  native_ldk_invalid_simple_taproot_commitment_partial_sig_logged="false"
+  native_ldk_invalid_simple_taproot_htlc_sig_logged="false"
+  native_ldk_invalid_taproot_control_block_logged="false"
   native_ldk_onchain_htlc_claim_logged="false"
   native_ldk_empty_asset_commit_sig_blob_logged="false"
   if [ -f "$native_ldk_log" ]; then
@@ -201,7 +208,19 @@ write_report() {
     if grep -q "invalid commitment" "$native_ldk_log"; then
       native_ldk_invalid_commitment_logged="true"
     fi
-    if grep -q "Claiming HTLC with preimage tx\\|Broadcasting onchain HTLC-success tx" "$native_ldk_log"; then
+    if grep -Eq "Invalid simple-taproot (commitment partial|HTLC) signature" "$native_ldk_log"; then
+      native_ldk_invalid_simple_taproot_partial_sig_logged="true"
+    fi
+    if grep -q "Invalid simple-taproot commitment partial signature" "$native_ldk_log"; then
+      native_ldk_invalid_simple_taproot_commitment_partial_sig_logged="true"
+    fi
+    if grep -q "Invalid simple-taproot HTLC signature" "$native_ldk_log"; then
+      native_ldk_invalid_simple_taproot_htlc_sig_logged="true"
+    fi
+    if grep -q "Invalid Taproot control block size" "$native_ldk_log"; then
+      native_ldk_invalid_taproot_control_block_logged="true"
+    fi
+    if grep -Eq "Claiming HTLC with preimage tx|Broadcasting onchain HTLC-success tx|Broadcasting onchain HTLC claim tx" "$native_ldk_log"; then
       native_ldk_onchain_htlc_claim_logged="true"
     fi
     if grep -Fq "taproot_asset_commitment_sig_blob: Some([0])" "$native_ldk_log"; then
@@ -274,6 +293,10 @@ write_report() {
     --arg native_ldk_payment_claimed_logged "$native_ldk_payment_claimed_logged" \
     --arg native_ldk_counterparty_force_closed_logged "$native_ldk_counterparty_force_closed_logged" \
     --arg native_ldk_invalid_commitment_logged "$native_ldk_invalid_commitment_logged" \
+    --arg native_ldk_invalid_simple_taproot_partial_sig_logged "$native_ldk_invalid_simple_taproot_partial_sig_logged" \
+    --arg native_ldk_invalid_simple_taproot_commitment_partial_sig_logged "$native_ldk_invalid_simple_taproot_commitment_partial_sig_logged" \
+    --arg native_ldk_invalid_simple_taproot_htlc_sig_logged "$native_ldk_invalid_simple_taproot_htlc_sig_logged" \
+    --arg native_ldk_invalid_taproot_control_block_logged "$native_ldk_invalid_taproot_control_block_logged" \
     --arg native_ldk_onchain_htlc_claim_logged "$native_ldk_onchain_htlc_claim_logged" \
     --arg native_ldk_empty_asset_commit_sig_blob_logged "$native_ldk_empty_asset_commit_sig_blob_logged" \
     --arg litd_minted_asset_report "$LITD_MINTED_ASSET_REPORT" \
@@ -363,6 +386,10 @@ write_report() {
       native_ldk_payment_claimed_logged: ($native_ldk_payment_claimed_logged == "true"),
       native_ldk_counterparty_force_closed_logged: ($native_ldk_counterparty_force_closed_logged == "true"),
       native_ldk_invalid_commitment_logged: ($native_ldk_invalid_commitment_logged == "true"),
+      native_ldk_invalid_simple_taproot_partial_sig_logged: ($native_ldk_invalid_simple_taproot_partial_sig_logged == "true"),
+      native_ldk_invalid_simple_taproot_commitment_partial_sig_logged: ($native_ldk_invalid_simple_taproot_commitment_partial_sig_logged == "true"),
+      native_ldk_invalid_simple_taproot_htlc_sig_logged: ($native_ldk_invalid_simple_taproot_htlc_sig_logged == "true"),
+      native_ldk_invalid_taproot_control_block_logged: ($native_ldk_invalid_taproot_control_block_logged == "true"),
       native_ldk_onchain_htlc_claim_logged: ($native_ldk_onchain_htlc_claim_logged == "true"),
       native_ldk_empty_asset_commit_sig_blob_logged: ($native_ldk_empty_asset_commit_sig_blob_logged == "true"),
       asset_channel_settlement_ready: (($asset_channel_settlement_ready == "true") or (($litd_asset_payment_status == "completed") and ($native_asset_receiver_payment_recorded == "true"))),
@@ -370,9 +397,9 @@ write_report() {
       issue_57_acceptance_met: false,
       next_required_work: [
         "keep the successful Lightning Labs to native receiver settlement transcript fixture-backed",
-        "compare the post-claim commitment/fulfill transcript against Lightning Labs because litd still force-closes with invalid commitment after payment success",
+        "compare the post-claim commitment/fulfill transcript against Lightning Labs because litd can still force-close with invalid commitment after payment success",
         "keep the zero-HTLC asset commitment-sig blob presence checked as part of that transcript instead of relying only on a log string",
-        "fix the force-close/on-chain HTLC-success witness, fee, and broadcast path so the fallback path verifies cleanly",
+        "fix the force-close/on-chain HTLC-success witness, fee, and broadcast path if the live log reports an invalid Taproot control block",
         "add the true native tap-ldk to Lightning Labs payment direction for #57 and record the Lightning Labs receiver balance delta",
         "port any remaining Lightning Labs tapchannel/tapsend allocation semantics exposed by the reverse-direction transcript",
         "add partial-split/change-output Taproot Asset commitment support after the bounded single-asset path settles"
@@ -575,14 +602,56 @@ if [ "$litd_asset_payment_status" = "completed" ] && [ -n "$litd_asset_payment_h
   wait_for_native_asset_payment_record "$litd_asset_payment_hash" || true
 fi
 native_ldk_log="$NATIVE_LDK_PEER_STATE_DIR/ldk_node.log"
+native_ldk_has_invalid_commitment="false"
+native_ldk_has_invalid_simple_taproot_partial_sig="false"
+native_ldk_has_invalid_simple_taproot_commitment_partial_sig="false"
+native_ldk_has_invalid_simple_taproot_htlc_sig="false"
+native_ldk_has_invalid_taproot_control_block="false"
+native_ldk_has_counterparty_force_close="false"
+native_ldk_has_zero_htlc_asset_blob="false"
+if [ -f "$native_ldk_log" ]; then
+  if grep -q "invalid commitment" "$native_ldk_log"; then
+    native_ldk_has_invalid_commitment="true"
+  fi
+  if grep -Eq "Invalid simple-taproot (commitment partial|HTLC) signature" "$native_ldk_log"; then
+    native_ldk_has_invalid_simple_taproot_partial_sig="true"
+  fi
+  if grep -q "Invalid simple-taproot commitment partial signature" "$native_ldk_log"; then
+    native_ldk_has_invalid_simple_taproot_commitment_partial_sig="true"
+  fi
+  if grep -q "Invalid simple-taproot HTLC signature" "$native_ldk_log"; then
+    native_ldk_has_invalid_simple_taproot_htlc_sig="true"
+  fi
+  if grep -q "Invalid Taproot control block size" "$native_ldk_log"; then
+    native_ldk_has_invalid_taproot_control_block="true"
+  fi
+  if grep -Eq "CounterpartyForceClosed|counterparty force-closed" "$native_ldk_log"; then
+    native_ldk_has_counterparty_force_close="true"
+  fi
+  if grep -Fq "taproot_asset_commitment_sig_blob: Some([0])" "$native_ldk_log"; then
+    native_ldk_has_zero_htlc_asset_blob="true"
+  fi
+fi
 
 final_reason="The live tapd proof can be bound, the native outgoing RFQ/HTLC artifacts are ready, integrated litd minted a real asset, the fork-backed native LDK node stayed connected to litd, litd completed fundchannel, the asset channel became usable for keysend, and the harness now attempted a real litd asset keysend. #81 still needs the payment to settle, native receiver claim, force-close witness handling, and observed balances."
 if [ "$litd_asset_payment_status" = "completed" ]; then
   if jq -e --arg payment_id "$litd_asset_payment_hash" '.live_node_asset_payments[]? | select(.payment_id == $payment_id and .status == "settled")' "$LITD_PEER_PREFLIGHT_REPORT" >/dev/null 2>&1; then
-    if [ -f "$native_ldk_log" ] && grep -Fq "taproot_asset_commitment_sig_blob: Some([0])" "$native_ldk_log"; then
-      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, fork-backed ldk-node recorded the native receiver-side Taproot Asset payment and post-claim asset balance, and the native log confirms the zero-HTLC asset commitment-sig blob is present on the post-claim commitment_signed. #81 still needs the remaining post-claim invalid-commitment transcript mismatch and force-close witness path cleaned up before closure."
+    if [ "$native_ldk_has_invalid_simple_taproot_commitment_partial_sig" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but native LDK rejects litd's zero-HTLC post-claim commitment with Invalid simple-taproot commitment partial signature. #81 needs the exact post-claim transcript, tapscript root, and signed transaction state matched before closure."
+    elif [ "$native_ldk_has_invalid_simple_taproot_htlc_sig" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but the native log still reports an invalid simple-taproot HTLC signature. #81 needs the exact HTLC signature transcript and signed transaction state matched before closure."
+    elif [ "$native_ldk_has_invalid_simple_taproot_partial_sig" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but the native log still reports an invalid simple-taproot partial signature. #81 needs the exact post-claim transcript and signed transaction state matched before closure."
+    elif [ "$native_ldk_has_invalid_commitment" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, fork-backed ldk-node recorded the native receiver-side Taproot Asset payment and post-claim asset balance, and litd still rejected the post-claim commitment with invalid commitment. #81 needs the post-claim commitment transaction, asset allocation, and zero-HTLC asset commitment-sig blob matched against the Lightning Labs transcript before closure."
+    elif [ "$native_ldk_has_invalid_taproot_control_block" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but the force-close fallback still fails with Invalid Taproot control block size. #81 needs the simple-taproot HTLC-success witness/control-block path fixed before closure."
+    elif [ "$native_ldk_has_counterparty_force_close" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but the channel still force-closed after claim. #81 needs the force-close reason and post-claim transcript resolved before closure."
+    elif [ "$native_ldk_has_zero_htlc_asset_blob" = "true" ]; then
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, fork-backed ldk-node recorded the native receiver-side Taproot Asset payment and post-claim asset balance, and the native log confirms the zero-HTLC asset commitment-sig blob is present on the post-claim commitment_signed. #81 still needs the live run promoted only after the post-claim transcript and force-close fallback stay clean."
     else
-      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, fork-backed ldk-node recorded the native receiver-side Taproot Asset payment and post-claim asset balance, and litd then rejected the post-claim commitment with invalid commitment. #81 still needs the post-claim commitment transcript, zero-HTLC asset commitment-sig blob presence, and force-close witness path verified before closure."
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment. #81 still needs the post-claim transcript fixture and force-close fallback checks verified before closure."
     fi
   else
     final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, but the refreshed fork-backed ldk-node report did not expose the native receiver-side asset payment before timeout. #81 still needs native receiver-balance observability before this can be closed."

@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `ce6319df7220aa39cd561fee50ea7115a0b7dd73`
+  `38f53969c90f0f3178d0617a212d77b7ea2316f1`
 - Current `rust-lightning` fork commit:
-  `5cee3fd83db4822eb7b05a5779aa4149d228238f`
+  `0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `ce6319df7220aa39cd561fee50ea7115a0b7dd73` pin
-   `OpenAgentsInc/rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`,
+   `38f53969c90f0f3178d0617a212d77b7ea2316f1` pin
+   `OpenAgentsInc/rust-lightning@0d587fbe4259145dd576fd5255ac9acc4b06a0f4`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -57,9 +57,11 @@ coverage.
    Lightning Labs `litd`. The latest completed live run settled the Lightning
    Labs to native direction and recorded native receiver balance. The current
    pin adds post-claim balance-output aux-leaf placement for claimed
-   full-amount asset HTLCs, but the latest rerun still ends with post-claim
-   `invalid commitment` and an invalid Taproot control block on the HTLC-claim
-   fallback. #81 remains open until both paths are clean.
+   full-amount asset HTLCs, but the latest rerun still fails after settlement:
+   native LDK rejects `litd`'s zero-HTLC post-claim commitment with
+   `Invalid simple-taproot commitment partial signature`, and the local
+   force-close commitment broadcast fails with an invalid Taproot control
+   block. #81 remains open until both paths are clean.
 
 ## Invariants
 

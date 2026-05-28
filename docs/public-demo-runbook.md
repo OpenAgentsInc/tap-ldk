@@ -28,11 +28,12 @@ balance. Live asset-channel config/API exposure and remote feature observation
 are in place. Live `litd` asset-channel funding now completes and the channel
 becomes usable for asset keysend. The Lightning Labs to native payment now
 settles and native receiver balance is recorded by fork-backed `ldk-node`. The
-current live blocker is after success: `litd` force-closes with
-`invalid commitment`, and the on-chain HTLC-success fallback/broadcast path
-still fails its Taproot control block. The true native `tap-ldk` to
-Lightning Labs receiver direction and two-sided observed balance replacement
-remain open.
+current live blocker is after success: native LDK rejects `litd`'s zero-HTLC
+post-claim commitment with `Invalid simple-taproot commitment partial
+signature`, and the local force-close commitment broadcast still fails its
+Taproot control block. The true native
+`tap-ldk` to Lightning Labs receiver direction and two-sided observed balance
+replacement remain open.
 
 ## Prerequisites
 

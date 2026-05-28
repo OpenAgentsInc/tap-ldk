@@ -25,7 +25,8 @@ asset-payment-session smoke, connect fork-backed `ldk-node` to integrated
 `litd`, exercise the fork-backed asset message/channel/payment APIs, settle
 Lightning Labs to native asset keysend, and record the native receiver asset
 balance. It still does not have the true native-to-Lightning Labs receiver
-balance delta, and the post-success force-close fallback remains open. #59
+balance delta, and the post-success zero-HTLC commitment partial-signature plus
+force-close control-block path remains open. #59
 should only flip the Path B completion flag after #57 and #58 both record
 observed post-settlement balances.
 

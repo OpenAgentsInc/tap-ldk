@@ -12,11 +12,14 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
 Path B now settles the Lightning Labs to native direction: integrated `litd`
 funds an asset channel, sends asset keysend, native LDK claims the HTLC, and
-`ldk-node` records the native receiver balance. The current pins add a
-post-claim balance-output aux-leaf fix for the claimed asset HTLC, but the
-latest live rerun still ends with `litd` rejecting the post-claim commitment
-and the on-chain HTLC claim failing its Taproot control block. #81 remains
-open until that transcript and fallback are clean.
+`ldk-node` records the native receiver balance. The current pins add the
+claimed-HTLC balance-output fix plus Taproot HTLC script-path claim witnesses.
+The latest BOLT simple-taproot audit confirms this is not spec complete yet:
+native messages still need legacy signature-field zeroing/rejection, and the
+live rerun is blocked after settlement when native LDK rejects `litd`'s
+zero-HTLC post-claim commitment with `Invalid simple-taproot commitment partial
+signature` and the local force-close path fails with `Invalid Taproot control
+block size`. #81 remains open until those spec gaps are fixed and live-proven.
 
 Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
 is not done until both payment directions settle against Lightning Labs with
@@ -80,6 +83,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Path B Live Settlement Holistic Audit](docs/path-b-live-settlement-holistic-audit.md)
 - [Path B Live Settlement System Audit](docs/path-b-live-settlement-system-audit-2026-05-28.md)
 - [Path B Live Settlement Diagnostic Run](docs/path-b-live-settlement-diagnostic-run-2026-05-28.md)
+- [BOLT Simple Taproot Implementation Audit](docs/bolt-simple-taproot-implementation-audit-2026-05-28.md)
 - [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
 - [OpenAgentsInc LDK Node Fork](docs/openagents-ldk-node-fork.md)
 - [Protocol References](docs/protocol-references.md)
