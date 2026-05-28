@@ -27,6 +27,8 @@ LITD_HOST_GRPC_PORT="${TAP_LDK_LL_LITD_HOST_GRPC_PORT:-11009}"
 LITD_HOST_REST_PORT="${TAP_LDK_LL_LITD_HOST_REST_PORT:-28080}"
 LITD_HOST_HTTPS_PORT="${TAP_LDK_LL_LITD_HOST_HTTPS_PORT:-28443}"
 LITD_HOST_P2P_PORT="${TAP_LDK_LL_LITD_HOST_P2P_PORT:-29735}"
+LITD_LND_DEBUG_LEVEL="${TAP_LDK_LL_LITD_LND_DEBUG_LEVEL:-debug}"
+LITD_TAPROOT_ASSETS_DEBUG_LEVEL="${TAP_LDK_LL_LITD_TAPROOT_ASSETS_DEBUG_LEVEL:-debug}"
 DOCKER_APP_BIN="/Applications/Docker.app/Contents/Resources/bin/docker"
 CONTAINER_RUNTIME_BIN=""
 
@@ -357,7 +359,7 @@ start_litd() {
     --loop-mode=disable \
     --autopilot.disable \
     --lnd.noseedbackup \
-    --lnd.debuglevel=debug \
+    --lnd.debuglevel="$LITD_LND_DEBUG_LEVEL" \
     --lnd.alias="$LITD_CONTAINER" \
     --lnd.externalip="$LITD_CONTAINER" \
     --lnd.tlsextradomain="$LITD_CONTAINER" \
@@ -374,6 +376,7 @@ start_litd() {
     --lnd.bitcoind.zmqpubrawblock=tcp://"$BITCOIND_CONTAINER":28334 \
     --lnd.bitcoind.zmqpubrawtx=tcp://"$BITCOIND_CONTAINER":28335 \
     --taproot-assets.allow-public-uni-proof-courier \
+    --taproot-assets.debuglevel="$LITD_TAPROOT_ASSETS_DEBUG_LEVEL" \
     --taproot-assets.universe.public-access=rw \
     --taproot-assets.universe.sync-all-assets \
     --taproot-assets.allow-public-stats \

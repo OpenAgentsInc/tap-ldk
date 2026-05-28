@@ -1,7 +1,7 @@
 pub const OPENAGENTS_RUST_LIGHTNING_FORK_URL: &str =
     "https://github.com/OpenAgentsInc/rust-lightning.git";
 pub const OPENAGENTS_RUST_LIGHTNING_BASE_REV: &str = "0c37f08a55c0f7738f2691dc3690166fd42f851d";
-pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf";
+pub const OPENAGENTS_RUST_LIGHTNING_REV: &str = "4761230b3d8a2732d379087a5510456a13b86c29";
 
 pub fn channel_type_features_type_name() -> &'static str {
     std::any::type_name::<lightning::types::features::ChannelTypeFeatures>()

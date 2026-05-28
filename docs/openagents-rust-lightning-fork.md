@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf`
+- Current `tap-ldk` revision: `4761230b3d8a2732d379087a5510456a13b86c29`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf"
+rev = "4761230b3d8a2732d379087a5510456a13b86c29"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -193,7 +193,7 @@ Revision `a7cb50c64ba589e1171526f04f199d09cac35812` sorts Taproot Asset
 simple-taproot commitment outputs by the base no-aux P2TR script while keeping
 the final aux-leaf P2TR script in the transaction. This matches the Lightning
 Labs allocation/custom-commit sort rule for the initial funding commitment.
-Revision `d55a4ee524d6f60005ec1ef3309aefd6fe3fc5cf` preserves and decodes
+Revision `4761230b3d8a2732d379087a5510456a13b86c29` preserves and decodes
 Lightning Labs `commitment_signed` TLV 65537 asset-signature blobs and
 requires Taproot Asset channels with non-dust HTLCs to carry one decoded
 signature group per HTLC. The same revision persists a proof-derived
@@ -202,7 +202,7 @@ first full-channel HTLC aux leaf for payment-time commitment outputs. It also
 interprets the existing 64-byte BOLT HTLC signature field as a raw BIP340
 Schnorr signature for simple-taproot HTLC transaction verification.
 
-With `ldk-node@b846b4cc0c0581534e4be377cf19e3a57707aa11`, the latest live run
+With `ldk-node@5b4fdf7770426ba18ed1aece050b3d0da76d2968`, the latest live run
 confirms that `litd` `fundchannel` completes, the channel confirms, and `litd`
 reports a keysend-usable local asset balance. The live asset keysend still
 stays `IN_FLIGHT` after Rust Lightning closes on `Invalid simple-taproot HTLC

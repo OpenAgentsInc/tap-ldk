@@ -4,27 +4,23 @@ This is an experimental effort to explore native Taproot Assets support in Rust 
 
 ## Status
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 Path A works as a bounded native demo: issue demo `OPENUSD`, exchange proofs,
 open a single-asset channel, pay, restart, close, export proofs, and exercise
 the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
-Path B is not live-settled yet. It has Lightning Labs fixtures, RFQ/payment
-checks, live `tapd` proof binding, integrated `litd`, and a fork-backed
-`ldk-node` runtime pinned to OpenAgentsInc `rust-lightning`. The live harness
-connects to `litd`, observes both taproot feature sets, issues an asset,
-completes `litd` asset-channel funding, reaches `channel_ready`, and gets a
-keysend-usable asset channel. The current #81 work has matched output values,
-proof-witness preservation, commitment aux-leaf decoding, and Lightning Labs
-accepted-HTLC key ordering, and now treats HTLC signatures as BIP340 Schnorr
-bytes. The latest live run still closes on `Invalid simple-taproot HTLC
-signature from peer`, so #81 is now focused on matching Lightning Labs' exact
-HTLC signature leaf, sighash, and key selection, then recording balances.
+Path B is live-funded but not live-settled. The harness connects to
+independent `litd`, observes taproot features, issues an asset, completes
+asset-channel funding, reaches `channel_ready`, and attempts asset keysend.
+The current blocker is exact Lightning Labs Taproot Asset commitment and
+second-level HTLC transcript matching: Rust Lightning still rejects the peer
+HTLC Schnorr signature, and the force-close witness/control-block path is not
+valid yet. The next work is captured in #81 and the holistic audit.
 
-Current closure order: #81, then #57, #58, #59, #60, and the epics
-#61, #71, and #19. Path B must not be marked done until both payment directions
-settle against Lightning Labs with observed post-settlement balances.
+Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
+is not done until both payment directions settle against Lightning Labs with
+observed post-settlement balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
@@ -81,6 +77,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Roadmap](ROADMAP.md)
 - [Architecture](ARCHITECTURE.md)
 - [Invariants](INVARIANTS.md)
+- [Path B Live Settlement Holistic Audit](docs/path-b-live-settlement-holistic-audit.md)
 - [Remaining Issue Closure Plan](docs/remaining-issue-closure-plan.md)
 - [OpenAgentsInc LDK Node Fork](docs/openagents-ldk-node-fork.md)
 - [Protocol References](docs/protocol-references.md)
