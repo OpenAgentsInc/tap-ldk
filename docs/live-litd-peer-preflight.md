@@ -29,8 +29,8 @@ by the native receiver instead of only proving peer connectivity.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871` and
-`OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71`, the
+`OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18` and
+`OpenAgentsInc/ldk-node@6d44b0bda8305b71544c9996ea23b7ab653b8ce2`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live

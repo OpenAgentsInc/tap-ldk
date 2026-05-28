@@ -9,13 +9,13 @@ before the project claims simple-taproot support is complete.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
-- `OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71`
+- `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
+- `OpenAgentsInc/ldk-node@6d44b0bda8305b71544c9996ea23b7ab653b8ce2`
 
-The current fork line fixes one audit gap: simple-taproot `funding_created`,
-`funding_signed`, and `commitment_signed` now serialize the legacy `signature`
-field as 64 zero bytes when the MuSig2 TLV is present, and reject non-zero peer
-legacy fields.
+The current fork line fixes the completed audit gaps so far: simple-taproot
+`funding_created`, `funding_signed`, and `commitment_signed` now serialize the
+legacy `signature` field as 64 zero bytes when the MuSig2 TLV is present, and
+reject non-zero peer legacy fields.
 
 It also closes the #83 post-claim transcript gap: the live `litd`
 zero-HTLC post-claim partial now verifies against the native transcript, with a
@@ -28,6 +28,10 @@ the on-chain fallback uses a one-element key-path witness for the P2TR funding
 output, and the latest live Lightning Labs to native run no longer logs
 `Invalid Taproot control block size`.
 
+It also closes #85: outbound simple-taproot and Taproot Asset opens clear
+`announce_channel`, inbound public opens for those channel types fail closed,
+and legacy public BTC channel behavior remains unchanged.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
@@ -35,7 +39,7 @@ output, and the latest live Lightning Labs to native run no longer logs
 | #82 | Master tracker | Track all BOLT simple-taproot spec-compliance work split out of #81 | #61, #71, #19 |
 | #83 | Done | Fixture and fix the live post-claim zero-HTLC commitment transcript mismatch | Closed after live verification |
 | #84 | Done | Fix the live simple-taproot force-close control-block/witness path | Closed after fixture and live verification |
-| #85 | BOLT compliance | Enforce the no-public-simple-taproot-channel rule | #61 |
+| #85 | Done | Enforce the no-public-simple-taproot-channel rule | Closed after fork pin and docs update |
 | #86 | BOLT compliance | Fail `open_channel` / `accept_channel` immediately on missing simple-taproot nonces | #61 |
 | #87 | BOLT compliance | Make type-22 nonce maps authoritative and prove reconnect retransmission | #61 |
 | #88 | BOLT compliance | Add a BTC-only simple-taproot end-to-end conformance gate | #61 |
@@ -47,18 +51,16 @@ output, and the latest live Lightning Labs to native run no longer logs
 These are required for BOLT simple-taproot completion but do not need to be
 stuffed into #81:
 
-1. Enforce that simple-taproot channels are private: clear or reject
-   `announce_channel` when selecting the simple-taproot channel type.
-2. Fail `open_channel` and `accept_channel` immediately when a simple-taproot
+1. Fail `open_channel` and `accept_channel` immediately when a simple-taproot
    channel omits the type-4 `next_local_nonce`.
-3. Make type-22 `next_local_nonces` the spec path for RAA and
+2. Make type-22 `next_local_nonces` the spec path for RAA and
    `channel_reestablish`, then prove retransmitted commitments regenerate
    partial signatures from newly received nonce maps.
-4. Add a BTC-only simple-taproot conformance gate covering open, payment,
+3. Add a BTC-only simple-taproot conformance gate covering open, payment,
    reconnect/reestablish, cooperative close, and force-close.
-5. Prove cooperative close in the live/simple-taproot path before using it as a
+4. Prove cooperative close in the live/simple-taproot path before using it as a
    demo claim.
-6. Either add bounded splice nonce-map coverage or explicitly mark concurrent
+5. Either add bounded splice nonce-map coverage or explicitly mark concurrent
    splicing out of the first demo's acceptance criteria.
 
 ## Closure Policy

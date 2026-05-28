@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `31a8c1b004572ed9a4ad299b534f5a874d005a71`
+  `6d44b0bda8305b71544c9996ea23b7ab653b8ce2`
 - Current `rust-lightning` fork commit:
-  `5256d1aa4731fe552e01705a235f8fe680ae4871`
+  `98e25016540ed98b450a2bf270d8d50c846f1d18`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `31a8c1b004572ed9a4ad299b534f5a874d005a71` pin
-   `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`,
+   `6d44b0bda8305b71544c9996ea23b7ab653b8ce2` pin
+   `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -55,8 +55,9 @@ coverage.
    serialization/rejection for funding and commitment messages. The current
    pin also carries the #84 holder commitment fallback fix: simple-taproot
    force-close spends the P2TR funding input with the persisted aggregate
-   key-path Schnorr signature. The fork does not advertise STXO support until
-   native STXO commitment leaves are
+   key-path Schnorr signature. It also carries the #85 private-only rule for
+   simple-taproot and Taproot Asset opens. The fork does not advertise STXO
+   support until native STXO commitment leaves are
    implemented and verified.
 5. #81 now uses fork-backed live settlement against independent integrated
    Lightning Labs `litd`. The latest completed live run settled the Lightning

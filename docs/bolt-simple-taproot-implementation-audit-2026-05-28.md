@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
-- `OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71`
+- `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
+- `OpenAgentsInc/ldk-node@6d44b0bda8305b71544c9996ea23b7ab653b8ce2`
 - `tap-ldk` pinned to those forks
 
 ## Summary
@@ -21,11 +21,14 @@ cooperative-close message types.
 
 It does not fully implement the current spec yet. The latest #84 follow-up
 fixes the force-close funding-input failure that produced
-`Invalid Taproot control block size`:
+`Invalid Taproot control block size`, and the latest #85 follow-up fixes the
+private-channel rule for simple-taproot and Taproot Asset opens:
 
 - local unilateral fallback now persists the aggregate holder MuSig2
   commitment signature and spends the simple-taproot funding output with a
   one-element key-path Schnorr witness;
+- outbound simple-taproot and Taproot Asset opens clear `announce_channel`,
+  while inbound public simple-taproot/Taproot Asset opens fail closed;
 - cooperative close exists behind `simple_close` plus
   `simple_taproot_musig2`, but it is not yet live-proven for the demo channel;
 - splice nonce maps have some multi-funding plumbing, but concurrent splice
@@ -37,7 +40,7 @@ stay limited to the live settlement blocker. The rest of the BOLT conformance
 work is split into the issue set in
 `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
-Follow-up update: `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
+Follow-up update: `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
 now serializes 64 zero bytes for the legacy `signature` field when a
 simple-taproot MuSig2 partial-signature TLV is present in `funding_created`,
 `funding_signed`, or `commitment_signed`, rejects non-zero legacy fields on
@@ -45,8 +48,11 @@ decode, derives post-claim Taproot Asset balance script keys with the real CSV
 delay, includes a live `litd` zero-HTLC post-claim transcript regression, and
 persists the aggregate holder commitment Schnorr signature needed for
 simple-taproot key-path force-close broadcast.
-`OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71` pins those
+`OpenAgentsInc/ldk-node@6d44b0bda8305b71544c9996ea23b7ab653b8ce2` pins those
 fixes for the live runtime.
+The same current fork line also enforces the draft private-channel rule:
+simple-taproot and Taproot Asset outbound opens do not set `announce_channel`,
+and inbound public opens for those channel types are rejected.
 
 ## Why This Matters For #81
 
@@ -74,7 +80,7 @@ blocks.
 | Spec area | Spec requirement | Current implementation | Status | Required work |
 | --- | --- | --- | --- | --- |
 | Feature bits | Define final `option_simple_taproot` bits 80/81 and staging bits 180/181; use explicit channel type. | `lightning-types/src/features.rs` defines final and staging bits. `ChannelHandshakeConfig::negotiate_simple_taproot_channels` advertises staging only. | Partial | Keep staging for `litd` interop, but document final-bit dependency on `option_simple_close` before enabling final bits. |
-| Public-channel prohibition | A simple-taproot opener must not set `announce_channel`. | `get_initial_channel_type` can select simple-taproot based on config and peer features; `get_open_channel` still copies `announce_for_forwarding` into `channel_flags`. | Gap | Reject or clear public announcement when selecting simple-taproot or Taproot Asset channel types. Add a regression. |
+| Public-channel prohibition | A simple-taproot opener must not set `announce_channel`. | Outbound simple-taproot and Taproot Asset opens clear the public bit when those channel types are selected; inbound public opens for those channel types fail closed. Regressions cover BTC-only simple-taproot, Taproot Asset, and peer-provided public channel types. | Implemented | Keep legacy public BTC channel behavior covered while later BOLT work proceeds. |
 | TLV wire types | Fixed TLV payloads: type 2 partial signature with nonce, type 4 next local nonce, type 6 partial signature, type 8 shutdown nonce, type 22 nonce map. | `lightning/src/ln/simple_taproot.rs` defines the fixed constants and validates 66-byte public nonces as two compressed secp points. `msgs.rs` round-trips these TLVs. | Implemented | Keep vector tests pinned to the upstream BOLT fixture payloads. |
 | `open_channel` / `accept_channel` nonces | Messages must include type 4 `next_local_nonce`; receivers fail on absent or invalid nonces. | Open/accept generation derives counter nonces. Missing peer nonces are stored as `None` and later cause signing/validation failure; invalid points fail parse. | Partial | Fail immediately during open/accept validation for simple-taproot channels when the nonce is absent. |
 | Funding partials | `funding_created` and `funding_signed` legacy `signature` field must be 64 zero bytes; type 2 MuSig2 partial must be present and valid. | Type 2 MuSig2 partials are generated and validated. Current wire serialization emits zero legacy fields when the simple-taproot TLV is present and rejects non-zero peer legacy fields. | Implemented for wire field | Keep live interop and functional coverage around funding message acceptance. |
@@ -96,29 +102,30 @@ blocks.
 
 Completed follow-up from this audit:
 
-- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
+- `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
   adds a focused regression for simple-taproot legacy signature zeroing and
   non-zero legacy signature rejection in `funding_created`, `funding_signed`,
   and `commitment_signed`.
-- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
+- `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
   also persists the aggregate simple-taproot holder commitment signature in
   `HolderCommitmentTransaction`, uses it in the on-chain holder funding-output
   package path, and asserts that the latest holder commitment transaction spends
   the P2TR funding output with exactly one 64-byte Schnorr witness element.
+- `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
+  enforces private-only simple-taproot and Taproot Asset channel opens while
+  preserving legacy public BTC channel behavior.
 
 Remaining work that should be tracked outside #81 before #61 closes:
 
-1. Enforce the BOLT rule that simple-taproot channels are private and must not
-   set `announce_channel`.
-2. Fail simple-taproot `open_channel` / `accept_channel` immediately when the
+1. Fail simple-taproot `open_channel` / `accept_channel` immediately when the
    required type-4 `next_local_nonce` is missing.
-3. Make type 22 `next_local_nonces` the spec path for RAA and reestablish,
+2. Make type 22 `next_local_nonces` the spec path for RAA and reestablish,
    then prove reconnect/retransmission regenerates partial signatures from the
    newly received nonces.
-4. After the live #81 run is clean, run BTC-only simple-taproot open/pay,
+3. After the live #81 run is clean, run BTC-only simple-taproot open/pay,
    reestablish, cooperative close, and force-close checks before closing #61.
-5. Live-prove cooperative close for simple-taproot channels.
-6. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
+4. Live-prove cooperative close for simple-taproot channels.
+5. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
    out of the first demo's acceptance criteria.
 
 ## Closure Rule

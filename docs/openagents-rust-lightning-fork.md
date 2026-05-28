@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `5256d1aa4731fe552e01705a235f8fe680ae4871`
+- Current `tap-ldk` revision: `98e25016540ed98b450a2bf270d8d50c846f1d18`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "5256d1aa4731fe552e01705a235f8fe680ae4871"
+rev = "98e25016540ed98b450a2bf270d8d50c846f1d18"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,7 +205,7 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Follow-up revisions through `5256d1aa4731fe552e01705a235f8fe680ae4871` add the
+Follow-up revisions through `98e25016540ed98b450a2bf270d8d50c846f1d18` add the
 current concrete transcript fixes from that audit: second-level Taproot Asset
 HTLC aux leaves encode the Lightning Labs virtual `lock_time` and
 `relative_lock_time` fields, full counterparty commitments are persisted
@@ -218,13 +218,16 @@ non-zero peer legacy fields. The same current revision persists the aggregate
 simple-taproot holder commitment Schnorr signature and uses it for
 force-close fallback so the P2TR funding input is spent through a one-element
 key-path witness instead of a legacy P2WSH witness that Bitcoin Core reads as a
-malformed script-path control block.
+malformed script-path control block. It also enforces the draft private-channel
+rule: outbound simple-taproot and Taproot Asset opens clear `announce_channel`,
+and inbound public opens for those channel types fail closed.
 
-With `ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71`, the current pin
+With `ldk-node@6d44b0bda8305b71544c9996ea23b7ab653b8ce2`, the current pin
 carries that wire-field fix into the live runtime. The latest live state still
 settles the Lightning Labs to native payment and records native receiver
 balance, and the post-claim partial-signature transcript plus #84
 force-close funding-input witness path are now fixed with regression coverage.
+The #85 private-only channel rule is also carried into the live runtime.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 
