@@ -34,6 +34,10 @@ symptom is fixed by the #84 funding-input key-path witness change. The true
 native `tap-ldk` to Lightning Labs receiver direction and two-sided observed
 balance replacement remain open.
 
+Concurrent simple-taproot splicing is not part of the first public demo. The
+demo keeps one funding outpoint from open through payment, restart, close, and
+force-close; production splice claims require separate nonce-map coverage.
+
 ## Prerequisites
 
 - Git, Bash, and standard Unix shell utilities.

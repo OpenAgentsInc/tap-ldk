@@ -55,6 +55,12 @@ asset-channel smoke confirms the latest close allocation survives restart, and
 and a live `litd` close command. The live Lightning Labs post-close proof and
 balance observer is still a documented Path B boundary, not a claimed success.
 
+It also closes #90 for the first-demo scope: concurrent simple-taproot splicing
+is explicitly excluded from the first public demo by
+`tap_ldk_core::demo_scope::first_demo_protocol_scope` and
+`tap-ldk-cli first-demo-scope`. Production splice claims still require bounded
+tests for every active splice/funding txid's type-22 nonce-map entry.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
@@ -67,21 +73,30 @@ balance observer is still a documented Path B boundary, not a claimed success.
 | #87 | Done | Make type-22 nonce maps authoritative and prove reconnect retransmission | Closed after fork pin and docs update |
 | #88 | Done | Add a BTC-only simple-taproot end-to-end conformance gate | Closed after fork pin and docs update |
 | #89 | Done | Prove native/fixture cooperative close and document the live Lightning Labs close boundary | Closed after fork pin and docs update |
-| #90 | BOLT compliance | Cover splice nonce maps or explicitly gate splicing out of the first demo | #61, #71 |
+| #90 | Done | Cover splice nonce maps or explicitly gate splicing out of the first demo | Closed with machine-readable first-demo splice exclusion |
 
 ## Before #61 Can Close
 
-These are required for BOLT simple-taproot completion but do not need to be
-stuffed into #81:
+These are required for the first-demo simple-taproot claim but do not need to
+be stuffed into #81:
 
-1. Either add bounded splice nonce-map coverage or explicitly mark concurrent
-   splicing out of the first demo's acceptance criteria.
+1. Keep the concurrent-splicing exclusion visible in `README.md`,
+   `ROADMAP.md`, `ARCHITECTURE.md`, this plan, and the BOLT implementation
+   audit.
+2. Run `./scripts/check-simple-taproot-splice-policy.sh`.
+
+These are still required before any production/simple-taproot-complete claim:
+
+1. Replace the first-demo splice exclusion with bounded splice nonce-map tests
+   for missing, stale, duplicate, and wrong-funding-txid entries across every
+   active current or splice funding candidate.
 
 ## Closure Policy
 
 - Do not close #81 because a generic BOLT item was fixed. Close #81 only when
   the live Path B settlement gate is clean and its report no longer depends on
   stale force-close/control-block blockers.
-- Do not close #61 until the master spec-compliance tracker is closed.
+- Do not describe #61 as production-complete simple-taproot support until
+  splice nonce-map vectors replace the first-demo exclusion.
 - Do not close #71 or #19 until the simple-taproot base is clean enough for the
   Taproot Asset overlay claims made by the demo.

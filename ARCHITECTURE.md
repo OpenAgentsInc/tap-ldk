@@ -1242,6 +1242,32 @@ rules are:
   survives the relevant commitment, second-level HTLC, or final sweep path.
 - Lightning Labs mismatches are compatibility failures, not partial success.
 
+## First-Demo Splice Policy
+
+Concurrent simple-taproot splicing is outside the first public demo. The demo
+opens a channel, pays through it, reconnects/reestablishes, cooperatively
+closes or force-closes, and never changes the channel funding outpoint through
+a splice.
+
+This is deliberate. The OpenAgentsInc `rust-lightning` fork now validates
+type-22 nonce maps for current and pending funding txids, but the repo does not
+yet have bounded simple-taproot splice vectors proving that missing, stale,
+duplicate, or wrong-funding-txid nonce-map entries fail closed for every
+concurrent splice candidate. The first demo therefore makes no splice claim.
+
+The machine-readable source for this boundary is
+`tap_ldk_core::demo_scope::first_demo_protocol_scope`, exposed through:
+
+```bash
+cargo run -p tap-ldk-cli -- first-demo-scope
+./scripts/check-simple-taproot-splice-policy.sh
+```
+
+Before any production simple-taproot claim, public splice demo, or Taproot
+Asset channel path with concurrent splice/RBF candidates, #90 must be reopened
+or superseded by tests that cover each active funding txid's type-22 nonce-map
+entry.
+
 ## What Works End To End
 
 Path A works end to end as a bounded native demo.
@@ -1274,6 +1300,7 @@ It does not prove:
 - live Lightning Labs routing;
 - full semantic Taproot Assets proof ancestry validation;
 - live on-chain force-close recovery.
+- concurrent simple-taproot splicing or splice/RBF asset-channel candidates.
 
 ## What Does Not Work Yet
 

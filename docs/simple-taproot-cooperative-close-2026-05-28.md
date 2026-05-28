@@ -64,5 +64,6 @@ cargo run -p tap-ldk-cli -- simple-taproot-asset-channel-smoke
 cargo run -p tap-ldk-cli -- lightning-labs-interop-check-smoke fixtures/lightning-labs/tapchannelmsg/testdata fixtures/lightning-labs/proof/testdata target/lightning-labs-interop-checks.json
 ```
 
-The BOLT simple-taproot tracker still keeps #90 open for splice nonce-map
-coverage or an explicit first-demo splice gate.
+The BOLT simple-taproot tracker now resolves #90 with an explicit first-demo
+splice gate. Concurrent simple-taproot splicing stays out of scope until
+bounded splice nonce-map vectors replace that policy.

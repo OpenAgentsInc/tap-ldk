@@ -237,15 +237,18 @@ reconnect/reestablish, functional cooperative close, force-close key-path
 funding witness shape, and legacy P2WSH channel isolation. It also adds the
 #89 cooperative-close witness assertion: the native final close transaction
 spends the P2TR funding output with a one-element 64-byte key-path Schnorr
-witness.
+witness. It also carries the #90 first-demo splice policy: concurrent
+simple-taproot splicing is explicitly out of the first public demo until
+bounded nonce-map vectors exist.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
-The epic closes only after the splice boundary is proved or explicitly gated
-out of the first demo and the BOLT spec-compliance tracker closes. Issue #71
-remains open until the Taproot Assets overlay is wired through those live paths
-and Path B interop records observed live balances.
+The epic can only close with the first-demo splice exclusion clearly recorded
+and the BOLT spec-compliance tracker closed; it must not be described as
+production-complete splice support. Issue #71 remains open until the Taproot
+Assets overlay is wired through those live paths and Path B interop records
+observed live balances.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

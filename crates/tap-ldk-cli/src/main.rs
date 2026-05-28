@@ -13,6 +13,7 @@ use tap_ldk_core::{
     asset_payment::run_native_asset_payment_smoke,
     asset_peer_message::run_peer_message_smoke,
     asset_recovery::run_native_asset_recovery_matrix_smoke,
+    demo_scope::first_demo_protocol_scope,
     ldk_baseline::{BaselineBtcSmokeState, BaselineLdkPlan},
     lightning_labs_blob::decode_fixture_hexdumps,
     lightning_labs_funding::run_lightning_labs_funding_interop_fixture_smoke,
@@ -48,6 +49,14 @@ fn main() {
         }
         [flag] if flag == "--version" || flag == "-V" => {
             println!("{} {}", info.name, info.version);
+        }
+        [command] if command == "first-demo-scope" => {
+            let scope = first_demo_protocol_scope();
+            if let Err(err) = scope.validate() {
+                eprintln!("invalid first-demo scope policy: {err}");
+                process::exit(1);
+            }
+            print_json_or_exit(&scope, "first-demo protocol scope");
         }
         [command] if command == "regtest-bitcoin-config" => {
             let config = BitcoinRegtestConfig::default();
@@ -829,6 +838,7 @@ fn print_help(info: ProjectInfo) {
     println!("Usage:");
     println!("  tap-ldk [--help]");
     println!("  tap-ldk --version");
+    println!("  tap-ldk first-demo-scope");
     println!("  tap-ldk regtest-bitcoin-config");
     println!("  tap-ldk lightning-labs-counterparty-config");
     println!("  tap-ldk ldk-baseline-plan <base-dir>");
