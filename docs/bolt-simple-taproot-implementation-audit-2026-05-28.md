@@ -156,6 +156,8 @@ Remaining work that should be tracked outside #81 before #61 closes:
 1. For the first-demo claim, no BOLT audit item remains ambiguous: concurrent
    splicing is out of scope. For production/simple-taproot-complete claims,
    add bounded splice nonce-map coverage before removing that scope qualifier.
+2. This is sufficient to close #82 for first-demo scope, but not sufficient to
+   claim production splice support.
 
 ## Closure Rule
 

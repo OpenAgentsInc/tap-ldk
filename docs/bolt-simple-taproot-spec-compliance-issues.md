@@ -65,7 +65,7 @@ tests for every active splice/funding txid's type-22 nonce-map entry.
 
 | Issue | Role | Scope | Blocks |
 | --- | --- | --- | --- |
-| #82 | Master tracker | Track all BOLT simple-taproot spec-compliance work split out of #81 | #61, #71, #19 |
+| #82 | Done | Track all BOLT simple-taproot spec-compliance work split out of #81 | Closed for first-demo scope |
 | #83 | Done | Fixture and fix the live post-claim zero-HTLC commitment transcript mismatch | Closed after live verification |
 | #84 | Done | Fix the live simple-taproot force-close control-block/witness path | Closed after fixture and live verification |
 | #85 | Done | Enforce the no-public-simple-taproot-channel rule | Closed after fork pin and docs update |
@@ -96,6 +96,8 @@ These are still required before any production/simple-taproot-complete claim:
 - Do not close #81 because a generic BOLT item was fixed. Close #81 only when
   the live Path B settlement gate is clean and its report no longer depends on
   stale force-close/control-block blockers.
+- #82 is closeable for first-demo scope because all child issues #83 through
+  #90 are closed and the splice exclusion is explicit.
 - Do not describe #61 as production-complete simple-taproot support until
   splice nonce-map vectors replace the first-demo exclusion.
 - Do not close #71 or #19 until the simple-taproot base is clean enough for the

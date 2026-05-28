@@ -34,11 +34,12 @@ The latest live run no longer logs the post-claim partial-signature failure or
 invalid Taproot control-block failure. Path B still needs the true native
 `tap-ldk` to Lightning Labs payment direction.
 
-Spec-compliance work is now split out of #81. #81 stays focused on the live
-settlement gate; broader BOLT simple-taproot conformance is tracked in #82,
-with splicing gated out of the first-demo claim. Path B is not done until both
-payment directions settle against Lightning Labs with observed
-post-settlement balances.
+Spec-compliance work is split out of #81. #82 is complete for the first-demo
+BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close
+paths are covered, and concurrent splicing is explicitly out of scope until
+bounded splice nonce-map vectors are added. Path B is not done until both
+payment directions settle against Lightning Labs with observed post-settlement
+balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
