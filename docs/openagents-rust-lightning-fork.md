@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `7f72bfb48f56d729abac5f488923389034f8f1b3`
+- Current `tap-ldk` revision: `acce215e1ca284fa45f1c13e13760de459d410d4`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "7f72bfb48f56d729abac5f488923389034f8f1b3"
+rev = "acce215e1ca284fa45f1c13e13760de459d410d4"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,11 +205,11 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Revision `7f72bfb48f56d729abac5f488923389034f8f1b3` adds the first concrete
+Revision `acce215e1ca284fa45f1c13e13760de459d410d4` adds the first concrete
 transcript fix from that audit: second-level Taproot Asset HTLC aux leaves now
 encode the Lightning Labs virtual `lock_time` and `relative_lock_time` fields.
 
-With `ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e`, the current pin has
+With `ldk-node@fefcc5747b84145b1c85a76fde13848b445ffc3a`, the current pin has
 now been rerun live. `litd` `fundchannel` completes, the channel confirms,
 `litd` reports a keysend-usable local asset balance, Rust Lightning verifies
 the peer HTLC Schnorr signature, and the peer `commitment_signed` is accepted.

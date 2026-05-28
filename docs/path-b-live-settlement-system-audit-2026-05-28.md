@@ -72,11 +72,11 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@7f72bfb48f56d729abac5f488923389034f8f1b3`
+- `OpenAgentsInc/rust-lightning@acce215e1ca284fa45f1c13e13760de459d410d4`
   applies the first concrete fix from this audit: second-level Taproot Asset
   HTLC aux leaves now encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields.
-- `OpenAgentsInc/ldk-node@7a9bfa11b70a9233eff959169864885a685c0f7e` pins that
+- `OpenAgentsInc/ldk-node@fefcc5747b84145b1c85a76fde13848b445ffc3a` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The live rerun against these pins produced:
@@ -84,7 +84,7 @@ The live rerun against these pins produced:
 - artifact directory:
   `target/live-lightning-labs-outgoing-payment-virtual-locks/`
 - `OpenAgentsInc/rust-lightning`:
-  `7f72bfb48f56d729abac5f488923389034f8f1b3`
+  `acce215e1ca284fa45f1c13e13760de459d410d4`
 - live report status: `blocked`
 - blocked step: `live_asset_channel_payment_settlement`
 - LND payment wire status: `IN_FLIGHT`
