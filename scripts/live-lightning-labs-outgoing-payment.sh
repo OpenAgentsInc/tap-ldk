@@ -397,9 +397,8 @@ write_report() {
       issue_57_acceptance_met: false,
       next_required_work: [
         "keep the successful Lightning Labs to native receiver settlement transcript fixture-backed",
-        "compare the post-claim commitment/fulfill transcript against Lightning Labs because litd can still force-close with invalid commitment after payment success",
-        "keep the zero-HTLC asset commitment-sig blob presence checked as part of that transcript instead of relying only on a log string",
-        "fix the force-close/on-chain HTLC-success witness, fee, and broadcast path if the live log reports an invalid Taproot control block",
+        "keep the zero-HTLC post-claim transcript regression in the rust-lightning fork",
+        "add a fixture-backed force-close/on-chain HTLC-success witness, fee, and broadcast proof",
         "add the true native tap-ldk to Lightning Labs payment direction for #57 and record the Lightning Labs receiver balance delta",
         "port any remaining Lightning Labs tapchannel/tapsend allocation semantics exposed by the reverse-direction transcript",
         "add partial-split/change-output Taproot Asset commitment support after the bounded single-asset path settles"
@@ -649,9 +648,9 @@ if [ "$litd_asset_payment_status" = "completed" ]; then
     elif [ "$native_ldk_has_counterparty_force_close" = "true" ]; then
       final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment, but the channel still force-closed after claim. #81 needs the force-close reason and post-claim transcript resolved before closure."
     elif [ "$native_ldk_has_zero_htlc_asset_blob" = "true" ]; then
-      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, fork-backed ldk-node recorded the native receiver-side Taproot Asset payment and post-claim asset balance, and the native log confirms the zero-HTLC asset commitment-sig blob is present on the post-claim commitment_signed. #81 still needs the live run promoted only after the post-claim transcript and force-close fallback stay clean."
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, fork-backed ldk-node recorded the native receiver-side Taproot Asset payment and post-claim asset balance, and the native log confirms the zero-HTLC asset commitment-sig blob is present on the post-claim commitment_signed. The post-claim partial-signature blocker is cleared; #81 still needs fixture-backed force-close fallback proof before closure."
     else
-      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment. #81 still needs the post-claim transcript fixture and force-close fallback checks verified before closure."
+      final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel and fork-backed ldk-node recorded the native receiver-side Taproot Asset payment. The post-claim partial-signature blocker is cleared; #81 still needs fixture-backed force-close fallback proof before closure."
     fi
   else
     final_reason="The integrated litd asset keysend reported SUCCEEDED after live fundchannel, but the refreshed fork-backed ldk-node report did not expose the native receiver-side asset payment before timeout. #81 still needs native receiver-balance observability before this can be closed."

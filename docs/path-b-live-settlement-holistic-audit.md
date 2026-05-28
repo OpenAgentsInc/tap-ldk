@@ -8,10 +8,9 @@ patches. The current failure is not a Docker, peer-connection, funding, or
 basic feature-negotiation problem. The live path now reaches a real
 Lightning Labs `litd` asset channel, settles a Lightning Labs to native asset
 keysend, and records the native receiver-side asset payment and balance through
-the fork-backed `ldk-node` runtime. The current blocker is after that success:
-native LDK rejects `litd`'s zero-HTLC post-claim commitment with `Invalid
-simple-taproot commitment partial signature`, and the local force-close
-commitment still fails Taproot control-block validation.
+the fork-backed `ldk-node` runtime. The post-claim partial-signature blocker is
+now fixed and fixture-backed. The remaining #81 blocker is force-close/on-chain
+fallback proof for the simple-taproot Taproot witness path.
 
 The more detailed file-level audit and implementation map is
 `docs/path-b-live-settlement-system-audit-2026-05-28.md`. Use that document for
@@ -40,15 +39,28 @@ The transcript from this run is recorded in
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 Follow-up after this artifact: the current code is now pinned to
-`OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea` and
-`OpenAgentsInc/ldk-node@c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`. That line
+`OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b` and
+`OpenAgentsInc/ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560`. That line
 keeps the failing transcripts as regression fixtures, adds the Lightning Labs
 second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields, full
 counterparty commitment monitor persistence, exact previous-output-bound
 second-level HTLC aux leaves before signing outgoing HTLC transactions, native
 receiver-side asset payment accounting, zero-HTLC asset commitment-sig blob
-handling for post-claim `commitment_signed`, and dynamic post-claim
-balance-output aux-leaf placement for claimed full-amount asset HTLCs.
+handling for post-claim `commitment_signed`, dynamic post-claim balance-output
+aux-leaf placement for claimed full-amount asset HTLCs, and a live zero-HTLC
+post-claim partial-signature regression fixture.
+
+Post-claim-fix live artifact:
+
+- `target/live-lightning-labs-outgoing-payment-post-claim-fix/report.json`
+- `status`: `blocked`
+- `blocked_step`: `live_asset_channel_payment_settlement`
+- `integrated_litd_asset_payment_status`: `completed`
+- `integrated_litd_asset_payment_wire_status`: `SUCCEEDED`
+- `native_asset_receiver_payment_status`: `settled`
+- `native_asset_receiver_local_balance_after`: `125`
+- `native_ldk_invalid_simple_taproot_commitment_partial_sig_logged`: `false`
+- `native_ldk_invalid_taproot_control_block_logged`: `false`
 
 Historical outgoing-signature rerun artifact:
 
@@ -107,7 +119,7 @@ Latest completed live rerun artifact:
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
-  `057d0e7c524f7b1255cabf22ae9f7fc261256aea`
+  `90212e54066a35ad982b338e7c2c152bf4fe0b0b`
 - `integrated_litd_asset_channel_fund_status`: `completed`
 - `integrated_litd_asset_channel_usable_for_keysend`: `true`
 - `integrated_litd_asset_payment_status`: `completed`
@@ -125,15 +137,10 @@ Latest completed live rerun artifact:
 - `native_ldk_invalid_taproot_control_block_logged`: `true`
 
 The new result changes the live diagnosis again. The bounded Lightning Labs to
-native direction now settles and persists receiver balance. The current pin
-derives the claimed asset balance-output aux leaf from the previous HTLC output
-instead of carrying a stale no-asset output leaf. The latest live rerun gets
-farther: the zero-HTLC asset commitment-sig blob is logged, but native LDK
-rejects `litd`'s zero-HTLC post-claim commitment partial signature. The local
-force-close commitment broadcast also fails with `Invalid Taproot control
-block size`. The next work is to compare the remaining post-claim commitment
-transaction, signature, zero-HTLC asset blob, tapscript root, and single-asset
-allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
+native direction now settles and persists receiver balance, and the post-claim
+partial-signature transcript verifies. The next work is to fixture the
+remaining force-close/on-chain fallback path and then continue into the true
+native-to-Lightning Labs direction.
 
 ## What Works
 
@@ -141,7 +148,7 @@ allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
 - After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
   to
-  `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`.
+  `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel
@@ -170,33 +177,18 @@ allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
 - `ldk-node` records the receiver-side Taproot Asset payment as `settled` and
   persists local asset balance `125`.
 - The code path includes zero-HTLC asset commitment-sig blob handling for the
-  post-claim `commitment_signed`; the latest live rerun prints
-  `taproot_asset_commitment_sig_blob: Some([0])`, but the transcript fixture
-  still needs to assert it structurally rather than through a log string.
+  post-claim `commitment_signed`; the post-claim fixture now asserts the exact
+  `litd` sighash and partial-signature path.
 
 ## What Is Still Broken
 
-The current Rust path accepts the payment-time HTLC commitment, releases the
-next commitment messages, settles the Lightning Labs to native keysend, records
-the receiver balance, and sends the post-claim `commitment_signed`. The
-observed failure is now:
-
-- valid peer payment-time `commitment_signed`;
-- channel monitor completes update `1`;
-- `revoke_and_ack` is enqueued;
-- `litd` reports the asset keysend as `SUCCEEDED`;
-- native LDK logs the received payment and claimed payment;
-- fork-backed `ldk-node` records the receiver-side asset payment and balance;
-- Rust sends a post-claim zero-HTLC `commitment_signed`; and
-- native LDK rejects `litd`'s next zero-HTLC post-claim commitment with
-  `Invalid simple-taproot commitment partial signature`.
-
-This points at the post-claim commitment transaction/signature/allocation
-transcript. The first concrete no-HTLC TLV fix is already in the current pin,
-and the latest live log confirms the zero-HTLC asset signature blob. The next
-concrete fix is to compare both post-claim commitment transactions, signatures,
-tapscript roots, and asset allocation against the Lightning Labs side rather
-than adding another isolated message-field patch.
+The post-claim partial-signature transcript is no longer the active blocker.
+The current Rust path accepts the payment-time HTLC commitment, settles the
+Lightning Labs to native keysend, records receiver balance, and no longer logs
+the invalid post-claim partial signature. The remaining live-settlement work is
+to prove the force-close/on-chain fallback witness path with a fixture-backed
+broadcast check, then continue to the true native-to-Lightning Labs payment
+direction.
 
 The earlier 2026-05-28 diagnostic run still matters as a regression fixture:
 Rust's second-level aux leaf contained local root/script-key material that did
@@ -492,22 +484,17 @@ Close live issues only from observed settlement and observed balance state.
 
 ## Immediate Next Implementation Step
 
-The next step is to add a fixture-backed post-claim commitment transcript from
-`target/live-lightning-labs-outgoing-payment-owner-state/` and compare it
-against Lightning Labs `ReceiveNewCommitment` / `tapchannel` expectations before
-changing more behavior:
+The next step is to fixture the force-close/on-chain fallback path from the
+latest live settlement artifacts and prove it produces a broadcast-clean
+transaction:
 
-1. Add a regression test from the post-claim zero-HTLC commitment
-   partial-signature transcript.
-2. Compare our post-claim local and remote commitment transaction bytes,
-   tapscript roots, and signature targets against LND's
-   `ReceiveNewCommitment` path.
-3. Port the remaining exact single-asset no-HTLC local/remote allocation and
-   commitment-output semantics from Lightning Labs `tapchannel/commitment.go`
-   and `tapsend/allocation.go`.
-4. Fix the HTLC-success fallback witness/control-block/broadcast path for the
+1. Add a regression test for the simple-taproot force-close witness/control
+   block path.
+2. Compare the fallback transaction against the BOLT simple-taproot witness
+   requirements and Lightning Labs spend expectations.
+3. Fix the HTLC-success fallback witness/control-block/broadcast path for the
    successful Lightning Labs to native payment.
-5. Rerun the live `litd` settlement harness and keep #81 open until the run
+4. Rerun the live `litd` settlement harness and keep #81 open until the run
    has no broken force-close fallback.
 
 This keeps the project aligned with the invariant that asset-channel failures

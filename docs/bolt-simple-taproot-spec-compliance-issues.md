@@ -3,27 +3,31 @@
 Date: 2026-05-28
 
 This document splits the remaining BOLT simple-taproot work out of #81. Issue
-#81 should stay focused on the live Lightning Labs to native settlement gate:
-post-claim zero-HTLC `commitment_signed` verification and broadcast-clean
-force-close fallback. Broader BOLT conformance belongs in a separate issue set
+#81 should stay focused on the live Lightning Labs to native settlement gate
+and broadcast-clean force-close fallback. Broader BOLT conformance belongs in a separate issue set
 tracked under #61 before the project claims simple-taproot support is complete.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`
-- `OpenAgentsInc/ldk-node@c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`
+- `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+- `OpenAgentsInc/ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560`
 
 The current fork line fixes one audit gap: simple-taproot `funding_created`,
 `funding_signed`, and `commitment_signed` now serialize the legacy `signature`
 field as 64 zero bytes when the MuSig2 TLV is present, and reject non-zero peer
 legacy fields.
 
+It also closes the #83 post-claim transcript gap: the live `litd`
+zero-HTLC post-claim partial now verifies against the native transcript, with a
+fixture asserting sighash
+`53c50e50be029ef494407087714245ad42e50c8bf7ae39f9f8589568f705841c`.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
 | --- | --- | --- | --- |
 | #82 | Master tracker | Track all BOLT simple-taproot spec-compliance work split out of #81 | #61, #71, #19 |
-| #83 | #81 blocker | Fixture and fix the live post-claim zero-HTLC commitment transcript mismatch | #81 |
+| #83 | Done | Fixture and fix the live post-claim zero-HTLC commitment transcript mismatch | Closed after live verification |
 | #84 | #81 blocker | Fix the live simple-taproot force-close control-block/witness path | #81 |
 | #85 | BOLT compliance | Enforce the no-public-simple-taproot-channel rule | #61 |
 | #86 | BOLT compliance | Fail `open_channel` / `accept_channel` immediately on missing simple-taproot nonces | #61 |
@@ -34,13 +38,9 @@ legacy fields.
 
 ## Before #81 Can Close
 
-These are the only BOLT audit items that should remain in #81's critical path:
+This is the only BOLT audit item that should remain in #81's critical path:
 
-1. Convert the latest live zero-HTLC post-claim transcript into a non-secret
-   fixture.
-2. Use that fixture to align native and `litd` commitment transaction, nonce,
-   aggregate key, tapscript root, and MuSig2 partial-signature derivation.
-3. Fix the local unilateral force-close witness/control-block path so the
+1. Fix the local unilateral force-close witness/control-block path so the
    fallback transaction is broadcast-clean.
 
 ## Before #61 Can Close

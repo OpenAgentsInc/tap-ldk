@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`
+  `3264d96ee6dcbd37cec24473eac5982b1678a560`
 - Current `rust-lightning` fork commit:
-  `057d0e7c524f7b1255cabf22ae9f7fc261256aea`
+  `90212e54066a35ad982b338e7c2c152bf4fe0b0b`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `c08bdddf7a03cbbd9cd954fcde72a37a9b22968c` pin
-   `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`,
+   `3264d96ee6dcbd37cec24473eac5982b1678a560` pin
+   `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -59,12 +59,10 @@ coverage.
    Lightning Labs `litd`. The latest completed live run settled the Lightning
    Labs to native direction and recorded native receiver balance. The current
    pin adds post-claim balance-output aux-leaf placement for claimed
-   full-amount asset HTLCs and fixes the legacy signature-field wire rule, but
-   the latest live failure remains after settlement: native LDK rejects `litd`'s
-   zero-HTLC post-claim commitment with `Invalid simple-taproot commitment
-   partial signature`, and the local force-close commitment broadcast fails with
-   an invalid Taproot control block. #81 remains open until both paths are
-   clean.
+   full-amount asset HTLCs, fixes the legacy signature-field wire rule, and
+   clears the live zero-HTLC post-claim partial-signature failure with a
+   regression fixture. #81 remains open until the force-close fallback path is
+   fixture-backed and clean.
 
 ## Invariants
 

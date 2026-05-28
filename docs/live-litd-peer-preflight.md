@@ -29,8 +29,8 @@ by the native receiver instead of only proving peer connectivity.
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea` and
-`OpenAgentsInc/ldk-node@c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`, the
+`OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b` and
+`OpenAgentsInc/ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live
@@ -38,8 +38,7 @@ payment harness now moves past readiness into integrated `litd` issuance, live
 asset-channel funding, Lightning Labs to native asset keysend, native
 `PaymentClaimed`, and durable native receiver balance recording. The current
 pin adds post-claim balance-output aux-leaf placement for claimed full-amount
-asset HTLCs, but the latest live rerun still rejects `litd`'s zero-HTLC
-post-claim commitment with `Invalid simple-taproot commitment partial
-signature` and then fails the local force-close commitment broadcast with an
-invalid Taproot control block. The current #57 report remains false because
-the true native `tap-ldk` to Lightning Labs direction has not settled yet.
+asset HTLCs and clears the live zero-HTLC post-claim partial-signature failure.
+The current #57 report remains false because the true native `tap-ldk` to
+Lightning Labs direction has not settled yet, and #81 still needs
+fixture-backed force-close fallback proof.

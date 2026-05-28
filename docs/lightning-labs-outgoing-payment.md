@@ -61,11 +61,9 @@ Finish #81 first: the live Lightning Labs to native payment now reports
 `SUCCEEDED`, native LDK claims it, and fork-backed `ldk-node` records the
 native receiver asset balance. The current fork handles the post-claim
 zero-HTLC asset commitment-sig blob and derives the claimed asset HTLC's
-post-claim balance-output aux leaf from the previous HTLC output, but the
-latest live rerun still rejects `litd`'s zero-HTLC post-claim commitment with
-`Invalid simple-taproot commitment partial signature` and fails the local
-force-close commitment broadcast with an invalid Taproot control block. Close
-#81 only if that signature transcript and fallback are clean. After that,
-implement the true native
+post-claim balance-output aux leaf with the correct CSV-bound script key. The
+latest live rerun no longer logs the post-claim partial-signature failure or an
+invalid Taproot control block. Close #81 only after the force-close fallback is
+fixture-backed and clean. After that, implement the true native
 `tap-ldk` to Lightning Labs payment direction for #57, then #58, and the #59
 observed-balance completion gate.
