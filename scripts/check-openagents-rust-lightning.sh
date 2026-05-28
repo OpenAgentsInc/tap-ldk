@@ -3,7 +3,7 @@ set -euo pipefail
 
 fork_url="https://github.com/OpenAgentsInc/rust-lightning.git"
 base_rev="0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev="98e25016540ed98b450a2bf270d8d50c846f1d18"
+rev="9ee4c0cabaca931a30a3926b85aa6631d9d63b4b"
 
 remote_rev="$(git ls-remote "$fork_url" refs/heads/main | awk '{print $1}')"
 if [[ "$remote_rev" != "$rev" ]]; then

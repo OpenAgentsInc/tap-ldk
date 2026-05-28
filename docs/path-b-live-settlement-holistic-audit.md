@@ -39,8 +39,8 @@ The transcript from this run is recorded in
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 Follow-up after this artifact: the current code is now pinned to
-`OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18` and
-`OpenAgentsInc/ldk-node@6d44b0bda8305b71544c9996ea23b7ab653b8ce2`. That line
+`OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b` and
+`OpenAgentsInc/ldk-node@700cda432a86d5a63a443e5d8a1b53aaf4063045`. That line
 keeps the failing transcripts as regression fixtures, adds the Lightning Labs
 second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields, full
 counterparty commitment monitor persistence, exact previous-output-bound
@@ -120,7 +120,7 @@ Latest completed live rerun artifact:
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
-  `98e25016540ed98b450a2bf270d8d50c846f1d18`
+  `9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
 - `integrated_litd_asset_channel_fund_status`: `completed`
 - `integrated_litd_asset_channel_usable_for_keysend`: `true`
 - `integrated_litd_asset_payment_status`: `completed`
@@ -150,7 +150,7 @@ set.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
 - After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
   to
-  `OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`.
+  `OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel

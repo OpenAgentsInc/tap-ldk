@@ -26,7 +26,7 @@ live `Invalid Taproot control block size` error.
 
 ## Implemented Fix
 
-`OpenAgentsInc/rust-lightning@98e25016540ed98b450a2bf270d8d50c846f1d18`
+`OpenAgentsInc/rust-lightning@9ee4c0cabaca931a30a3926b85aa6631d9d63b4b`
 changes the holder fallback path:
 
 - `HolderCommitmentTransaction` persists the final simple-taproot holder
