@@ -52,8 +52,9 @@ payment-time commitment path gets farther.
 
 - `tap-ldk` consumes the OpenAgentsInc `ldk-node` fork.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
-- All `lightning*` packages in `tap-ldk` resolve to
-  `OpenAgentsInc/rust-lightning@4761230b3d8a2732d379087a5510456a13b86c29`.
+- After the diagnostic pin update, all `lightning*` packages in `tap-ldk`
+  resolve to
+  `OpenAgentsInc/rust-lightning@85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel

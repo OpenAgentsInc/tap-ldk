@@ -160,6 +160,9 @@ state:
   decoding, and HTLC-count validation, first landed in the OpenAgentsInc fork
   at
   `4761230b3d8a2732d379087a5510456a13b86c29`;
+- simple-taproot HTLC signature transcript trace diagnostics, first landed in
+  the OpenAgentsInc fork at
+  `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`;
 - live channel-manager, resolver, and sweeper call-site exercises for the
   bounded hooks above.
 

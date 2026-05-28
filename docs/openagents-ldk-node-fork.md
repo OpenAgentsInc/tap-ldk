@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `5b4fdf7770426ba18ed1aece050b3d0da76d2968`
+  `c5ae040bf84225922c5213d9acb077e031076a9c`
 - Current `rust-lightning` fork commit:
-  `4761230b3d8a2732d379087a5510456a13b86c29`
+  `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -38,8 +38,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `5b4fdf7770426ba18ed1aece050b3d0da76d2968` pin
-   `OpenAgentsInc/rust-lightning@4761230b3d8a2732d379087a5510456a13b86c29`,
+   `c5ae040bf84225922c5213d9acb077e031076a9c` pin
+   `OpenAgentsInc/rust-lightning@85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer

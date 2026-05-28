@@ -386,12 +386,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `4761230b3d8a2732d379087a5510456a13b86c29`
+- current revision: `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "4761230b3d8a2732d379087a5510456a13b86c29", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -569,7 +569,9 @@ a real live demo:
   `4761230b3d8a2732d379087a5510456a13b86c29` adds preservation and strict
   decoding of Lightning Labs `commitment_signed` TLV 65537 asset-signature
   blobs plus Lightning Labs commitment aux-leaf scripts, including HTLC-count
-  validation for Taproot Asset channels.
+  validation for Taproot Asset channels. Revision
+  `85189ebe7d3c3b0cf92d504c06e0e3b192a5e5c1` adds trace diagnostics for the
+  rejected simple-taproot HTLC signature transcript.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
