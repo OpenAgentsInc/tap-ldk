@@ -6,52 +6,40 @@ This is an experimental effort to explore native Taproot Assets support in Rust 
 
 Last updated: 2026-05-28
 
-Path A works as a bounded native demo: issue demo `OPENUSD`, exchange proofs,
-open a single-asset channel, pay, restart, close, export proofs, and exercise
-the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
+- Path A means native-to-native: two `tap-ldk`/LDK wallets talking to each
+  other without a Lightning Labs daemon. This works for the bounded demo:
+  issue demo `OPENUSD`, exchange proofs, open a single-asset channel, pay,
+  restart, cooperatively close, export proofs, and exercise the
+  OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
+- Path B means interop: `tap-ldk`/LDK talks to an independent Lightning Labs
+  peer. This works for the first-demo scope against integrated `litd`: `litd`
+  funds a Taproot Asset channel and pays native LDK, native LDK records and
+  persists the received balance, then native LDK pays the same asset back to
+  `litd` and the `litd` channel balance is observed after settlement.
+- Native Taproot Assets pieces are now present for the demo path: MS-SMT
+  roots/proofs, `AssetCommitment`, `TapCommitment`, TAP VM transition checks,
+  semantic proof ancestry validation, simple-taproot channel support, asset
+  HTLC metadata, close allocation, monitor persistence, restart checks, and
+  recovery ownership records.
+- Proof import is fail-closed. Native proof records must use
+  `semantic-ancestry`, strict regtest outpoints, normal demo asset type,
+  derived Taproot Asset roots, expected owner/amount/asset checks, and stale
+  anchor rejection. Lightning Labs `TAPF` import decodes the latest `TAPP`
+  asset leaf and checks asset ID, type, amount, owner script key, and genesis
+  before wallet state advances.
+- The first-demo issue queue is closed. #81, #57, #58, #59, #60, #61, #71,
+  and #19 are regression gates for live settlement, bidirectional payment,
+  observed balances, semantic proof validation, first-demo simple-taproot, and
+  first-demo Taproot Assets-over-LDK interop.
+- This is not production-complete Taproot Assets support. Still future work:
+  full proof-history replay, grouped and multi-asset paths, STXO/split/change
+  proof replay, reorg watchers, proof courier policy, live force-close/sweep
+  recovery, live post-close proof and balance observation, daemon RFQ
+  accept-signature verification, and concurrent simple-taproot splice/RBF
+  asset-channel candidates.
 
-Path B now settles both live payment directions over an integrated Lightning
-Labs `litd` asset channel. `litd` can fund the channel and pay native LDK;
-native LDK claims the asset HTLC and records the receiver balance. Native LDK
-can then send the same asset back to `litd` with the canonical Taproot Asset
-HTLC blob, a dust-covering BTC amount, and observed `litd` channel asset
-balance. The current pins also cover the post-claim balance-output fix,
-Taproot HTLC script-path claim witnesses, simple-taproot key-path force-close
-witnesses, private-only simple-taproot/Taproot Asset opens, immediate missing
-nonce rejection, Lightning Labs staging scalar nonce interop, and the BTC-only
-simple-taproot lifecycle conformance gate.
-Native cooperative-close coverage now also asserts the final close transaction
-uses a one-element 64-byte Taproot key-path witness and the asset-channel smoke
-proves the latest asset allocation survives close-store restart. The live
-Lightning Labs cooperative-close command is available, but Path B still needs
-native post-close proof and balance observation before claiming live close.
-Concurrent simple-taproot splicing is explicitly excluded from the first public
-demo until bounded splice nonce-map tests are added.
-The latest live run no longer logs the post-claim partial-signature failure,
-invalid Taproot control-block failure, invalid commitment failure, or
-counterparty force-close. #81, #57, #58, #59, #60, #61, #71, and #19 are
-completed regression gates for the first-demo scope. The Path B wrapper now
-writes a completion report that sets `path_b_live_observed_balance_gate_met=true`
-only from live observed balances and marks `path_b_complete=true` when the live
-observed-balance gate and semantic proof ancestry validation are both green.
-
-Proof import no longer accepts shallow field matches. Native proof records must
-use the `semantic-ancestry` scope, strict regtest outpoints, normal-asset demo
-type, derived Taproot Asset root, expected owner/amount/asset checks, and stale
-anchor rejection. Lightning Labs `TAPF` import decodes the latest `TAPP` asset
-leaf, derives the Taproot Assets asset ID from genesis, and checks asset ID,
-type, amount, owner script key, and genesis before wallet state advances.
-
-Spec-compliance work is split out of #81. #61 is complete for the first-demo
-BOLT simple-taproot scope, and #71 is complete for the first-demo native
-Taproot Assets-over-LDK scope. Remaining production hardening includes full
-proof-history replay, grouped/multi-asset paths, STXO/split/change proof
-replay, reorg watchers, proof courier policy, live force-close/sweep recovery,
-and concurrent simple-taproot splice/RBF asset-channel candidates. The
-first-demo issue queue is closed; future work should be opened as production
-hardening, not as a claim that the first-demo interop path is still incomplete.
-
-LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
+LND, `tapd`, and `litd` are interop peers only. They are not wallet sidecars
+inside `tap-ldk`.
 
 ## Development
 
