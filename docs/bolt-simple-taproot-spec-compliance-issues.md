@@ -2,15 +2,16 @@
 
 Date: 2026-05-28
 
-This document splits the remaining BOLT simple-taproot work out of #81. Issue
-#81 should stay focused on the live Lightning Labs to native settlement gate.
+This document records the BOLT simple-taproot work that was split out of #81.
+#81 is complete and should stay a live Lightning Labs to native settlement
+regression gate.
 Broader BOLT conformance belongs in a separate issue set tracked under #61
 before the project claims simple-taproot support is complete.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
-- `OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
+- `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`
 
 The current fork line fixes the completed audit gaps so far: simple-taproot
 `funding_created`, `funding_signed`, and `commitment_signed` now serialize the
@@ -36,10 +37,10 @@ It also closes #86: simple-taproot and Taproot Asset `open_channel` and
 `accept_channel` handling now reject missing type-4 `next_local_nonce`
 immediately, while legacy channel types can still omit the TLV.
 
-It also closes #87: RAA and `channel_reestablish` now send type-22 nonce maps
-as the authoritative path, reject legacy scalar fallback once simple-taproot
-funding exists, and regenerate retransmitted commitment partials from fresh
-nonce-map material.
+It also closes #87 for first-demo interop: RAA and `channel_reestablish` use
+the Lightning Labs staging scalar nonce for single-funding overlay channels,
+keep type-22 nonce maps for final or multi-funding paths, and reject scalar
+fallback when more than one funding txid is active.
 
 It also closes #88: the fork has a BTC-only simple-taproot conformance gate
 that opens a simple-taproot channel, verifies P2TR funding, pays across
@@ -70,7 +71,7 @@ tests for every active splice/funding txid's type-22 nonce-map entry.
 | #84 | Done | Fix the live simple-taproot force-close control-block/witness path | Closed after fixture and live verification |
 | #85 | Done | Enforce the no-public-simple-taproot-channel rule | Closed after fork pin and docs update |
 | #86 | Done | Fail `open_channel` / `accept_channel` immediately on missing simple-taproot nonces | Closed after fork pin and docs update |
-| #87 | Done | Make type-22 nonce maps authoritative and prove reconnect retransmission | Closed after fork pin and docs update |
+| #87 | Done | Select correct RAA/reestablish nonce fields for staging and final paths | Closed after fork pin and docs update |
 | #88 | Done | Add a BTC-only simple-taproot end-to-end conformance gate | Closed after fork pin and docs update |
 | #89 | Done | Prove native/fixture cooperative close and document the live Lightning Labs close boundary | Closed after fork pin and docs update |
 | #90 | Done | Cover splice nonce maps or explicitly gate splicing out of the first demo | Closed with machine-readable first-demo splice exclusion |
@@ -93,9 +94,9 @@ These are still required before any production/simple-taproot-complete claim:
 
 ## Closure Policy
 
-- Do not close #81 because a generic BOLT item was fixed. Close #81 only when
-  the live Path B settlement gate is clean and its report no longer depends on
-  stale force-close/control-block blockers.
+- Do not reopen or broaden #81 because a generic BOLT item remains. Keep #81's
+  live Path B settlement gate clean and track broader BOLT work under #61 or a
+  focused child issue.
 - #82 is closeable for first-demo scope because all child issues #83 through
   #90 are closed and the splice exclusion is explicit.
 - Do not describe #61 as production-complete simple-taproot support until

@@ -18,9 +18,10 @@ regression, Taproot HTLC script-path claim witnesses, and the simple-taproot
 holder force-close funding input as a one-element key-path Schnorr witness.
 They also keep simple-taproot and Taproot Asset opens private by construction.
 Missing required simple-taproot open/accept nonces now fail immediately.
-Reestablish and revoke-and-ack now use type-22 nonce maps as the authoritative
-path and regenerate retransmitted partial signatures from fresh nonce-map
-material. A BTC-only simple-taproot conformance gate now covers open, payment,
+Lightning Labs staging/overlay channels now use the legacy scalar next-local
+nonce for single-funding `revoke_and_ack` and reestablish interop, while final
+or multi-funding simple-taproot paths keep the type-22 nonce-map rule. A
+BTC-only simple-taproot conformance gate now covers open, payment,
 reconnect/reestablish, functional cooperative close, force-close, P2TR funding
 witnesses, and legacy P2WSH isolation.
 Native cooperative-close coverage now also asserts the final close transaction
@@ -32,7 +33,8 @@ Concurrent simple-taproot splicing is explicitly excluded from the first public
 demo until bounded splice nonce-map tests are added.
 The latest live run no longer logs the post-claim partial-signature failure or
 invalid Taproot control-block failure. Path B still needs the true native
-`tap-ldk` to Lightning Labs payment direction.
+`tap-ldk` to Lightning Labs payment direction. #81 is the completed regression
+gate; #57 is the next open payment-direction issue.
 
 Spec-compliance work is split out of #81. #82 is complete for the first-demo
 BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close

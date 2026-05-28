@@ -34,7 +34,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Regtest versions | `docs/polar-regtest-topology.md`; `../projects/repos/polar/docker/nodes.json` | Use Bitcoin Core `30.0`, LND `0.19.0-beta`, `tapd` `0.7.0-alpha` for first LND/`tapd` interop. | Selected |
 | Manual topology | `docs/polar-regtest-topology.md` | Polar may operate Bitcoin/LND/`tapd` for manual Track B, while `tap-ldk` runs outside Polar. | Selected |
 | Automated harness | `docs/path-b-lightning-labs-demo.md`; `scripts/lightning-labs-counterparty.sh`; `scripts/lightning-labs-litd-counterparty.sh`; `scripts/path-b-lightning-labs-demo.sh`; `scripts/full-demo-smoke.sh` | Path B writes counterparty config/status, dependency gaps, fixture reports, payment artifacts, integrated `litd` readiness, fork-backed `ldk-node` peer preflight, and consolidated interop checks to a predictable ignored artifact directory. The counterparty scripts now perform ordered Bitcoin Core/LND/tapd bootstrap plus integrated litd bootstrap when a runtime is reachable. | Partially implemented |
-| Live `tap-ldk` peer | `crates/tap-ldk-core/src/live_peer.rs`; `crates/tap-ldk-core/src/live_litd_peer.rs`; `docs/live-tap-ldk-peer.md`; `docs/live-litd-peer-preflight.md`; `docs/openagents-ldk-node-fork.md` | First localhost peer smoke starts a `tap-ldk` listener, connects a second peer, negotiates asset-channel support through the OpenAgentsInc rust-lightning fork, and round-trips an encoded native RFQ custom message. The current `litd` peer preflight uses fork-backed `OpenAgentsInc/ldk-node`, proves connectivity plus fork provenance, reports opt-in simple-taproot/Taproot Asset channel negotiation, and exercises typed asset message/channel/payment APIs. Issue #81 must run those APIs through live settlement before settlement can be claimed. | Partially implemented |
+| Live `tap-ldk` peer | `crates/tap-ldk-core/src/live_peer.rs`; `crates/tap-ldk-core/src/live_litd_peer.rs`; `docs/live-tap-ldk-peer.md`; `docs/live-litd-peer-preflight.md`; `docs/openagents-ldk-node-fork.md` | First localhost peer smoke starts a `tap-ldk` listener, connects a second peer, negotiates asset-channel support through the OpenAgentsInc rust-lightning fork, and round-trips an encoded native RFQ custom message. The current `litd` peer preflight uses fork-backed `OpenAgentsInc/ldk-node`, proves connectivity plus fork provenance, reports opt-in simple-taproot/Taproot Asset channel negotiation, exercises typed asset message/channel/payment APIs, and the #81 gate has run those APIs through live Lightning Labs to native settlement. | Partially implemented |
 | Funding extension point | `../projects/lightninglabs/repos/taproot-assets/docs/asset-channel-funding.md`; `tapchannel/aux_funding_controller.go` | Map LND `AuxFundingController` behavior to explicit LDK/fork extension surfaces. | Required |
 | Channel feature/channel type | `docs/blip-tap-implementation-note.md`; `tapchannelmsg/records.go`; `tapchannelmsg/wire_msgs_test.go` | Add experimental asset-channel negotiation; normal BTC channels remain BTC-only. | Required |
 | Funding proof transport | `docs/blip-tap-implementation-note.md`; `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records_test.go` | Send proof data outside `open_channel`, reconstruct fragments, and reject incomplete proofs before funding advances. | Required |
@@ -80,28 +80,27 @@ reported as settled interop.
 
 Close the remaining issues in this order:
 
-1. #81: use `OpenAgentsInc/ldk-node` asset-channel messages and payment APIs
-   for live settlement.
-2. #57: run asset-channel funding/payment over the fork-backed connected
+1. #57: run asset-channel funding/payment over the fork-backed connected
    independent `litd` peer and record the Lightning Labs receiver balance
    after settlement.
-3. #58: drive the reverse Lightning Labs sender flow into `tap-ldk`, persist
+2. #58: drive the reverse Lightning Labs sender flow into `tap-ldk`, persist
    the received balance/proof reference, and verify restart.
-4. #59: replace expected-only payment deltas with observed balance comparison
+3. #59: replace expected-only payment deltas with observed balance comparison
    checks after both live interop payments.
-5. #60: extend proof import/export from byte-compatible `TAPF` preservation to
+4. #60: extend proof import/export from byte-compatible `TAPF` preservation to
    full semantic proof ancestry validation and wire it into funding, HTLC,
    close, and recovery.
-6. Close #19 only when Path B reports live settlement in both directions and
+5. Close #19 only when Path B reports live settlement in both directions and
    any mismatch is a failing compatibility gap, not a partial success.
 
 ## Current Known Gaps
 
 - `tap-ldk` implements bounded native asset-channel funding, native first-demo
   virtual transition validation, and a fork-backed simple-taproot
-  asset-channel lifecycle smoke. The live Lightning Labs peer still needs to
-  run through fork-backed `ldk-node` and settle asset-channel funding/payment
-  over the connected `litd` session.
+  asset-channel lifecycle smoke. The #81 gate now settles Lightning Labs to
+  native over fork-backed `ldk-node`; #57 still needs true native-to-Lightning
+  Labs payment execution and observed receiver balance over the connected
+  `litd` session.
 - `tap-ldk` preserves and exports `tapd` proof files, but does not yet verify
   full proof ancestry, proof-chain virtual transactions, or on-chain anchor
   semantics.

@@ -2,21 +2,35 @@
 
 Date: 2026-05-28
 
-This audit records the current root cause for the live Lightning Labs Path B
-blocker and the complete work path needed to stop making one-off settlement
-patches. The current failure is not a Docker, peer-connection, funding, or
-basic feature-negotiation problem. The live path now reaches a real
-Lightning Labs `litd` asset channel, settles a Lightning Labs to native asset
-keysend, and records the native receiver-side asset payment and balance through
-the fork-backed `ldk-node` runtime. The post-claim partial-signature blocker is
-now fixed and fixture-backed. The remaining #81 blocker is force-close/on-chain
-fallback proof for the simple-taproot Taproot witness path.
+This audit records the root-cause work that cleared the live Lightning Labs
+Path B #81 blocker and the work path that remains after it. The failure was not
+a Docker, peer-connection, funding, or basic feature-negotiation problem. The
+live path now reaches a real Lightning Labs `litd` asset channel, settles a
+Lightning Labs to native asset keysend, and records the native receiver-side
+asset payment and balance through the fork-backed `ldk-node` runtime. The
+post-claim partial-signature blocker and the force-close/on-chain Taproot
+witness fallback blocker are fixed and fixture-backed.
 
 The more detailed file-level audit and implementation map is
-`docs/path-b-live-settlement-system-audit-2026-05-28.md`. Use that document for
-the current #81 coding sequence.
+`docs/path-b-live-settlement-system-audit-2026-05-28.md`. Use that document as
+historical context and keep the completed #81 live gate green while working
+#57 and later Path B issues.
 
 ## Current Live Result
+
+Latest completed #81 artifact:
+
+- `target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json`
+- `status`: `completed`
+- `blocked_step`: `null`
+- `issue_81_acceptance_met`: `true`
+- `integrated_litd_asset_payment_wire_status`: `SUCCEEDED`
+- `native_asset_receiver_payment_status`: `settled`
+- `native_asset_receiver_local_balance_after`: `125`
+- invalid commitment, partial-signature, control-block, and counterparty
+  force-close logs: all `false`
+- `openagents_rust_lightning_rev`:
+  `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
 
 Previous diagnostic artifact:
 
@@ -39,8 +53,8 @@ The transcript from this run is recorded in
 `docs/path-b-live-settlement-diagnostic-run-2026-05-28.md`.
 
 Follow-up after this artifact: the current code is now pinned to
-`OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c` and
-`OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0`. That line
+`OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f` and
+`OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`. That line
 keeps the failing transcripts as regression fixtures, adds the Lightning Labs
 second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields, full
 counterparty commitment monitor persistence, exact previous-output-bound
@@ -120,7 +134,7 @@ Latest completed live rerun artifact:
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
-  `0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+  `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
 - `integrated_litd_asset_channel_fund_status`: `completed`
 - `integrated_litd_asset_channel_usable_for_keysend`: `true`
 - `integrated_litd_asset_payment_status`: `completed`
@@ -150,7 +164,7 @@ set.
 - `ldk-node` consumes the OpenAgentsInc `rust-lightning` fork.
 - After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
   to
-  `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`.
+  `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`.
 - The live harness starts an integrated Lightning Labs `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel
@@ -446,8 +460,8 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #81, #57, #58, #59, #60, #61, #71, or #19 from fixture-only or
-readiness reports.
+Do not close #57, #58, #59, #60, #61, #71, or #19 from fixture-only or
+readiness reports. Keep the closed #81 gate running as a regression.
 
 Required live evidence before closure:
 

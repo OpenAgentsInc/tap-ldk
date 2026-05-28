@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
-- `OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
+- `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`
 - `tap-ldk` pinned to those forks
 
 ## Summary
@@ -16,23 +16,24 @@ Implementation audited:
 The fork implements a large part of the draft BOLT simple-taproot base: feature
 and channel-type bits, fixed-width MuSig2 TLVs, nonce parsing, MuSig2 signing
 helpers, BIP86 funding outputs, simple-taproot commitment output construction,
-HTLC script helpers, second-level HTLC signing, reestablish/RAA nonce maps, and
+HTLC script helpers, second-level HTLC signing, reestablish/RAA nonce fields, and
 cooperative-close message types.
 
 It does not fully implement the current spec yet. Follow-up work through #87
 fixes the force-close funding-input failure that produced
 `Invalid Taproot control block size`, the private-channel rule for
 simple-taproot and Taproot Asset opens, immediate open/accept nonce validation,
-and the type-22 RAA/reestablish nonce-map path:
+and the RAA/reestablish nonce field path:
 
 - local unilateral fallback now persists the aggregate holder MuSig2
   commitment signature and spends the simple-taproot funding output with a
   one-element key-path Schnorr witness;
 - outbound simple-taproot and Taproot Asset opens clear `announce_channel`,
   while inbound public simple-taproot/Taproot Asset opens fail closed;
-- RAA and reestablish send only type-22 nonce maps, reject scalar fallback once
-  simple-taproot funding is active, and regenerate retransmitted partials from
-  fresh nonce-map material;
+- RAA and reestablish use the Lightning Labs staging scalar nonce for
+  single-funding overlay interop, keep type-22 nonce maps for final or
+  multi-funding paths, and fail closed on scalar fallback when more than one
+  funding txid is active;
 - cooperative close exists behind `simple_close` plus
   `simple_taproot_musig2`, and #89 proves the native key-path witness plus
   Taproot Asset close-allocation restart boundary;
@@ -41,11 +42,12 @@ and the type-22 RAA/reestablish nonce-map path:
   requirements and is explicitly excluded from the first public demo by #90.
 
 The audit result is therefore: **first-demo scoped, not production splice
-complete**. The next #81 work should stay limited to the live settlement
-blocker. The rest of the BOLT conformance work is split into the issue set in
-`docs/bolt-simple-taproot-spec-compliance-issues.md`.
+complete**. The #81 live settlement blocker is now cleared; keep that live gate
+green as a regression while the remaining Path B work moves through #57, #58,
+#59, and #60. The rest of the BOLT conformance work is split into the issue set
+in `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
-Follow-up update: `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+Follow-up update: `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
 now serializes 64 zero bytes for the legacy `signature` field when a
 simple-taproot MuSig2 partial-signature TLV is present in `funding_created`,
 `funding_signed`, or `commitment_signed`, rejects non-zero legacy fields on
@@ -53,7 +55,7 @@ decode, derives post-claim Taproot Asset balance script keys with the real CSV
 delay, includes a live `litd` zero-HTLC post-claim transcript regression, and
 persists the aggregate holder commitment Schnorr signature needed for
 simple-taproot key-path force-close broadcast.
-`OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0` pins those
+`OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4` pins those
 fixes for the live runtime.
 The same current fork line also enforces the draft private-channel rule:
 simple-taproot and Taproot Asset outbound opens do not set `announce_channel`,
@@ -61,10 +63,11 @@ and inbound public opens for those channel types are rejected.
 It also enforces immediate type-4 nonce presence for simple-taproot and
 Taproot Asset `open_channel` and `accept_channel` handling, while legacy
 channels can still omit the TLV.
-It also makes type-22 `next_local_nonces` authoritative for simple-taproot RAA
-and reestablish, rejects the legacy scalar fallback once a simple-taproot
-funding txid exists, and keys retransmitted commitment partial signatures by
-the received nonce-map material.
+It also fixes RAA/reestablish nonce field selection: Lightning Labs
+staging/overlay single-funding interop uses the legacy scalar next-local nonce,
+while final simple-taproot and multi-funding paths use type-22
+`next_local_nonces`; scalar fallback fails closed when more than one funding
+txid is active.
 
 ## Why This Matters For #81
 
@@ -98,8 +101,8 @@ blocks.
 | Funding partials | `funding_created` and `funding_signed` legacy `signature` field must be 64 zero bytes; type 2 MuSig2 partial must be present and valid. | Type 2 MuSig2 partials are generated and validated. Current wire serialization emits zero legacy fields when the simple-taproot TLV is present and rejects non-zero peer legacy fields. | Implemented for wire field | Keep live interop and functional coverage around funding message acceptance. |
 | `channel_ready` nonce | Message must include a fresh type 4 nonce. | `check_get_channel_ready` sends a nonce and `channel_ready` handling requires it for simple-taproot funding. | Implemented | Add a missing-nonce functional regression if not already covered by message tests. |
 | `commitment_signed` partial | Legacy `signature` field must be zero; type 2 partial must verify; HTLC signatures must be BIP340 Schnorr in the existing HTLC field. | Type 2 partial validation and BIP340 HTLC verification exist. Current wire serialization emits a zero legacy field when the simple-taproot TLV is present and rejects non-zero peer legacy fields. The live post-claim `litd` transcript now verifies with fixture coverage. | Implemented for current live path | Keep the live transcript fixture and add more spec vectors as upstream publishes them. |
-| `revoke_and_ack` nonce map | Type 22 `next_local_nonces` must include one entry for each active funding txid. | `simple_taproot_next_local_nonces` builds a map across current and pending funding. RAA sends only type 22; receipt rejects missing maps, scalar fallback, duplicate entries, unknown txids, and omitted expected txids. | Implemented for current/pending funding set | Concurrent splice candidates are out of first-demo scope under #90. |
-| `channel_reestablish` nonce map | Type 22 must be sent and checked for every active commitment; retransmitted commits must regenerate partials with new nonces. | Reestablish sends only type 22, receipt applies the same fail-closed map validation, and retransmitted commitment partials are keyed by a domain-separated commitment number plus the newly received peer nonce. | Implemented for current/pending funding set | Concurrent splice candidates are out of first-demo scope under #90. |
+| `revoke_and_ack` nonce map | Type 22 `next_local_nonces` must include one entry for each active funding txid. | Final or multi-funding simple-taproot paths build and validate a type-22 map. Lightning Labs staging/overlay single-funding interop sends and accepts the legacy scalar nonce. Scalar fallback fails closed when more than one funding txid is active. | First-demo staging interop implemented; final/multi-funding map path retained | Concurrent splice candidates are out of first-demo scope under #90. |
+| `channel_reestablish` nonce map | Type 22 must be sent and checked for every active commitment; retransmitted commits must regenerate partials with new nonces. | Final or multi-funding reestablish uses type-22 maps. Lightning Labs staging/overlay single-funding reestablish uses the legacy scalar nonce. | First-demo staging interop implemented; final/multi-funding map path retained | Concurrent splice candidates are out of first-demo scope under #90. |
 | Splice coordination | Every active splice/funding txid needs a distinct nonce entry. | Expected txid calculation includes current funding and pending funding. No live or vector proof of concurrent splice maps exists, so the first public demo excludes concurrent simple-taproot splicing. | Explicit first-demo exclusion | Reopen before any production/simple-taproot-complete claim, any public splice demo, or any Taproot Asset channel claim using concurrent splice/RBF candidates. |
 | BIP86 funding output | Funding output must be P2TR over MuSig2 KeyAgg(KeySort(funding keys)). | `SimpleTaprootKeyAggContext` builds BIP86 funding scripts and has BOLT vector replay. | Implemented | Keep vector coverage. |
 | To-local output | NUMS internal key, delay/revocation leaves, correct parity-bearing control blocks, delay sequence. | `simple_taproot_to_local_spend_info` builds delay and revocation leaves and test coverage checks control-block lengths. Taproot Asset aux leaves alter tree depth. The #84 live invalid-control-block symptom was the funding-input witness, not a to-local output control block. | Partial | Keep to-local output-spend coverage in the broader BTC-only force-close and Taproot Asset recovery gates. |
@@ -114,33 +117,32 @@ blocks.
 
 Completed follow-up from this audit:
 
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   adds a focused regression for simple-taproot legacy signature zeroing and
   non-zero legacy signature rejection in `funding_created`, `funding_signed`,
   and `commitment_signed`.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   also persists the aggregate simple-taproot holder commitment signature in
   `HolderCommitmentTransaction`, uses it in the on-chain holder funding-output
   package path, and asserts that the latest holder commitment transaction spends
   the P2TR funding output with exactly one 64-byte Schnorr witness element.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   enforces private-only simple-taproot and Taproot Asset channel opens while
   preserving legacy public BTC channel behavior.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   rejects missing type-4 `next_local_nonce` during simple-taproot and Taproot
   Asset `open_channel`/`accept_channel` handling before channel state advances.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
-  makes type-22 `next_local_nonces` authoritative for RAA and reestablish,
-  rejects the legacy scalar fallback after simple-taproot funding exists, and
-  proves retransmitted commitment partials change when the peer advertises a
-  fresh nonce map.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
+  sends Lightning Labs staging scalar RAA/reestablish nonces for single-funding
+  overlay interop, keeps type-22 maps for final or multi-funding paths, and
+  rejects scalar fallback when multiple funding txids are active.
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   adds a BTC-only simple-taproot conformance gate for open, P2TR funding,
   payments across reconnect/reestablish, functional cooperative close,
   force-close key-path funding witness shape, and legacy P2WSH channel
   isolation. `tap-ldk` wraps that gate in
   `./scripts/check-btc-simple-taproot-conformance.sh`.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   also asserts the cooperative-close final transaction's P2TR funding input has
   a single 64-byte key-path witness. `tap-ldk-core` records that Taproot Asset
   cooperative close preserves the latest allocation across close-store restart,
@@ -161,7 +163,8 @@ Remaining work that should be tracked outside #81 before #61 closes:
 
 ## Closure Rule
 
-Do not close #81, #71, or #19 from the current pin. The current pin is an
-important settlement milestone, but live Lightning Labs path gaps remain. Do
-not describe #61 as production-complete simple-taproot support until bounded
-splice nonce-map vectors replace the first-demo splice exclusion.
+#81 may close from the current pin plus the completed live rerun at
+`target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json`. Do not
+close #57, #58, #59, #60, #71, or #19 from that gate alone. Do not describe #61
+as production-complete simple-taproot support until bounded splice nonce-map
+vectors replace the first-demo splice exclusion.

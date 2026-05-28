@@ -110,14 +110,14 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
   applies the current concrete fixes from this audit: second-level Taproot
   Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields, full Taproot Asset counterparty commitments are
   persisted through monitor updates, outgoing HTLC signatures use exact
   previous-output-bound second-level aux leaves, and post-claim commitments
   move claimed full-amount asset HTLCs into the rightful balance output.
-- `OpenAgentsInc/ldk-node@17b27661990db823f082a56c026492ccb6f217b0` pins that
+- `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The latest completed live rerun before the exact-leaf pin produced:
@@ -135,14 +135,15 @@ The latest completed live rerun before the exact-leaf pin produced:
   `invalid_htlc_sig`.
 
 The newer owner-state rerun moved past that blocker, and the post-claim-fix
-rerun moved past the post-claim partial-signature failure:
+rerun moved past the post-claim partial-signature failure but still reported a
+blocked live gate:
 
 - artifact directory:
   `target/live-lightning-labs-outgoing-payment-post-claim-fix/`
 - `OpenAgentsInc/rust-lightning`:
-  `0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+  `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
 - `OpenAgentsInc/ldk-node`:
-  `17b27661990db823f082a56c026492ccb6f217b0`
+  `0964b3d0cce5753a0ff42166ea4686702faf93b4`
 - live report status: `blocked`
 - blocked step: `live_asset_channel_payment_settlement`
 - LND payment wire status: `SUCCEEDED`
@@ -151,11 +152,27 @@ rerun moved past the post-claim partial-signature failure:
 - post-claim partial-signature error logged: `false`
 - invalid Taproot control block logged: `false`
 
-This does not close #81. The post-claim transcript fix and #84 funding-input
-force-close witness fix were necessary but not sufficient for the whole Path B
-program. The next honest gate is the true native-to-Lightning Labs payment
-direction and the remaining BOLT conformance issue set, not unrelated signing
-policy. The BOLT
+The subsequent #81 rerun completed the gate:
+
+- artifact directory:
+  `target/live-lightning-labs-outgoing-payment-issue81-rerun/`
+- `OpenAgentsInc/rust-lightning`:
+  `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
+- `OpenAgentsInc/ldk-node`:
+  `0964b3d0cce5753a0ff42166ea4686702faf93b4`
+- live report status: `completed`
+- blocked step: `null`
+- issue #81 acceptance: `true`
+- LND payment wire status: `SUCCEEDED`
+- native receiver asset payment status: `settled`
+- native receiver balance: `125`
+- post-claim partial-signature, invalid commitment, invalid Taproot control
+  block, and counterparty force-close logs: all `false`
+
+This closes #81 but not the whole Path B program. The next honest gate is the
+true native-to-Lightning Labs payment direction, the #58 issue-specific
+incoming receive/restart proof, observed balance reporting, and the remaining
+BOLT conformance issue set, not unrelated signing policy. The BOLT
 simple-taproot spec audit in
 `docs/bolt-simple-taproot-implementation-audit-2026-05-28.md` already moved one
 mandatory gate into the fork: native simple-taproot funding and commitment
@@ -283,8 +300,8 @@ Responsibilities:
 - keep the public state honest;
 - prevent fixture-backed expected balances from being described as live
   balances;
-- keep #81, #57, #58, #59, #60, #61, #71, and #19 in the correct closure
-  order.
+- keep the completed #81 live gate green and keep #57, #58, #59, #60, #61,
+  #71, and #19 in the correct closure order.
 
 ### OpenAgentsInc `ldk-node`
 
@@ -410,8 +427,8 @@ Relevant Lightning Labs behavior:
 - Do not move settlement accounting into `tap-ldk` or `ldk-node` without the
   Rust Lightning commitment transcript being correct.
 - Do not depend on `tapd`, `litd`, or LND as a sidecar inside the wallet.
-- Do not close #81, #57, #58, #59, #60, #61, #71, or #19 from fixture-only
-  reports.
+- Do not close #57, #58, #59, #60, #61, #71, or #19 from fixture-only reports.
+  #81 is closed only by the live completed gate and remains a regression.
 - Do not weaken runtime fail-closed policy to make a live harness report
   better.
 
@@ -577,7 +594,7 @@ Acceptance for this phase:
 - #57 can report `issue_57_acceptance_met=true`;
 - #58 can report durable native receiver balance after restart;
 - #59 can require observed live balances instead of expected-only balances;
-- #81 can close only after this phase passes.
+- #81 is closed; this phase now gates #57, #58, and #59.
 
 ### Phase 6: Semantic Proof Validation
 
@@ -665,16 +682,15 @@ TAP_LDK_LL_CONTAINER_RUN_TIMEOUT_SECONDS=180 \
 
 Current open issue order remains:
 
-1. #81: fork-backed live Lightning Labs settlement;
-2. #57: live `tap-ldk` pays Lightning Labs;
-3. #58: live Lightning Labs pays `tap-ldk`;
-4. #59: observed live balance reporting;
-5. #60: semantic proof ancestry validation;
-6. #61: BOLT simple-taproot LDK epic;
-7. #71: full Taproot Assets LDK epic;
-8. #19: Path B Lightning Labs interop epic.
+1. #57: live `tap-ldk` pays Lightning Labs;
+2. #58: live Lightning Labs pays `tap-ldk`;
+3. #59: observed live balance reporting;
+4. #60: semantic proof ancestry validation;
+5. #61: BOLT simple-taproot LDK epic;
+6. #71: full Taproot Assets LDK epic;
+7. #19: Path B Lightning Labs interop epic.
 
-Do not close #81 until the live harness settles and records observed balances.
-Do not close #57 or #58 until their direction-specific live balance checks are
-real. Do not close #59 until expected-only fields cannot satisfy Path B. Do
-not close #61, #71, or #19 while any concrete child issue above remains open.
+Keep #81's live harness green as a regression. Do not close #57 or #58 until
+their direction-specific live balance checks are real. Do not close #59 until
+expected-only fields cannot satisfy Path B. Do not close #61, #71, or #19
+while any concrete child issue above remains open.

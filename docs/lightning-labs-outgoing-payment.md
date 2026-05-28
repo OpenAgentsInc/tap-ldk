@@ -57,13 +57,13 @@ records the Lightning Labs receiver balance after settlement.
 
 ## Next Step
 
-Finish #81 first: the live Lightning Labs to native payment now reports
+#81 is complete: the live Lightning Labs to native payment reports
 `SUCCEEDED`, native LDK claims it, and fork-backed `ldk-node` records the
 native receiver asset balance. The current fork handles the post-claim
-zero-HTLC asset commitment-sig blob and derives the claimed asset HTLC's
-post-claim balance-output aux leaf with the correct CSV-bound script key. The
-latest live rerun no longer logs the post-claim partial-signature failure or an
-invalid Taproot control block; the #84 funding-input force-close witness path
-is now key-path and fixture-backed. Next, keep #81's live settlement report
-green, then implement the true native `tap-ldk` to Lightning Labs payment
-direction for #57, then #58, and the #59 observed-balance completion gate.
+zero-HTLC asset commitment-sig blob, derives the claimed asset HTLC's
+post-claim balance-output aux leaf with the correct CSV-bound script key, and
+uses a key-path funding-input force-close witness. Keep that live report green,
+then implement the true native `tap-ldk` to Lightning Labs payment direction
+for #57, the issue-specific incoming receive/restart proof for #58, and the
+#59 observed-balance completion gate. Both directions and observed balance
+replacement are still required before Track B is a settled interop success.

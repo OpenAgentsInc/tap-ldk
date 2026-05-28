@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+- Current `tap-ldk` revision: `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "0a89b49bf1e822353e0e7c482c5630d5dff22c5c"
+rev = "8a54739ac030ba3e439496eacb7e1c1216e11c6f"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -179,8 +179,9 @@ Revision `0d6ac878453bcc108f315d69aae0bda625c1f871` adds strict decoding for
 the live Lightning Labs Taproot Asset HTLC blob and an HTLC aux-leaf output
 hook. That lets Rust Lightning reject malformed live asset HTLC payloads and
 carry asset-derived aux leaves into HTLC output construction. The remaining
-#81 work is exact Lightning Labs-compatible per-commitment HTLC and change aux
-leaf construction from asset-channel state.
+#81 path was exact Lightning Labs-compatible per-commitment HTLC and change aux
+leaf construction from asset-channel state; the current pinned fork line keeps
+that settlement path passing as a live regression.
 
 Revision `5bd5992ac7f7625f254e5df67eec66d085fe7c7d` persists the live Taproot
 Asset HTLC blob through inbound/outbound HTLC state and holding-cell
@@ -205,7 +206,7 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Follow-up revisions through `0a89b49bf1e822353e0e7c482c5630d5dff22c5c` add the
+Follow-up revisions through `8a54739ac030ba3e439496eacb7e1c1216e11c6f` add the
 current concrete transcript fixes from that audit: second-level Taproot Asset
 HTLC aux leaves encode the Lightning Labs virtual `lock_time` and
 `relative_lock_time` fields, full counterparty commitments are persisted
@@ -223,15 +224,19 @@ rule: outbound simple-taproot and Taproot Asset opens clear `announce_channel`,
 and inbound public opens for those channel types fail closed. The same revision
 rejects simple-taproot and Taproot Asset `open_channel`/`accept_channel`
 messages that omit the required type-4 `next_local_nonce`, while legacy
-channels can still omit that TLV.
+channels can still omit that TLV. It also restores Lightning Labs
+staging/overlay interop for single-funding RAA/reestablish by sending and
+accepting the legacy scalar next-local nonce there, while keeping type-22 nonce
+maps for final simple-taproot and any multi-funding path.
 
-With `ldk-node@17b27661990db823f082a56c026492ccb6f217b0`, the current pin
+With `ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`, the current pin
 carries that wire-field fix into the live runtime. The latest live state still
 settles the Lightning Labs to native payment and records native receiver
 balance, and the post-claim partial-signature transcript plus #84
 force-close funding-input witness path are now fixed with regression coverage.
 The #85 private-only channel rule and #86 immediate nonce-validation rule are
-also carried into the live runtime. The same pin adds the #88 BTC-only
+also carried into the live runtime. The same pin carries the #87
+staging/final nonce-field split into live interop. It also adds the #88 BTC-only
 simple-taproot conformance gate: simple-taproot open, P2TR funding, payment,
 reconnect/reestablish, functional cooperative close, force-close key-path
 funding witness shape, and legacy P2WSH channel isolation. It also adds the

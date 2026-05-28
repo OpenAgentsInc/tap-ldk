@@ -105,6 +105,11 @@ These are the contracts we definitely want around the rust-lightning work.
   stay domain-separated, the advertised nonce state must exist when required,
   and the JIT signing nonce must be accepted only when the MuSig2 partial
   signature verifies for the exact commitment.
+- Lightning Labs staging/overlay simple-taproot interop may use the legacy
+  scalar next-local nonce for single-funding `revoke_and_ack` and
+  `channel_reestablish`; final simple-taproot and every multi-funding or
+  splice context must use type-22 nonce-map entries, and scalar nonce fallback
+  must fail closed when more than one funding txid is active.
 - BTC-level simple-taproot cooperative close state must persist closee nonce
   indexes, counterparty closee nonces, consumed close nonce uses, and sent
   `closing_complete` partials. Shutdown-advertised closee nonces and JIT
@@ -490,16 +495,17 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- The remaining open issue sequence is #81, #57, #58, #59, #60, then epics
-  #61, #71, and #19. #57 currently reaches live proof binding,
+- The remaining open issue sequence is #57, #58, #59, #60, then epics #61,
+  #71, and #19. #81 is complete and remains a live Lightning Labs to native
+  settlement regression gate. #57 currently reaches live proof binding,
   native payment-session readiness, integrated `litd` readiness, fork-backed
   LDK-to-`litd` peer connection, and a pre-settlement Lightning Labs
   current-balance observation. It now enables opt-in simple-taproot and
   Taproot Asset channel negotiation through `ldk-node`, confirms remote
   support from integrated `litd`, and exposes the live asset-channel
-  message/payment API surface, but it is not complete until #81/#57 run
-  asset-channel funding/payment over that connected peer with a recorded
-  post-settlement receiver balance.
+  message/payment API surface, but it is not complete until native `tap-ldk`
+  runs asset-channel funding/payment over that connected peer with a recorded
+  post-settlement Lightning Labs receiver balance.
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
   proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
   construction, bounded synthetic asset identity/hash+sum conservation helpers,
@@ -530,11 +536,11 @@ Do not claim these guarantees until implementation and verification exist:
   persisted as a documented-gap state. Do not claim a successful Track B
   outgoing payment until a live Lightning Labs receiver balance is observed and
   matches the expected asset delta.
-- Receiver-side Lightning Labs to `tap-ldk` payment artifacts can be built and
-  persisted as a documented-gap state. Do not claim a successful Track B
-  incoming payment until a live Lightning Labs sender payment is driven and a
-  durable `tap-ldk` receiver balance is observed and matches the expected asset
-  delta.
+- The #81 gate now records a live Lightning Labs to fork-backed native LDK
+  payment with durable receiver accounting. Do not claim #58 or full Track B
+  incoming-payment completion until the issue-specific flow persists the
+  native `tap-ldk` receiver proof/balance, survives restart, and matches both
+  sides' observed asset deltas.
 - Consolidated Track B interop check reports may pass fixture-backed automated
   checks while still carrying live-daemon documented gaps. A report with
   `live_daemon_gaps_remaining=true` is not a settled interop success.

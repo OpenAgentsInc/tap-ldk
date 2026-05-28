@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `17b27661990db823f082a56c026492ccb6f217b0`
+  `0964b3d0cce5753a0ff42166ea4686702faf93b4`
 - Current `rust-lightning` fork commit:
-  `0a89b49bf1e822353e0e7c482c5630d5dff22c5c`
+  `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `17b27661990db823f082a56c026492ccb6f217b0` pin
-   `OpenAgentsInc/rust-lightning@0a89b49bf1e822353e0e7c482c5630d5dff22c5c`,
+   `0964b3d0cce5753a0ff42166ea4686702faf93b4` pin
+   `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -58,10 +58,11 @@ coverage.
    key-path Schnorr signature. It also carries the #85 private-only rule for
    simple-taproot and Taproot Asset opens, the #86 immediate missing-nonce
    rejection rule for simple-taproot/Taproot Asset open/accept handling, the
-   #88 BTC-only simple-taproot conformance gate, and the #89 cooperative-close
-   P2TR key-path witness assertion through the pinned Rust Lightning revision.
-   The
-   fork does not advertise STXO support until native STXO commitment leaves are
+   #87 staging/final RAA/reestablish nonce-field split for Lightning Labs
+   overlay interop, the #88 BTC-only simple-taproot conformance gate, and the
+   #89 cooperative-close P2TR key-path witness assertion through the pinned
+   Rust Lightning revision. The fork does not advertise STXO support until
+   native STXO commitment leaves are
    implemented and verified.
 5. #81 now uses fork-backed live settlement against independent integrated
    Lightning Labs `litd`. The latest completed live run settled the Lightning

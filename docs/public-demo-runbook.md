@@ -183,9 +183,9 @@ Mocked or bounded pieces:
   Lightning Labs daemon-backed P2P session.
 - Live `tapd` proof binding can bind daemon-exported proof material when the
   Lightning Labs runtime is reachable.
-- Fork-backed `ldk-node` can connect to integrated `litd` and reach the
-  Taproot Asset message/channel/payment APIs, but #81 still has to run those
-  APIs through live asset-channel funding/payment over that connected peer.
+- Fork-backed `ldk-node` can connect to integrated `litd`, reach the Taproot
+  Asset message/channel/payment APIs, and complete the #81 live Lightning Labs
+  to native settlement gate over that connected peer.
 - Live LND/`tapd`/`litd` settlement and post-settlement observed balance
   comparison remain open.
 
@@ -235,8 +235,9 @@ cargo run -p tap-ldk-cli -- live-peer-smoke target/live-peer-smoke.json 7a381163
 ```
 
 Report Path A and Path B separately. Do not describe Path B as complete until
-live daemon settlement and observed balance checks replace the current
-fixture-backed gap. The remaining open path is #81 for fork-backed
-`ldk-node` live settlement, #57 live `tap-ldk` pays Lightning Labs, #58 live
-Lightning Labs pays `tap-ldk`, #59 observed-balance reporting, and #60
-semantic proof ancestry validation.
+both live directions and observed balance checks replace the current
+fixture-backed gap. The remaining open path is #57 live `tap-ldk` pays
+Lightning Labs, #58 live Lightning Labs pays `tap-ldk` with the issue-specific
+receiver/restart proof, #59 observed-balance reporting, and #60 semantic proof
+ancestry validation. Keep the completed #81 fork-backed `ldk-node` settlement
+gate green as a regression.
