@@ -48,19 +48,14 @@ reach live proof binding, native asset-payment session readiness, integrated
 `litd` readiness, fork-backed `ldk-node` to `litd` peer connection, and a
 pre-settlement Lightning Labs current-balance observation. It also records
 whether `litd` advertised the taproot features needed for asset channels. It
-now completes live asset-channel funding, confirms the channel, and sees
-`litd` report a keysend-usable local asset balance. It still stops at
-`live_asset_channel_payment_settlement` because the live asset keysend remains
-`IN_FLIGHT` after Rust Lightning accepts the peer `commitment_signed`. The
-current fork pin attempts the bounded full-channel HTLC aux-leaf path, the live
-harness now defaults to that amount, and HTLC signatures are interpreted as
-BIP340 Schnorr signatures. The latest completed live run proves the previous
-peer-signature mismatch and monitor-release blocker are fixed, then exposes the
-next blocker: `litd` rejects our outgoing HTLC signature. The current pin adds
-exact previous-output-bound second-level HTLC aux leaves before signing. The
-next work is rerunning that live path, then native receiver claim,
-simple-taproot HTLC witness/control-block construction, and post-settlement
-balance observation.
+now completes live asset-channel funding, settles a Lightning Labs to native
+asset keysend, logs native `PaymentClaimed`, and records the native receiver
+asset balance in fork-backed `ldk-node`. It still stops at
+`live_asset_channel_payment_settlement` because after successful claim
+Lightning Labs force-closes with `invalid commitment`, and the HTLC-success
+fallback/broadcast path still needs witness/transcript cleanup. The current
+#57 gate remains false because the true native `tap-ldk` to Lightning Labs
+direction has not settled yet.
 
 The current consolidated report can pass fixture-backed checks while still
 showing `live_daemon_gaps_remaining=true`. That means live daemon settlement

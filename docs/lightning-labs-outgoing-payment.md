@@ -25,12 +25,11 @@ interop settlement.
 
 Current #57 state: the gate reaches proof binding, native payment-session
 readiness, integrated `litd` readiness, fork-backed `ldk-node` to `litd` peer
-connection/API preflight, remote taproot feature observation, and a
-pre-settlement Lightning Labs balance observation. That balance is not the
-close condition, and the peer preflight still cannot settle asset channels
-until #81 drives the fork-backed asset-channel message/payment APIs through
-live funding/payment. #57 closes only after the live asset-channel
-funding/payment flow runs over the connected `litd` peer and the report
+connection/API preflight, remote taproot feature observation, live
+asset-channel funding, and a settled Lightning Labs to native asset keysend.
+That proves the receiver side can claim and persist asset balance, but #57 is
+still false because the live sender in this script is `litd`. #57 closes only
+after native `tap-ldk` pays the connected Lightning Labs peer and the report
 records the Lightning Labs receiver balance after settlement.
 
 ## Checks
@@ -58,15 +57,12 @@ records the Lightning Labs receiver balance after settlement.
 
 ## Next Step
 
-Finish #81 first: carry the live asset keysend over the connected independent
-Lightning Labs `litd` peer through payment-time Taproot Asset commitment
-updates in the fork-backed `ldk-node`/`rust-lightning` path. Live funding now
-completes, and the current fork pin attempts the first full-channel HTLC
-aux-leaf path and verifies peer HTLC signatures as BIP340 Schnorr. The latest
-completed live run accepts `commitment_signed`, completes monitor update `1`,
-releases `revoke_and_ack`, then leaves the `litd` payment `IN_FLIGHT` because
-Lightning Labs rejects our outgoing HTLC signature. The current fork pin adds
-exact previous-output-bound second-level HTLC aux leaves before signing; the
-next work is rerunning that live path, then native receiver claim, HTLC
-witness/control-block construction, observed post-settlement daemon balances,
-#58, and the #59 Path B completion gate.
+Finish #81 first: the live Lightning Labs to native payment now reports
+`SUCCEEDED`, native LDK claims it, and fork-backed `ldk-node` records the
+native receiver asset balance. The current fork also logs the post-claim
+zero-HTLC asset commitment-sig blob, so the remaining #81 work is after
+success and deeper than a missing no-HTLC TLV: Lightning Labs force-closes with
+`invalid commitment`, and the HTLC-success fallback/broadcast path needs
+transcript, witness, and fee cleanup. After that, implement the true native
+`tap-ldk` to Lightning Labs payment direction for #57, then #58, and the #59
+observed-balance completion gate.

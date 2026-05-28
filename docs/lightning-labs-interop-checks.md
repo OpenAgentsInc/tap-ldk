@@ -19,15 +19,15 @@ The report can pass its automated fixture checks while still setting
 incoming payment checks still stop at expected balance deltas until a live
 LND/`tapd` counterparty reports observed settlement and durable balances.
 
-Current live status is more specific: the #57 gate can start the relevant
+Current live status is more specific: the #57/#81 gate can start the relevant
 Lightning Labs stacks, bind a live proof, run the native ordered
 asset-payment-session smoke, connect fork-backed `ldk-node` to integrated
-`litd`, exercise the fork-backed asset message/channel/payment APIs, and query
-a current Lightning Labs balance. It still has no post-settlement balance
-because #81 has not yet driven those APIs through the live funding/payment flow
-over the connected `litd` peer. #59 should only flip the Path B
-completion flag after #57 and #58 both record observed post-settlement
-balances.
+`litd`, exercise the fork-backed asset message/channel/payment APIs, settle
+Lightning Labs to native asset keysend, and record the native receiver asset
+balance. It still does not have the true native-to-Lightning Labs receiver
+balance delta, and the post-success force-close fallback remains open. #59
+should only flip the Path B completion flag after #57 and #58 both record
+observed post-settlement balances.
 
 ## Checks
 

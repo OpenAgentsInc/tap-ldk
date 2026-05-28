@@ -26,13 +26,13 @@ for the asset-channel path, connects the fork-backed OpenAgentsInc `ldk-node`
 runtime to that `litd` peer, and can observe a pre-settlement Lightning Labs
 balance. Live asset-channel config/API exposure and remote feature observation
 are in place. Live `litd` asset-channel funding now completes and the channel
-becomes usable for asset keysend. The current live blocker is payment-time
-outgoing HTLC signing: Rust Lightning verifies the peer HTLC signature, accepts
-`commitment_signed`, completes monitor update `1`, releases `revoke_and_ack`,
-and then `litd` rejects our outgoing HTLC signature. The current pin adds exact
-previous-output-bound second-level HTLC aux leaves before signing. Settlement
-and post-settlement observed balance replacement remain open gaps after that
-rerun, native receiver claim, and witness path are matched.
+becomes usable for asset keysend. The Lightning Labs to native payment now
+settles and native receiver balance is recorded by fork-backed `ldk-node`. The
+current live blocker is after success: `litd` force-closes with
+`invalid commitment`, and the on-chain HTLC-success fallback/broadcast path
+still needs transcript and witness cleanup. The true native `tap-ldk` to
+Lightning Labs receiver direction and two-sided observed balance replacement
+remain open.
 
 ## Prerequisites
 

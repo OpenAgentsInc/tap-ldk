@@ -10,14 +10,12 @@ Path A works as a bounded native demo: issue demo `OPENUSD`, exchange proofs,
 open a single-asset channel, pay, restart, close, export proofs, and exercise
 the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 
-Path B is live-funded but not live-settled. The harness connects to
-independent `litd`, observes taproot features, issues an asset, completes
-asset-channel funding, reaches `channel_ready`, and attempts asset keysend. The
-latest completed live run fixed the native monitor-update stall and released
-`revoke_and_ack`, but `litd` rejected our outgoing HTLC signature. The current
-pins add exact previous-output-bound Taproot Asset second-level HTLC aux leaves;
-#81 remains open until the rerun settles, receiver claim, force-close witness
-path, and observed balances all pass.
+Path B now settles the Lightning Labs to native direction: integrated `litd`
+funds an asset channel, sends asset keysend, native LDK claims the HTLC, and
+`ldk-node` records the native receiver balance. The current fork also sends the
+zero-HTLC asset commitment-sig blob after claim, but `litd` still force-closes
+with `invalid commitment`; #81 remains open on that post-claim transcript and
+the on-chain HTLC-success fallback.
 
 Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
 is not done until both payment directions settle against Lightning Labs with

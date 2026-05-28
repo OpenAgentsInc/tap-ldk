@@ -13,12 +13,33 @@ signature, claim the incoming HTLC, and record real asset balances.
 
 The current failure is not Docker, not `litd` startup, not peer connection, not
 feature negotiation, not funding, not signature encoding, not the basic anchor
-HTLC sighash policy, and no longer the monitor/message-release boundary. The
-previous peer-signature transcript mismatch is fixture-backed, the
-virtual-lock fix gets the live rerun through `commitment_signed`
-verification, and the full counterparty commitment fix completes monitor
-update `1`. The active blocker from the latest completed live run is
-Lightning Labs rejecting our outgoing HTLC signature.
+HTLC sighash policy, not the monitor/message-release boundary, and no longer
+payment settlement. The previous peer-signature transcript mismatch is
+fixture-backed, the virtual-lock and exact previous-output-bound HTLC aux-leaf
+fixes get the live run through `commitment_signed`, and fork-backed `ldk-node`
+now records the native receiver-side Taproot Asset balance. The active blocker
+from the latest completed live run is post-success: after native claim and
+fulfill, Lightning Labs force-closes with `invalid commitment`, and the
+on-chain HTLC-success fallback/broadcast path still needs cleanup.
+
+## Current Update
+
+Latest live artifact:
+`target/live-lightning-labs-outgoing-payment-native-balance/`.
+
+Observed state:
+
+- `litd` asset keysend status: `completed`
+- LND payment wire status: `SUCCEEDED`
+- native `PaymentClaimable`: logged
+- native `PaymentClaimed`: logged
+- fork-backed `ldk-node` native asset payment status: `settled`
+- native receiver local asset balance after claim: `125`
+- native receiver remote asset balance after claim: `0`
+- remaining failure: `CounterpartyForceClosed` with peer message
+  `invalid commitment`
+- on-chain fallback still needs work: HTLC-success is attempted after
+  force-close, and broadcast fails on the current regtest transcript
 
 ## Current Live Gate
 
@@ -74,13 +95,13 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`
+- `OpenAgentsInc/rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`
   applies the current concrete fixes from this audit: second-level Taproot
   Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields, full Taproot Asset counterparty commitments are
   persisted through monitor updates, and outgoing HTLC signatures use exact
   previous-output-bound second-level aux leaves.
-- `OpenAgentsInc/ldk-node@8e087c096a1c9d6d6089ac5be34acbc20fa62e22` pins that
+- `OpenAgentsInc/ldk-node@73b720ca6f88dc3f1304fd30fa54215b337ce0ba` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The latest completed live rerun before the exact-leaf pin produced:
@@ -102,7 +123,7 @@ commitment_signed from peer`, `Completed off-chain monitor update 1`, and
 `Enqueueing message RevokeAndACK`, then signs the remote HTLC transaction. The
 peer responds with `rejected commitment: commit_height=1, invalid_htlc_sig=...`.
 This does not close #81. The next honest gate is to rerun with
-`rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`, which derives exact
+`rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`, which derives exact
 previous-output-bound second-level aux leaves before signing. If a later rerun
 exposes another signature or force-close transcript delta, compare it against
 the fixture and port the remaining bounded `tapchannel`/`tapsend` allocation
@@ -478,7 +499,7 @@ second-level aux leaf after commitment txid/output index assignment.
 Acceptance for this phase:
 
 - rerun the live harness with
-  `rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`;
+  `rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f`;
 - the live log no longer contains `invalid_htlc_sig` for our outgoing HTLC
   signature;
 - if `litd` still rejects the signature, capture the new commitment tx,
@@ -486,31 +507,36 @@ Acceptance for this phase:
   changing behavior;
 - BTC-only and fixture-backed Taproot Asset tests remain unchanged.
 
-### Phase 4: Fix Force-Close Witness And Control-Block Construction
+### Phase 4: Fix Post-Claim Force-Close And HTLC-Success Fallback
 
-After the signature transcript matches, fix the current unilateral recovery
-failure:
+After the successful Lightning Labs to native settlement, fix the current
+post-claim unilateral recovery failure:
 
+- compare the native post-claim commitment/fulfill transcript against the
+  Lightning Labs expectation that currently returns `invalid commitment`;
 - inspect control-block construction for HTLC outputs with asset aux siblings;
 - ensure the control block matches the selected script-path leaf and tree;
 - persist enough HTLC aux-leaf state through monitor serialization;
-- add fixture tests for control-block length and spend path;
+- add fixture tests for control-block length, HTLC-success witness content,
+  feerate/RBF behavior, and spend path;
 - rerun the live force-close path.
 
 Acceptance for this phase:
 
-- force-close broadcasts do not fail with
-  `Invalid Taproot control block size`;
+- the post-claim live transcript does not force-close with `invalid commitment`;
+- if a force-close happens, HTLC-success fallback broadcasts cleanly and does
+  not fail with missing/spent inputs, insufficient-fee replacement, or control
+  block errors;
 - monitor restart can reconstruct the same control-block data;
 - BTC-only force-close tests still pass.
 
-### Phase 5: Record Real Settlement State
+### Phase 5: Complete Balance Reporting In Both Directions
 
-Once the payment settles:
+The Lightning Labs to native direction now records native receiver balance. The
+remaining balance work is to wire the reverse direction and tighten reports:
 
-- persist native receiver-side asset balance;
-- expose that balance through `ldk-node`/`tap-ldk` reporting;
-- query Lightning Labs post-settlement balance;
+- query Lightning Labs post-settlement balance for the true native-to-Lightning
+  Labs payment direction;
 - update Path B reports so #57 and #58 only pass with observed balances;
 - keep negative checks for wrong quote, wrong asset, wrong amount, stale proof,
   missing metadata, and restart recovery.

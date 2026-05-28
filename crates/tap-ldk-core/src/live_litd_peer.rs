@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use ldk_node::{
@@ -20,8 +20,9 @@ use ldk_node::{
     logger::LogLevel,
     provenance::{RuntimeProvenance, runtime_provenance},
     taproot_asset::{
-        TaprootAssetChannelOpenRequest, TaprootAssetMessageKind, TaprootAssetMonitorAuxRequest,
-        TaprootAssetPaymentDirection, TaprootAssetPaymentMetadata, TaprootAssetPaymentRequest,
+        TaprootAssetChannelOpenRequest, TaprootAssetChannelStatus, TaprootAssetMessageKind,
+        TaprootAssetMonitorAuxRequest, TaprootAssetPaymentDirection, TaprootAssetPaymentMetadata,
+        TaprootAssetPaymentRequest, TaprootAssetPaymentStatus,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -116,6 +117,10 @@ pub struct LiveLitdPeerPreflightReport {
     pub live_node_asset_channel_open_api_ready: bool,
     pub live_node_asset_payment_api_ready: bool,
     pub live_node_asset_runtime_event_count: usize,
+    pub live_node_asset_channel_count: usize,
+    pub live_node_asset_payment_count: usize,
+    pub live_node_asset_channels: Vec<TaprootAssetChannelStatus>,
+    pub live_node_asset_payments: Vec<TaprootAssetPaymentStatus>,
     pub openagents_rust_lightning_rev: String,
     pub fork_asset_channel_hooks_reachable_from_live_node: bool,
     pub native_node_id: String,
@@ -179,6 +184,7 @@ pub fn run_live_litd_peer_preflight(
         provenance,
         experimental_channel_config,
         asset_runtime_probe,
+        asset_runtime_snapshot(&node),
         native_node_id,
         peer_connected,
         peer_persisted,
@@ -194,6 +200,7 @@ pub fn run_live_litd_peer_hold(
     report_path: impl AsRef<Path>,
     hold_seconds: u64,
 ) -> Result<LiveLitdPeerPreflightReport, LiveLitdPeerError> {
+    let report_path = report_path.as_ref().to_path_buf();
     let request = request.validate()?;
     let provenance = runtime_provenance();
     let node = build_node(&request)?;
@@ -231,9 +238,10 @@ pub fn run_live_litd_peer_hold(
 
     let report = build_report(
         &request,
-        provenance,
+        provenance.clone(),
         experimental_channel_config,
-        asset_runtime_probe,
+        asset_runtime_probe.clone(),
+        asset_runtime_snapshot(&node),
         native_node_id,
         peer_connected,
         peer_persisted,
@@ -242,13 +250,40 @@ pub fn run_live_litd_peer_hold(
         peer_details.len(),
         "holding",
     );
-    write_report(report_path, &report)?;
+    write_report(&report_path, &report)?;
 
-    thread::sleep(Duration::from_secs(hold_seconds));
+    let started = Instant::now();
+    let mut latest_report = report;
+    while started.elapsed() < Duration::from_secs(hold_seconds) {
+        thread::sleep(Duration::from_secs(1));
+        let peer_details = node.list_peers();
+        let matched_peer = peer_details
+            .iter()
+            .find(|peer| peer.node_id == request.litd_node_id);
+        latest_report = build_report(
+            &request,
+            provenance.clone(),
+            experimental_channel_config,
+            asset_runtime_probe.clone(),
+            asset_runtime_snapshot(&node),
+            native_node_id,
+            matched_peer.map(|peer| peer.is_connected).unwrap_or(false),
+            matched_peer.map(|peer| peer.is_persisted).unwrap_or(false),
+            matched_peer
+                .map(|peer| peer.supports_simple_taproot_staging)
+                .unwrap_or(false),
+            matched_peer
+                .map(|peer| peer.supports_taproot_asset_channel)
+                .unwrap_or(false),
+            peer_details.len(),
+            "holding",
+        );
+        write_report(&report_path, &latest_report)?;
+    }
 
     node.stop()
         .map_err(|err| LiveLitdPeerError::Node(err.to_string()))?;
-    Ok(report)
+    Ok(latest_report)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -257,6 +292,7 @@ fn build_report(
     provenance: RuntimeProvenance,
     experimental_channel_config: ExperimentalChannelConfig,
     asset_runtime_probe: LiveLitdAssetRuntimeProbe,
+    asset_runtime_snapshot: LiveLitdAssetRuntimeSnapshot,
     native_node_id: PublicKey,
     peer_connected: bool,
     peer_persisted: bool,
@@ -268,7 +304,7 @@ fn build_report(
     let remaining_asset_channel_gap = if !litd_peer_supports_taproot_asset_channel {
         "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork and exposes typed Taproot Asset message/channel/payment APIs, but the connected litd peer does not advertise the Taproot Asset channel feature yet. #81 cannot honestly settle until the live peer negotiates that feature and the asset-channel funding/payment flow runs over it."
     } else {
-        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live outgoing-payment gate is beyond readiness: integrated litd fundchannel completes and the channel becomes usable for asset keysend. #81 now needs the live payment to settle with the current exact HTLC aux-leaf signing pin, then native receiver claim, force-close witness handling, and observed balances."
+        "Native LDK can connect to the independent litd peer through the OpenAgentsInc ldk-node fork, enables opt-in simple-taproot plus Taproot Asset channel negotiation, and exposes typed asset message/channel/payment APIs. The live outgoing-payment gate is beyond readiness: integrated litd fundchannel completes, Lightning Labs to native keysend settles, and ldk-node records the native receiver asset balance. #81 now needs the post-success invalid-commitment force-close and on-chain HTLC-success fallback path fixed."
     };
 
     LiveLitdPeerPreflightReport {
@@ -289,6 +325,10 @@ fn build_report(
         live_node_asset_channel_open_api_ready: asset_runtime_probe.channel_open_api_ready,
         live_node_asset_payment_api_ready: asset_runtime_probe.payment_api_ready,
         live_node_asset_runtime_event_count: asset_runtime_probe.runtime_event_count,
+        live_node_asset_channel_count: asset_runtime_snapshot.channels.len(),
+        live_node_asset_payment_count: asset_runtime_snapshot.payments.len(),
+        live_node_asset_channels: asset_runtime_snapshot.channels,
+        live_node_asset_payments: asset_runtime_snapshot.payments,
         openagents_rust_lightning_rev: provenance.rust_lightning_fork_rev.to_owned(),
         fork_asset_channel_hooks_reachable_from_live_node: provenance
             .uses_openagents_rust_lightning_fork
@@ -370,6 +410,12 @@ struct LiveLitdAssetRuntimeProbe {
     runtime_event_count: usize,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct LiveLitdAssetRuntimeSnapshot {
+    channels: Vec<TaprootAssetChannelStatus>,
+    payments: Vec<TaprootAssetPaymentStatus>,
+}
+
 fn run_asset_runtime_probe(node: &Node) -> Result<LiveLitdAssetRuntimeProbe, LiveLitdPeerError> {
     let taproot_asset = node.taproot_asset();
     let synthetic_peer = synthetic_peer(21)?;
@@ -397,6 +443,14 @@ fn run_asset_runtime_probe(node: &Node) -> Result<LiveLitdAssetRuntimeProbe, Liv
         payment_api_ready: payment.status == "settled",
         runtime_event_count: taproot_asset.list_events().len(),
     })
+}
+
+fn asset_runtime_snapshot(node: &Node) -> LiveLitdAssetRuntimeSnapshot {
+    let taproot_asset = node.taproot_asset();
+    LiveLitdAssetRuntimeSnapshot {
+        channels: taproot_asset.list_channels(),
+        payments: taproot_asset.list_payments(),
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -589,7 +643,7 @@ mod tests {
         assert!(provenance.uses_openagents_rust_lightning_fork);
         assert_eq!(
             provenance.rust_lightning_fork_rev,
-            "7bc73cf1ef7e2381c0562d61bfcdce9a18579cae"
+            "a626a77d951bbc069ce1c299a448d1bf3403bc0f"
         );
         assert_eq!(
             provenance.ldk_node_fork_url,

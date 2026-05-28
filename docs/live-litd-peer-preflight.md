@@ -20,26 +20,25 @@ cargo run -p tap-ldk-cli -- live-litd-peer-preflight target/live-litd-peer-prefl
 
 The live outgoing-payment gate fills the `litd` node ID and address from
 `scripts/lightning-labs-litd-counterparty.sh start` and writes the preflight
-artifact as `native-ldk-litd-peer-preflight.json`.
+artifact as `native-ldk-litd-peer-preflight.json`. During the hold-mode live
+run, that report is refreshed while the native node is running, including the
+fork-backed `ldk-node` Taproot Asset channel and payment records. This lets the
+shell report prove that a live Lightning Labs payment was claimed and persisted
+by the native receiver instead of only proving peer connectivity.
 
 This is still not issue #57 completion. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@7bc73cf1ef7e2381c0562d61bfcdce9a18579cae` and
-`OpenAgentsInc/ldk-node@8e087c096a1c9d6d6089ac5be34acbc20fa62e22`, the
+`OpenAgentsInc/rust-lightning@a626a77d951bbc069ce1c299a448d1bf3403bc0f` and
+`OpenAgentsInc/ldk-node@73b720ca6f88dc3f1304fd30fa54215b337ce0ba`, the
 integrated Lightning Labs `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises Lightning Labs
 no-op HTLC aux support without advertising unimplemented STXO support. The live
-outgoing-payment harness now moves past
-readiness into integrated `litd` issuance, live asset-channel funding,
-channel confirmation, and a keysend-usable local asset balance on `litd`.
-Issue #81 still remains open because the live asset keysend stays `IN_FLIGHT`.
-The current fork pin treats the peer HTLC signature bytes as BIP340 Schnorr,
-keeps the earlier failing transcript as a regression fixture, and adds the
-Lightning Labs second-level virtual-lock asset-leaf fields. The latest
-completed rerun accepts `commitment_signed`, completes monitor update `1`,
-releases `revoke_and_ack`, and then `litd` rejects our outgoing HTLC
-signature. The current pin adds exact previous-output-bound second-level HTLC
-aux leaves before signing. The current #57 report treats this as a readiness
-and partial-live gate until the rerun settles, receiver claim, force-close
-witness path, and observed balances pass.
+payment harness now moves past readiness into integrated `litd` issuance, live
+asset-channel funding, Lightning Labs to native asset keysend, native
+`PaymentClaimed`, and durable native receiver balance recording. Issue #81
+still remains open because the post-success path force-closes with
+`invalid commitment`, and the on-chain HTLC-success fallback/broadcast path
+needs witness and transcript cleanup. The current #57 report remains false
+because the true native `tap-ldk` to Lightning Labs direction has not settled
+yet.

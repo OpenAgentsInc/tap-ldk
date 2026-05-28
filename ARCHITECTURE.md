@@ -41,21 +41,19 @@ The Lightning Labs path is not a live payment yet:
   `native_asset_payment_session_ready=true`,
   `integrated_litd_counterparty_ready=true`,
   `native_litd_peer_connected=true`, both remote taproot feature observations,
-  live `litd` asset-channel funding, `channel_ready`, and a keysend-usable
-  `litd` asset-channel balance. It still lacks post-settlement balance
-  observation because the latest completed live run accepts the peer
-  `commitment_signed`, completes monitor update `1`, releases
-  `revoke_and_ack`, and then receives a Lightning Labs rejection for our
-  outgoing HTLC signature. The current fork pin now derives exact
-  previous-output-bound second-level HTLC aux leaves before signing, the live
-  harness defaults to the full-channel payment amount, and peer HTLC
-  signatures are checked as BIP340 Schnorr signatures.
+  live `litd` asset-channel funding, `channel_ready`, a keysend-usable `litd`
+  asset-channel balance, Lightning Labs to native asset keysend success,
+  native `PaymentClaimed`, and durable native receiver balance recording in
+  `ldk-node`.
 - It now uses fork-backed `ldk-node`, so the live peer path reaches the
   OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset channel
   hooks.
-- It completes live funding but does not yet drive that connected `litd`
-  counterparty through payment settlement.
-- It does not yet query real live balances from both nodes after settlement.
+- It completes live funding and the Lightning Labs to native settlement
+  direction. It still fails the post-success force-close path because `litd`
+  force-closes with `invalid commitment`.
+- It records the live native receiver balance after settlement; the reverse
+  native to Lightning Labs direction and Lightning Labs receiver balance delta
+  remain #57 work.
 - The ordered asset-payment message session is still local `tap-ldk` to
   `tap-ldk`; it has not yet moved onto the connected Lightning Labs `litd`
   peer.
@@ -387,12 +385,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae`
+- current revision: `a626a77d951bbc069ce1c299a448d1bf3403bc0f`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "7bc73cf1ef7e2381c0562d61bfcdce9a18579cae", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "a626a77d951bbc069ce1c299a448d1bf3403bc0f", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -575,7 +573,7 @@ a real live demo:
   validation for Taproot Asset channels. Revision
   `c94f4570587e94e89740f5126a5fa70021b58de2` adds trace diagnostics and a
   regression fixture for the rejected simple-taproot HTLC signature
-  transcript. Revision `7bc73cf1ef7e2381c0562d61bfcdce9a18579cae` adds the
+  transcript. Revision `a626a77d951bbc069ce1c299a448d1bf3403bc0f` adds the
   current transcript fixes from that audit by encoding Lightning Labs
   second-level virtual lock fields in Taproot Asset HTLC aux leaves, persisting
   full Taproot Asset counterparty commitments through monitor updates, and
@@ -1086,15 +1084,12 @@ It:
 When Docker is reachable, the live outgoing-payment gate also runs the
 standalone proof-binding/current-balance path, starts integrated `litd`, and
 runs the fork-backed `ldk-node` to `litd` path. It now reaches live
-asset-channel funding, confirms the channel, and sees `litd` report the
-channel usable for asset keysend. It now blocks at
-`live_asset_channel_payment_settlement`: the live asset keysend remains
-`IN_FLIGHT` after Rust Lightning accepts the peer `commitment_signed`,
-completes monitor update `1`, and releases `revoke_and_ack`; Lightning Labs
-then rejects our outgoing HTLC signature. The current fork pin now derives
-exact previous-output-bound second-level HTLC aux leaves before signing. #81
-now needs that live rerun, receiver claim, witness/control-block construction,
-and observed balances before it can close.
+asset-channel funding, confirms the channel, sees `litd` report the channel
+usable for asset keysend, settles a Lightning Labs to native asset keysend, and
+records the native receiver balance through fork-backed `ldk-node`. It still
+blocks at `live_asset_channel_payment_settlement` because after success
+Lightning Labs force-closes with `invalid commitment`, and the on-chain
+HTLC-success fallback/broadcast path needs transcript and witness cleanup.
 
 Artifacts land in:
 
@@ -1297,10 +1292,10 @@ Until those are done, Track B must keep saying:
 
 The shortest path is now the open issue sequence:
 
-1. Finish #77 through #81: create `OpenAgentsInc/ldk-node`, pin it to the
-   OpenAgentsInc `rust-lightning` fork, expose simple-taproot and Taproot
-   Asset channel config, wire asset messages/payment APIs, and replace the
-   upstream-runtime preflight with fork-backed live settlement.
+1. Finish #81: the fork-backed live runtime already settles Lightning Labs to
+   native and records native receiver balance. The remaining work is the
+   post-success `invalid commitment` force-close transcript plus on-chain
+   HTLC-success fallback/broadcast path.
 
 2. Finish #57: live `tap-ldk` pays Lightning Labs.
    - Use `scripts/lightning-labs-counterparty.sh` for standalone proof/balance
