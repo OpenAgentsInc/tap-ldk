@@ -18,9 +18,9 @@ reference repos.
 | Taproot Assets reference implementation | https://github.com/lightninglabs/taproot-assets | `../projects/lightninglabs/repos/taproot-assets` | `743db21da57b` |
 | LND reference implementation | https://github.com/lightningnetwork/lnd | `../projects/lightninglabs/repos/lnd` | `9f03672bdaba` |
 | Rust Lightning / LDK | https://github.com/lightningdevkit/rust-lightning | `../projects/ldk/repos/rust-lightning` | `0c37f08a55c0` |
-| OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `0d587fbe4259` |
+| OpenAgentsInc rust-lightning fork | https://github.com/OpenAgentsInc/rust-lightning | owned fork | `057d0e7c524f` |
 | LDK Node upstream | https://github.com/lightningdevkit/ldk-node | `../projects/ldk/repos/ldk-node` | reference |
-| OpenAgentsInc ldk-node fork | https://github.com/OpenAgentsInc/ldk-node | owned fork | `38f53969c90f` |
+| OpenAgentsInc ldk-node fork | https://github.com/OpenAgentsInc/ldk-node | owned fork | `c08bdddf7a03` |
 | Polar regtest reference | https://github.com/jamaljsr/polar | `../projects/repos/polar` | `ee3ae493d613` |
 
 ## Reference Rules

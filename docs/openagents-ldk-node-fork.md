@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `38f53969c90f0f3178d0617a212d77b7ea2316f1`
+  `c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`
 - Current `rust-lightning` fork commit:
-  `0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
+  `057d0e7c524f7b1255cabf22ae9f7fc261256aea`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `38f53969c90f0f3178d0617a212d77b7ea2316f1` pin
-   `OpenAgentsInc/rust-lightning@0d587fbe4259145dd576fd5255ac9acc4b06a0f4`,
+   `c08bdddf7a03cbbd9cd954fcde72a37a9b22968c` pin
+   `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -51,17 +51,20 @@ coverage.
    encoding, full counterparty commitment monitor persistence, and exact
    previous-output-bound second-level HTLC aux leaves from the Rust Lightning
    fork. It also reports the claimed-HTLC balance-output fix in the runtime
-   provenance path. The fork does not advertise STXO support until native STXO
-   commitment leaves are implemented and verified.
+   provenance path and carries BOLT simple-taproot zero legacy signature-field
+   serialization/rejection for funding and commitment messages. The fork does
+   not advertise STXO support until native STXO commitment leaves are
+   implemented and verified.
 5. #81 now uses fork-backed live settlement against independent integrated
    Lightning Labs `litd`. The latest completed live run settled the Lightning
    Labs to native direction and recorded native receiver balance. The current
    pin adds post-claim balance-output aux-leaf placement for claimed
-   full-amount asset HTLCs, but the latest rerun still fails after settlement:
-   native LDK rejects `litd`'s zero-HTLC post-claim commitment with
-   `Invalid simple-taproot commitment partial signature`, and the local
-   force-close commitment broadcast fails with an invalid Taproot control
-   block. #81 remains open until both paths are clean.
+   full-amount asset HTLCs and fixes the legacy signature-field wire rule, but
+   the latest live failure remains after settlement: native LDK rejects `litd`'s
+   zero-HTLC post-claim commitment with `Invalid simple-taproot commitment
+   partial signature`, and the local force-close commitment broadcast fails with
+   an invalid Taproot control block. #81 remains open until both paths are
+   clean.
 
 ## Invariants
 

@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
-- `OpenAgentsInc/ldk-node@38f53969c90f0f3178d0617a212d77b7ea2316f1`
+- `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`
+- `OpenAgentsInc/ldk-node@c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`
 - `tap-ldk` pinned to those forks
 
 ## Summary
@@ -22,12 +22,6 @@ cooperative-close message types.
 It does not fully implement the current spec yet. The most important gaps for
 #81 are:
 
-- native simple-taproot `funding_created`, `funding_signed`, and
-  `commitment_signed` still carry non-zero legacy ECDSA signature fields from
-  existing LDK signing paths; the spec requires the legacy field to be a
-  64-byte zero array;
-- native receivers ignore the legacy signature field for simple-taproot
-  commitments instead of failing if it is non-zero;
 - the latest live #81 run rejects `litd`'s zero-HTLC post-claim commitment with
   `Invalid simple-taproot commitment partial signature`, so the implemented
   post-claim transaction, nonce, aggregate key, or Taproot Asset tapscript-root
@@ -42,7 +36,16 @@ It does not fully implement the current spec yet. The most important gaps for
   requirements.
 
 The audit result is therefore: **not spec complete**. The next #81 work should
-be a spec-aligned fix pass, not another isolated Taproot Assets overlay patch.
+stay limited to the live settlement blocker. The rest of the BOLT conformance
+work is split into the issue set in
+`docs/bolt-simple-taproot-spec-compliance-issues.md`.
+
+Follow-up update: `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`
+now serializes 64 zero bytes for the legacy `signature` field when a
+simple-taproot MuSig2 partial-signature TLV is present in `funding_created`,
+`funding_signed`, or `commitment_signed`, and rejects non-zero legacy fields on
+decode. `OpenAgentsInc/ldk-node@c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`
+pins that fix for the live runtime.
 
 ## Why This Matters For #81
 
@@ -78,9 +81,9 @@ requirements.
 | Public-channel prohibition | A simple-taproot opener must not set `announce_channel`. | `get_initial_channel_type` can select simple-taproot based on config and peer features; `get_open_channel` still copies `announce_for_forwarding` into `channel_flags`. | Gap | Reject or clear public announcement when selecting simple-taproot or Taproot Asset channel types. Add a regression. |
 | TLV wire types | Fixed TLV payloads: type 2 partial signature with nonce, type 4 next local nonce, type 6 partial signature, type 8 shutdown nonce, type 22 nonce map. | `lightning/src/ln/simple_taproot.rs` defines the fixed constants and validates 66-byte public nonces as two compressed secp points. `msgs.rs` round-trips these TLVs. | Implemented | Keep vector tests pinned to the upstream BOLT fixture payloads. |
 | `open_channel` / `accept_channel` nonces | Messages must include type 4 `next_local_nonce`; receivers fail on absent or invalid nonces. | Open/accept generation derives counter nonces. Missing peer nonces are stored as `None` and later cause signing/validation failure; invalid points fail parse. | Partial | Fail immediately during open/accept validation for simple-taproot channels when the nonce is absent. |
-| Funding partials | `funding_created` and `funding_signed` legacy `signature` field must be 64 zero bytes; type 2 MuSig2 partial must be present and valid. | Type 2 MuSig2 partials are generated and validated. Existing LDK ECDSA signature fields are still populated in native messages. | Gap | Serialize zero legacy signatures for simple-taproot funding messages and reject non-zero peer legacy signatures. |
+| Funding partials | `funding_created` and `funding_signed` legacy `signature` field must be 64 zero bytes; type 2 MuSig2 partial must be present and valid. | Type 2 MuSig2 partials are generated and validated. Current wire serialization emits zero legacy fields when the simple-taproot TLV is present and rejects non-zero peer legacy fields. | Implemented for wire field | Keep live interop and functional coverage around funding message acceptance. |
 | `channel_ready` nonce | Message must include a fresh type 4 nonce. | `check_get_channel_ready` sends a nonce and `channel_ready` handling requires it for simple-taproot funding. | Implemented | Add a missing-nonce functional regression if not already covered by message tests. |
-| `commitment_signed` partial | Legacy `signature` field must be zero; type 2 partial must verify; HTLC signatures must be BIP340 Schnorr in the existing HTLC field. | Type 2 partial validation and BIP340 HTLC verification exist. Native outgoing messages still carry non-zero legacy ECDSA signatures, and incoming non-zero legacy signatures are ignored for simple-taproot. | Gap | Zero outgoing legacy fields and fail on non-zero incoming legacy fields. Add tests for funding and commitment messages. |
+| `commitment_signed` partial | Legacy `signature` field must be zero; type 2 partial must verify; HTLC signatures must be BIP340 Schnorr in the existing HTLC field. | Type 2 partial validation and BIP340 HTLC verification exist. Current wire serialization emits a zero legacy field when the simple-taproot TLV is present and rejects non-zero peer legacy fields. | Partial | The legacy field rule is fixed; the live post-claim MuSig2 partial-signature transcript still mismatches `litd`. |
 | `revoke_and_ack` nonce map | Type 22 `next_local_nonces` must include one entry for each active funding txid. | `simple_taproot_next_local_nonces` builds a map across current and pending funding; receipt validates expected txids. A legacy scalar type 4 compatibility path is still accepted for a single funding txid. | Partial | Make type 22 the authoritative path for spec mode; keep scalar compatibility only under an explicit `litd` compatibility note or remove it after interop is stable. |
 | `channel_reestablish` nonce map | Type 22 must be sent and checked for every active commitment; retransmitted commits must regenerate partials with new nonces. | Reestablish sends the nonce map and stores received maps. Sent commitment signatures are persisted by funding txid and nonce index. | Partial | Add a reconnect test that forces retransmission and proves the partial is regenerated against the newly received nonce map. |
 | Splice coordination | Every active splice/funding txid needs a distinct nonce entry. | Expected txid calculation includes current funding and pending funding. No live or vector proof of concurrent splice maps exists. | Partial | Add bounded splice nonce-map tests or mark splicing out of the first demo's acceptance criteria. |
@@ -93,26 +96,42 @@ requirements.
 | Cooperative close | `shutdown`, `closing_complete`, and `closing_sig` carry MuSig2 nonces/partials; aggregate final Schnorr signature; rotate closee nonces for RBF. | Message structs and channel logic exist behind `simple_close` plus `simple_taproot_musig2`; shutdown nonce persistence exists. | Partial | Run native and `litd` cooperative close coverage before closing #61 or #71. |
 | Formal/spec vectors | BOLT vectors should cover TLVs, scripts, commitments, HTLCs, signatures, and trimming. | Vector replay exists for implemented base surfaces. Live #81 shows missing transcript coverage for post-claim zero-HTLC state and force-close witnesses. | Partial | Import the failing live transcript as a non-secret regression fixture and add exact BOLT transcript assertions. |
 
-## Required #81 Work From This Audit
+## Required Work From This Audit
 
-1. Add a focused rust-lightning regression for simple-taproot legacy signature
-   zeroing and non-zero legacy signature rejection in `funding_created`,
-   `funding_signed`, and `commitment_signed`.
-2. Convert the latest live post-claim zero-HTLC transcript into a fixture test:
+Completed follow-up from this audit:
+
+- `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`
+  adds a focused regression for simple-taproot legacy signature zeroing and
+  non-zero legacy signature rejection in `funding_created`, `funding_signed`,
+  and `commitment_signed`.
+
+Remaining work that blocks #81:
+
+1. Convert the latest live post-claim zero-HTLC transcript into a fixture test:
    funding txid, nonce index, local nonce, counterparty nonce, partial
    signature, sighash, tapscript root, transaction hex, and channel balances.
-3. Use that fixture to determine whether native is deriving the wrong
+2. Use that fixture to determine whether native is deriving the wrong
    transaction, wrong Taproot Asset tapscript root, wrong aggregate nonce, or
    wrong aggregate key for `litd`'s post-claim `commitment_signed`.
-4. Fix the force-close witness builder so the local commitment transaction
+3. Fix the force-close witness builder so the local commitment transaction
    spends the funding output with a valid Taproot control block or with the
    correct simple-taproot key-path signature where the BOLT expects key-path
    spending.
-5. Make type 22 `next_local_nonces` the spec path for RAA and reestablish,
+
+Remaining work that should be tracked outside #81 before #61 closes:
+
+1. Enforce the BOLT rule that simple-taproot channels are private and must not
+   set `announce_channel`.
+2. Fail simple-taproot `open_channel` / `accept_channel` immediately when the
+   required type-4 `next_local_nonce` is missing.
+3. Make type 22 `next_local_nonces` the spec path for RAA and reestablish,
    then prove reconnect/retransmission regenerates partial signatures from the
    newly received nonces.
-6. After the live #81 run is clean, run BTC-only simple-taproot open/pay,
+4. After the live #81 run is clean, run BTC-only simple-taproot open/pay,
    reestablish, cooperative close, and force-close checks before closing #61.
+5. Live-prove cooperative close for simple-taproot channels.
+6. Add bounded splice nonce-map coverage or explicitly mark concurrent splicing
+   out of the first demo's acceptance criteria.
 
 ## Closure Rule
 

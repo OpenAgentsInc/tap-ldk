@@ -100,14 +100,14 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
+- `OpenAgentsInc/rust-lightning@057d0e7c524f7b1255cabf22ae9f7fc261256aea`
   applies the current concrete fixes from this audit: second-level Taproot
   Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields, full Taproot Asset counterparty commitments are
   persisted through monitor updates, outgoing HTLC signatures use exact
   previous-output-bound second-level aux leaves, and post-claim commitments
   move claimed full-amount asset HTLCs into the rightful balance output.
-- `OpenAgentsInc/ldk-node@38f53969c90f0f3178d0617a212d77b7ea2316f1` pins that
+- `OpenAgentsInc/ldk-node@c08bdddf7a03cbbd9cd954fcde72a37a9b22968c` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The latest completed live rerun before the exact-leaf pin produced:
@@ -129,9 +129,9 @@ The newer owner-state rerun moved past that blocker:
 - artifact directory:
   `target/live-lightning-labs-outgoing-payment-owner-state/`
 - `OpenAgentsInc/rust-lightning`:
-  `0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
+  `057d0e7c524f7b1255cabf22ae9f7fc261256aea`
 - `OpenAgentsInc/ldk-node`:
-  `38f53969c90f0f3178d0617a212d77b7ea2316f1`
+  `c08bdddf7a03cbbd9cd954fcde72a37a9b22968c`
 - live report status: `blocked`
 - blocked step: `live_asset_channel_payment_settlement`
 - LND payment wire status: `SUCCEEDED`
@@ -149,9 +149,11 @@ post-claim local and remote commitment transactions, asset allocation,
 signatures, tapscript roots, and force-close control block against the
 Lightning Labs transcript before touching unrelated signing policy. The BOLT
 simple-taproot spec audit in
-`docs/bolt-simple-taproot-implementation-audit-2026-05-28.md` adds one more
-mandatory gate: native simple-taproot funding and commitment messages must
-zero legacy signature fields and reject non-zero peer legacy fields.
+`docs/bolt-simple-taproot-implementation-audit-2026-05-28.md` already moved one
+mandatory gate into the fork: native simple-taproot funding and commitment
+messages now zero legacy signature fields and reject non-zero peer legacy
+fields. The remaining live gates are the post-claim partial-signature transcript
+and force-close control-block path.
 
 ## Failing Transcript
 
@@ -523,7 +525,7 @@ asset HTLCs into the correct post-claim balance output.
 
 Acceptance for this phase:
 
-- completed for the latest `0d587fbe...` rerun: the live log no longer
+- completed for the current `057d0e7c...` pin: the live log no longer
   contains `invalid_htlc_sig` for our outgoing HTLC signature;
 - the next fixture is now the post-claim zero-HTLC commitment partial-signature
   transcript, not the outgoing HTLC signature transcript;

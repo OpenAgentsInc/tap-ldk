@@ -54,9 +54,10 @@ The Lightning Labs path is not a live payment yet:
   commitment partial signature`, and the local force-close commitment
   broadcast fails Taproot control-block validation.
 - The 2026-05-28 BOLT simple-taproot audit confirms the fork is not yet spec
-  complete: native simple-taproot funding and commitment messages still need
-  legacy signature-field zeroing/rejection, plus a live-proven post-claim
-  signature transcript and broadcast-clean force-close witness.
+  complete. The current pin fixes legacy signature-field zeroing/rejection for
+  simple-taproot funding and commitment messages; the remaining gaps are the
+  live-proven post-claim signature transcript and broadcast-clean force-close
+  witness.
 - It records the live native receiver balance after settlement; the reverse
   native to Lightning Labs direction and Lightning Labs receiver balance delta
   remain #57 work.
@@ -391,12 +392,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `0d587fbe4259145dd576fd5255ac9acc4b06a0f4`
+- current revision: `057d0e7c524f7b1255cabf22ae9f7fc261256aea`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "0d587fbe4259145dd576fd5255ac9acc4b06a0f4", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "057d0e7c524f7b1255cabf22ae9f7fc261256aea", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -584,12 +585,13 @@ a real live demo:
   validation for Taproot Asset channels. Revision
   `c94f4570587e94e89740f5126a5fa70021b58de2` adds trace diagnostics and a
   regression fixture for the rejected simple-taproot HTLC signature
-  transcript. Revision `0d587fbe4259145dd576fd5255ac9acc4b06a0f4` adds the
-  current transcript fixes from that audit by encoding Lightning Labs
-  second-level virtual lock fields in Taproot Asset HTLC aux leaves, persisting
-  full Taproot Asset counterparty commitments through monitor updates, and
-  deriving exact previous-output-bound second-level HTLC aux leaves before
-  outgoing HTLC signing.
+  transcript. Follow-up revisions encode Lightning Labs second-level virtual
+  lock fields in Taproot Asset HTLC aux leaves, persist full Taproot Asset
+  counterparty commitments through monitor updates, derive exact
+  previous-output-bound second-level HTLC aux leaves before outgoing HTLC
+  signing, move claimed full-amount asset HTLCs into the receiver balance
+  output, and finally make simple-taproot funding/commitment messages write
+  zero legacy signature fields while rejecting non-zero peer legacy fields.
 - Channel type: normal BTC channels must not become asset channels implicitly.
   Initial fork support landed in
   `99ddb8b7033b3b5d056005c00ba650e716ed37da`.
