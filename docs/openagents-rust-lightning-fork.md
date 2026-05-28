@@ -248,12 +248,11 @@ bounded nonce-map vectors exist.
 Partial split/change-output support remains later #71 work after the bounded
 live path settles.
 
-Issue #61 remains open even though #62 through #70 and #75 are implemented.
-The epic can only close with the first-demo splice exclusion clearly recorded
-and the BOLT spec-compliance tracker closed; it must not be described as
-production-complete splice support. Issue #71 remains open until the Taproot
-Assets overlay is wired through those live paths and Path B interop records
-observed live balances.
+Issue #61 is closed for the first-demo BOLT simple-taproot scope: #62 through
+#70 and #75 are implemented, the #82 tracker is closed, and #90 records the
+concurrent-splice exclusion. Do not describe that as production-complete splice
+support. Issue #71 remains open until the Taproot Assets overlay is wired
+through those live paths and Path B interop records observed live balances.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the

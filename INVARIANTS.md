@@ -503,9 +503,10 @@ redacted. Do not commit:
 
 Do not claim these guarantees until implementation and verification exist:
 
-- The remaining open issue sequence is epics #61, #71, and #19. #81, #57,
-  #58, #59, and #60 are complete and remain live settlement, bidirectional
-  payment, restart, observed-balance, and semantic-proof regression gates.
+- The remaining open issue sequence is epics #71 and #19. #81, #57, #58, #59,
+  #60, and #61 are complete and remain live settlement, bidirectional payment,
+  restart, observed-balance, semantic-proof, and first-demo simple-taproot
+  regression gates.
 - Native strict BigSize/TLV primitives, native MS-SMT root/proof/compressed
   proof primitives, protocol-shaped `AssetCommitment`/`TapCommitment`
   construction, bounded synthetic asset identity/hash+sum conservation helpers,

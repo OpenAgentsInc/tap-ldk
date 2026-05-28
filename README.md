@@ -42,12 +42,12 @@ anchor rejection. Lightning Labs `TAPF` import decodes the latest `TAPP` asset
 leaf, derives the Taproot Assets asset ID from genesis, and checks asset ID,
 type, amount, owner script key, and genesis before wallet state advances.
 
-Spec-compliance work is split out of #81. #82 is complete for the first-demo
+Spec-compliance work is split out of #81. #61 is complete for the first-demo
 BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close
-paths are covered, and concurrent splicing is explicitly out of scope until
-bounded splice nonce-map vectors are added. Path B is not done until both
-payment directions stay green against Lightning Labs with observed
-post-settlement channel balances.
+paths are covered, legacy P2WSH channels stay isolated, and concurrent
+splicing is explicitly out of scope until bounded splice nonce-map vectors are
+added. Path B is not done until both payment directions stay green against
+Lightning Labs with observed post-settlement channel balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 

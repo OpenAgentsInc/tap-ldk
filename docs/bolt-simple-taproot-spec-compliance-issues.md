@@ -5,8 +5,9 @@ Date: 2026-05-28
 This document records the BOLT simple-taproot work that was split out of #81.
 #81 is complete and should stay a live Lightning Labs to native settlement
 regression gate.
-Broader BOLT conformance belongs in a separate issue set tracked under #61
-before the project claims simple-taproot support is complete.
+Broader production BOLT conformance after the first-demo claim belongs in a
+new focused issue set before the project claims production-complete
+simple-taproot support.
 
 ## Current Fork Line
 
@@ -76,15 +77,18 @@ tests for every active splice/funding txid's type-22 nonce-map entry.
 | #89 | Done | Prove native/fixture cooperative close and document the live Lightning Labs close boundary | Closed after fork pin and docs update |
 | #90 | Done | Cover splice nonce maps or explicitly gate splicing out of the first demo | Closed with machine-readable first-demo splice exclusion |
 
-## Before #61 Can Close
+## #61 Closure Result
 
-These are required for the first-demo simple-taproot claim but do not need to
-be stuffed into #81:
+The first-demo simple-taproot claim is closed by #61. The closure depends on
+these facts:
 
 1. Keep the concurrent-splicing exclusion visible in `README.md`,
    `ROADMAP.md`, `ARCHITECTURE.md`, this plan, and the BOLT implementation
    audit.
-2. Run `./scripts/check-simple-taproot-splice-policy.sh`.
+2. `./scripts/check-btc-simple-taproot-conformance.sh`,
+   `./scripts/check-simple-taproot-cooperative-close.sh`, and
+   `./scripts/check-simple-taproot-splice-policy.sh` pass against
+   `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`.
 
 These are still required before any production/simple-taproot-complete claim:
 
@@ -95,11 +99,12 @@ These are still required before any production/simple-taproot-complete claim:
 ## Closure Policy
 
 - Do not reopen or broaden #81 because a generic BOLT item remains. Keep #81's
-  live Path B settlement gate clean and track broader BOLT work under #61 or a
+  live Path B settlement gate clean and track broader production BOLT work in a
   focused child issue.
 - #82 is closeable for first-demo scope because all child issues #83 through
   #90 are closed and the splice exclusion is explicit.
-- Do not describe #61 as production-complete simple-taproot support until
-  splice nonce-map vectors replace the first-demo exclusion.
+- #61 is closed for first-demo scope. Do not describe it as
+  production-complete simple-taproot support until splice nonce-map vectors
+  replace the first-demo exclusion.
 - Do not close #71 or #19 until the simple-taproot base is clean enough for the
   Taproot Asset overlay claims made by the demo.
