@@ -567,11 +567,9 @@ conservation across the displayed topology.
 - Render LND/`tapd`/`litd` readiness separately.
 - Render live `tapd` proof binding and fork-backed `ldk-node` to `litd`
   preflight, including asset API readiness.
-- Show #81 as the completed Lightning Labs to native settlement gate, keep the
-  native-to-Lightning Labs direction blocked until #57 is done, keep the
-  reverse direction blocked until #58 is done, and do
-  not show Path B as complete until #59 replaces expected balances with
-  observed balances.
+- Show #81, #57, and #58 as completed live regression gates, and do not show
+  Path B as complete until #59 replaces expected balances with observed
+  balances.
 
 Exit condition: The app can run the current Path B wrapper, show fixture checks
 as passed, and show live settlement as blocked unless observed balances exist.

@@ -65,14 +65,12 @@ session. The `litd` peer preflight now proves that the OpenAgentsInc
 `rust-lightning` revision, opt into simple-taproot/Taproot Asset channel
 negotiation locally, observe remote simple-taproot and Taproot Asset channel
 support, reach typed asset-channel message/payment APIs, and complete the #81
-live Lightning Labs to native settlement gate plus the #57 native-to-`litd`
-return payment gate.
+live Lightning Labs to native settlement gate, the #57 native-to-`litd`
+return payment gate, and the #58 native receiver restart snapshot.
 
 Open issue path:
 
-1. #58: live Lightning Labs pays `tap-ldk` and `tap-ldk` persists the received
-   balance across restart.
-2. #59: Path B reports require observed live balances in both directions.
-3. #60: semantic proof ancestry validation replaces the remaining bounded
+1. #59: Path B reports require observed live balances in both directions.
+2. #60: semantic proof ancestry validation replaces the remaining bounded
    proof boundary.
-4. #19 closes only after those live and semantic gates pass.
+3. #19 closes only after those live and semantic gates pass.

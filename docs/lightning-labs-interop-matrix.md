@@ -53,7 +53,7 @@ split and lets `tap-ldk` implement the Taproot Assets logic natively.
 | Quote expiry | `itest/custom_channels/invoice_expiry_test.go`; `rfq/manager_test.go`; `docs/lightning-labs-rfq-invoice.md` | RFQ request/accept expiry, invoice expiry, quote expiry, and replay checks are enforced in the bounded interop smoke. Live daemon expiry behavior still needs Track B payment execution. | Partially implemented |
 | Multi-RFQ and routing | `itest/custom_channels/multi_rfq_test.go`; `itest/custom_channels/multi_channel_pathfinding_test.go` | Out of first-demo scope except as a compatibility note. | Deferred |
 | Payment direction: `tap-ldk` pays Lightning Labs | `itest/custom_channels/core_test.go`; `itest/custom_channels/single_asset_multi_input_test.go`; `itest/custom_channels/strict_forwarding_test.go`; `docs/lightning-labs-outgoing-payment.md`; `scripts/live-lightning-labs-outgoing-payment.sh` | Sender-side Track B artifacts are built and persisted, and the live gate now completes the bidirectional integrated-`litd` path: `litd` pays native LDK, native LDK records the received asset, native LDK sends the asset back with the canonical Taproot Asset HTLC blob and dust-covering BTC amount, and observed `litd` channel balance reflects the returned amount. | Implemented as live regression |
-| Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go`; `docs/lightning-labs-incoming-payment.md` | Receiver-side Track B artifacts are built and persisted, and the live integrated `litd` keysend now settles into native LDK with durable receiver balance. The post-success zero-HTLC commitment partial-signature mismatch and force-close Taproot control-block failure are fixed in the current fork line; #58 still needs the full named reverse-direction acceptance flow and restart proof. | Partially implemented |
+| Payment direction: Lightning Labs pays `tap-ldk` | `itest/custom_channels/core_test.go`; `tapchannel/aux_invoice_manager.go`; `docs/lightning-labs-incoming-payment.md` | Receiver-side Track B artifacts are built and persisted, and the live integrated `litd` keysend settles into native LDK with durable receiver payment/balance state. `target/live-lightning-labs-outgoing-payment-issue58-rerun/report.json` has `issue_58_acceptance_met=true` and a completed native restart snapshot. | Implemented as live regression |
 | Balance comparison | `tapchannelmsg/wire_msgs_test.go`; `tapchannelmsg/records.go`; `itest/custom_channels/balance_consistency_test.go`; `docs/lightning-labs-interop-checks.md` | Automated interop check report compares funding balances, HTLC RFQ metadata, RFQ message types, proof availability, both payment-direction asset IDs, expected balance deltas, metadata rejection checks, restart round trips, simple-taproot asset-channel lifecycle state, close/proof recovery, and explicit observed-balance gates. Live native receiver balance is observed for Lightning Labs to native, and #57 observes the returned `litd` channel asset balance for native to Lightning Labs. #59 still needs the broader Path B completion report to replace documented gaps with these observed live gates. | Partially implemented |
 | Cooperative close | `tapchannel/aux_closer.go`; `itest/custom_channels/restart_coop_close_test.go`; `docs/simple-taproot-cooperative-close-2026-05-28.md` | Native simple-taproot cooperative close asserts the final P2TR key-path witness, Taproot Asset close preserves the latest allocation across restart, and the `litd` harness exposes `close-asset-channel`. Live post-close proof/balance observation remains documented, not claimed. | Fixture-backed with live boundary |
 | Force close | `tapchannel/aux_sweeper.go`; `itest/custom_channels/force_close_test.go`; `itest/custom_channels/htlc_force_close_test.go` | Bounded proof-ownership recovery records now exist for commitment, second-level HTLC, and final sweep paths, and BTC-only sweep state is refused as asset recovery. Live daemon-backed resolver/sweeper interop remains open. | Partially implemented |
@@ -70,21 +70,17 @@ directions in one channel run:
 - `litd` settles the receive invoice and reports the returned channel asset
   balance.
 
-Lightning Labs pays `tap-ldk` is the second direction because it requires a
-native receiver invoice/final-hop path in `tap-ldk`. The bounded receive-side
-artifacts now exist, but live LND/`tapd` sender execution and observed durable
-`tap-ldk` balance comparison are still required before this direction can be
-reported as settled interop.
+Lightning Labs pays `tap-ldk` is now covered by the same integrated-`litd`
+live regression. The bounded receive-side artifacts still exist separately, and
+the live report now proves native receiver settlement plus restart persistence.
 
 ## Follow-Up Implementation Issues
 
 Close the remaining issues in this order:
 
-1. #58: drive the reverse Lightning Labs sender flow into `tap-ldk`, persist
-   the received balance/proof reference, and verify restart.
-2. #59: replace expected-only payment deltas with observed balance comparison
+1. #59: replace expected-only payment deltas with observed balance comparison
    checks after both live interop payments.
-3. #60: extend proof import/export from byte-compatible `TAPF` preservation to
+2. #60: extend proof import/export from byte-compatible `TAPF` preservation to
    full semantic proof ancestry validation and wire it into funding, HTLC,
    close, and recovery.
 4. Close #19 only when Path B reports live settlement in both directions and

@@ -42,9 +42,9 @@ and the RAA/reestablish nonce field path:
   requirements and is explicitly excluded from the first public demo by #90.
 
 The audit result is therefore: **first-demo scoped, not production splice
-complete**. The #81 live settlement blocker is now cleared; keep that live gate
-green as a regression while the remaining Path B work moves through #57, #58,
-#59, and #60. The rest of the BOLT conformance work is split into the issue set
+complete**. The #81 live settlement blocker is now cleared; keep the #81, #57,
+and #58 live gates green as regressions while the remaining Path B work moves
+through #59 and #60. The rest of the BOLT conformance work is split into the issue set
 in `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
 Follow-up update: `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
@@ -165,6 +165,6 @@ Remaining work that should be tracked outside #81 before #61 closes:
 
 #81 may close from the current pin plus the completed live rerun at
 `target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json`. Do not
-close #57, #58, #59, #60, #71, or #19 from that gate alone. Do not describe #61
+close #59, #60, #71, or #19 from that gate alone. Do not describe #61
 as production-complete simple-taproot support until bounded splice nonce-map
 vectors replace the first-demo splice exclusion.

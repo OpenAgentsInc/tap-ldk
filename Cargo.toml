@@ -23,7 +23,7 @@ url = "https://github.com/OpenAgentsInc/ldk-node.git"
 upstream = "https://github.com/lightningdevkit/ldk-node.git"
 base_version = "0.7.0"
 rev = "eb61dde920493afe1037ec299888c10bc353e33a"
-tracking_issues = [77, 78, 79, 80, 81, 57]
+tracking_issues = [77, 78, 79, 80, 81, 57, 58]
 strategy = "Fork ldk-node for the live demo runtime so it can use the OpenAgentsInc rust-lightning simple-taproot and Taproot Asset channel surfaces."
 
 [patch."https://github.com/lightningdevkit/rust-lightning"]

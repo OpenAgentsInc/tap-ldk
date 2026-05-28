@@ -10,18 +10,20 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
   `eb61dde920493afe1037ec299888c10bc353e33a`
 - Current `rust-lightning` fork commit:
   `4a3cea6d859d172144e7010a38dc821db7fa5a5b`
-- Tracking issues: #77, #78, #79, #80, #81, #57
+- Tracking issues: #77, #78, #79, #80, #81, #57, #58
 
 ## Why This Fork Exists
 
-The current #57 live preflight uses the OpenAgentsInc `ldk-node` fork. That
+The current #57/#58 live preflight uses the OpenAgentsInc `ldk-node` fork. That
 proves a native LDK node can connect to integrated Lightning Labs `litd`, that
 the runtime is built against the OpenAgentsInc `rust-lightning` fork, that the
 live node opts into simple-taproot plus Taproot Asset channel negotiation, and
 that the fork exposes typed Taproot Asset message/channel/payment APIs. It
 now records both the native receiver-side Taproot Asset payment for the live
 Lightning Labs to native keysend path and the native-to-`litd` return payment
-used to close #57.
+used to close #57. The live #58 restart snapshot now also proves the received
+Lightning Labs payment/balance checkpoint reloads from the same fork-backed
+storage after the native process is stopped.
 
 A direct lower-level `rust-lightning` node is possible, but the narrow
 `ldk-node` fork is the chosen route because it preserves node lifecycle, chain
@@ -75,6 +77,9 @@ coverage.
    emits the canonical Lightning Labs outer-TLV Taproot Asset HTLC blob, and
    the live harness sends 354,000 msat with the 125-unit asset HTLC so LND's
    dust check passes.
+7. #58 uses the same fork-backed runtime to reload the native receiver state
+   after the live Lightning Labs keysend. The restart snapshot checks that the
+   settled remote-to-local payment and its received balance checkpoint persist.
 
 ## Invariants
 

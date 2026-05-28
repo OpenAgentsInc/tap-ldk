@@ -24,7 +24,7 @@ use tap_ldk_core::{
     lightning_labs_rfq::run_lightning_labs_rfq_invoice_compat_smoke,
     live_litd_peer::{
         LiveLitdNativeAssetSendRequest, LiveLitdPeerPreflightRequest, run_live_litd_peer_hold,
-        run_live_litd_peer_preflight,
+        run_live_litd_peer_preflight, run_live_litd_peer_restart_snapshot,
     },
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
@@ -175,6 +175,38 @@ fn main() {
                 }
             };
             print_json_or_exit(&report, "live litd peer hold report");
+        }
+        [
+            command,
+            report_path,
+            storage_dir,
+            litd_node_id,
+            litd_address,
+            payment_id,
+            asset_id,
+            asset_amount,
+        ] if command == "live-litd-peer-restart-snapshot" => {
+            let mut request =
+                LiveLitdPeerPreflightRequest::new(storage_dir, litd_node_id, litd_address);
+            apply_regtest_env_to_live_litd_request(&mut request);
+            let report = match run_live_litd_peer_restart_snapshot(
+                request,
+                parse_asset_id_or_exit(payment_id).0,
+                parse_asset_id_or_exit(asset_id).0,
+                parse_u64_or_exit(asset_amount, "asset amount"),
+            ) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live litd peer restart snapshot: {err}");
+                    process::exit(1);
+                }
+            };
+            save_json_or_exit(
+                report_path,
+                &report,
+                "live litd peer restart snapshot report",
+            );
+            print_json_or_exit(&report, "live litd peer restart snapshot report");
         }
         [
             command,
@@ -888,6 +920,9 @@ fn print_help(info: ProjectInfo) {
     );
     println!(
         "  tap-ldk live-litd-peer-hold <report.json> <storage-dir> <litd-node-id> <litd-address> <hold-seconds> [native-send-asset-id native-send-asset-amount native-send-msat]"
+    );
+    println!(
+        "  tap-ldk live-litd-peer-restart-snapshot <report.json> <storage-dir> <litd-node-id> <litd-address> <payment-id> <asset-id> <asset-amount>"
     );
     println!("  tap-ldk asset-negotiation-smoke <asset-id>");
     println!("  tap-ldk asset-peer-message-smoke <asset-id>");

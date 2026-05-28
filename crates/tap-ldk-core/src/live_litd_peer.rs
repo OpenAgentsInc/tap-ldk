@@ -140,6 +140,26 @@ pub struct LiveLitdPeerPreflightReport {
     pub remaining_asset_channel_gap: String,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LiveLitdPeerRestartSnapshotReport {
+    pub status: String,
+    pub network: String,
+    pub storage_dir_path: String,
+    pub native_node_id: String,
+    pub expected_payment_id: String,
+    pub expected_asset_id: [u8; 32],
+    pub expected_asset_amount: u64,
+    pub live_node_asset_channel_count: usize,
+    pub live_node_asset_payment_count: usize,
+    pub live_node_asset_channels: Vec<TaprootAssetChannelStatus>,
+    pub live_node_asset_payments: Vec<TaprootAssetPaymentStatus>,
+    pub matched_payment: Option<TaprootAssetPaymentStatus>,
+    pub matched_channel: Option<TaprootAssetChannelStatus>,
+    pub received_asset_payment_persisted: bool,
+    pub received_asset_balance_persisted: bool,
+    pub restart_state_matches: bool,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LiveLitdNativeAssetSendRequest {
     pub asset_id: [u8; 32],
@@ -347,6 +367,89 @@ pub fn run_live_litd_peer_hold(
     Ok(latest_report)
 }
 
+pub fn run_live_litd_peer_restart_snapshot(
+    request: LiveLitdPeerPreflightRequest,
+    expected_payment_id: [u8; 32],
+    expected_asset_id: [u8; 32],
+    expected_asset_amount: u64,
+) -> Result<LiveLitdPeerRestartSnapshotReport, LiveLitdPeerError> {
+    let request = request.validate()?;
+    let node = build_node(&request)?;
+    let native_node_id = node.node_id();
+    let snapshot = asset_runtime_snapshot(&node);
+    let expected_payment_id_hex = hex32(expected_payment_id);
+
+    let matched_payment = snapshot
+        .payments
+        .iter()
+        .find(|payment| {
+            payment.payment_id == expected_payment_id_hex
+                && payment.direction == "remote_to_local"
+                && payment.asset_id == expected_asset_id
+                && payment.asset_amount == expected_asset_amount
+                && payment.status == "settled"
+        })
+        .cloned();
+    let matched_channel = matched_payment
+        .as_ref()
+        .and_then(|payment| {
+            snapshot
+                .channels
+                .iter()
+                .find(|channel| channel.channel_id == payment.channel_id)
+        })
+        .or_else(|| {
+            snapshot.channels.iter().find(|channel| {
+                channel.asset_id == expected_asset_id
+                    && channel.local_balance >= expected_asset_amount
+                    && !channel.closed
+            })
+        })
+        .cloned();
+
+    let received_asset_payment_persisted = matched_payment.is_some();
+    let received_payment_balance_persisted = matched_payment
+        .as_ref()
+        .map(|payment| payment.local_balance_after >= expected_asset_amount)
+        .unwrap_or(false);
+    let received_channel_balance_persisted = matched_channel
+        .as_ref()
+        .map(|channel| {
+            channel.asset_id == expected_asset_id
+                && channel.local_balance >= expected_asset_amount
+                && channel.monitor_aux_persisted
+                && !channel.closed
+        })
+        .unwrap_or(false);
+    let received_asset_balance_persisted =
+        received_payment_balance_persisted || received_channel_balance_persisted;
+    let restart_state_matches =
+        received_asset_payment_persisted && received_asset_balance_persisted;
+
+    Ok(LiveLitdPeerRestartSnapshotReport {
+        status: if restart_state_matches {
+            "completed".to_owned()
+        } else {
+            "blocked".to_owned()
+        },
+        network: "regtest".to_owned(),
+        storage_dir_path: request.storage_dir_path.display().to_string(),
+        native_node_id: native_node_id.to_string(),
+        expected_payment_id: expected_payment_id_hex,
+        expected_asset_id,
+        expected_asset_amount,
+        live_node_asset_channel_count: snapshot.channels.len(),
+        live_node_asset_payment_count: snapshot.payments.len(),
+        live_node_asset_channels: snapshot.channels,
+        live_node_asset_payments: snapshot.payments,
+        matched_payment,
+        matched_channel,
+        received_asset_payment_persisted,
+        received_asset_balance_persisted,
+        restart_state_matches,
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 fn build_report(
     request: &ValidatedLiveLitdPeerPreflightRequest,
@@ -541,6 +644,10 @@ fn parse_hex32(input: &str) -> Result<[u8; 32], LiveLitdPeerError> {
             .map_err(|err| LiveLitdPeerError::AssetRuntime(err.to_string()))?;
     }
     Ok(out)
+}
+
+fn hex32(input: [u8; 32]) -> String {
+    input.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn now_unix_seconds() -> Result<u64, LiveLitdPeerError> {

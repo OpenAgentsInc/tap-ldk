@@ -29,10 +29,9 @@ Concurrent simple-taproot splicing is explicitly excluded from the first public
 demo until bounded splice nonce-map tests are added.
 The latest live run no longer logs the post-claim partial-signature failure,
 invalid Taproot control-block failure, invalid commitment failure, or
-counterparty force-close. #81 and #57 are completed regression gates. Path B
-still needs the issue-specific Lightning Labs-to-native receive/restart proof
-(#58), live-gap replacement (#59), and full semantic proof ancestry validation
-(#60) before the Path B epic can close.
+counterparty force-close. #81, #57, and #58 are completed regression gates.
+Path B still needs live-gap replacement (#59) and full semantic proof ancestry
+validation (#60) before the Path B epic can close.
 
 Spec-compliance work is split out of #81. #82 is complete for the first-demo
 BOLT simple-taproot scope: the base open/pay/reestablish/close/force-close

@@ -12,16 +12,14 @@ receiver balance delta, and persists a restart-safe interop payment state.
 cargo run -p tap-ldk-cli -- lightning-labs-incoming-payment-smoke fixtures/lightning-labs/tapchannelmsg/testdata target/lightning-labs-incoming-payment.json
 ```
 
-The stored status is `stopped_at_live_daemon_gap`. This is intentional: the
-current smoke does not drive a live LND/`tapd` sender or observe a durable
-`tap-ldk` receiver balance. It records the expected balance change and the
-exact remaining gap instead of reporting a successful interop settlement.
-
-This issue follows #57. Once `tap-ldk` can pay Lightning Labs over the live
-asset-channel path, the reverse direction must expose the native receive path
-to the Lightning Labs sender, validate the received asset HTLC metadata through
-the LDK/fork boundary, persist the received proof reference and balance, and
-prove restart does not lose that state.
+The fixture smoke still stores `stopped_at_live_daemon_gap` because it is a
+bounded artifact builder, not a live daemon test. The live incoming direction
+now runs through `./scripts/live-lightning-labs-outgoing-payment.sh`: integrated
+`litd` funds the asset channel, pays native LDK, native LDK records the settled
+remote-to-local asset payment, then the harness restarts the native storage and
+verifies the received payment/balance checkpoint reloads. The latest #58 run is
+`target/live-lightning-labs-outgoing-payment-issue58-rerun/report.json` with
+`issue_58_acceptance_met=true`.
 
 ## Checks
 
@@ -32,11 +30,13 @@ prove restart does not lose that state.
 - Encodes, decodes, and validates final-hop asset HTLC custom records.
 - Rejects stale, wrong-amount, malformed, and replayed receive metadata.
 - Persists the incoming payment gap state and reloads it unchanged.
+- The live gate includes
+  `native-ldk-litd-peer-restart-snapshot.json`, which proves the received
+  Lightning Labs payment survives a native-node restart.
 
 ## Next Step
 
-Run these same RFQ, invoice, and HTLC artifacts through the headless or
-Polar-backed Lightning Labs sender, then replace the expected `tap-ldk`
-receiver balance with an observed durable settlement balance before claiming
-Track B payment success. #59 should only close after both this observed balance
-and the #57 Lightning Labs receiver balance are present in the Path B report.
+#58 is complete. #59 now owns the consolidated Path B completion report: it
+must consume the observed live balances and non-secret proof/payment references
+from #57 and #58 instead of allowing expected-only fixture values to read as
+live interop success.

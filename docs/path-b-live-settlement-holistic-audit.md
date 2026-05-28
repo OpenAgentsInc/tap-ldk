@@ -155,8 +155,9 @@ The newer #57 result changes the live diagnosis again. The bounded Lightning
 Labs to native direction settles and persists receiver balance, the native
 return payment settles into integrated `litd`, and the post-claim
 partial-signature transcript verifies. The #84 follow-up also fixes the stale
-funding-input control-block fallback symptom. The next live work is the #58
-issue-specific receive/restart proof and the #59 completion report.
+funding-input control-block fallback symptom. The #58 issue-specific
+receive/restart proof is now complete; the next live work is the #59 completion
+report.
 
 ## What Works
 
@@ -460,8 +461,8 @@ This must be fixed while the post-claim commitment transcript is made exact:
 
 ### Phase 6: Settle Both Live Directions
 
-Do not close #58, #59, #60, #61, #71, or #19 from fixture-only or readiness
-reports. Keep the closed #81 and #57 gates running as regressions.
+Do not close #59, #60, #61, #71, or #19 from fixture-only or readiness
+reports. Keep the closed #81, #57, and #58 gates running as regressions.
 
 Required live evidence before closure:
 
@@ -508,11 +509,9 @@ Close live issues only from observed settlement and observed balance state.
 The next step is to keep the #84 funding-input fallback regression in place and
 move the remaining live-demo work forward:
 
-1. Preserve the latest bidirectional #57 artifact with no post-claim
+1. Preserve the latest bidirectional #57/#58 artifact with no post-claim
    signature, invalid-control-block, invalid-commitment, or force-close marker.
-2. Finish the #58 issue-specific Lightning Labs to native receive/restart
-   proof.
-3. Finish the #59 Path B observed-balance completion switch.
+2. Finish the #59 Path B observed-balance completion switch.
 
 This keeps the project aligned with the invariant that asset-channel failures
 fail closed and that interop success requires live, observed settlement.

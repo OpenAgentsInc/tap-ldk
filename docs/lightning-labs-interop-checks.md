@@ -24,11 +24,11 @@ path can start the relevant Lightning Labs stacks, bind a live proof, run the
 native ordered asset-payment-session smoke, connect fork-backed `ldk-node` to
 integrated `litd`, exercise the fork-backed asset message/channel/payment APIs, settle
 Lightning Labs to native asset keysend, and record the native receiver asset
-balance. It still does not have the true native-to-Lightning Labs receiver
-balance delta, and it still records live cooperative close as a documented gap
-until native post-close proof and balance observation exists. #59 should only
-flip the Path B completion flag after #57 and #58 both record observed
-post-settlement balances.
+balance. #57 adds the native-to-Lightning Labs returned channel-balance
+observation, and #58 adds the native receiver restart snapshot. Live
+cooperative close still remains a documented gap until native post-close proof
+and balance observation exists. #59 should only flip the Path B completion flag
+after #57 and #58 both record observed post-settlement balances.
 
 ## Checks
 
@@ -52,8 +52,8 @@ post-settlement balances.
 
 - #57 must provide the live `tap-ldk` pays Lightning Labs observed receiver
   balance.
-- #58 must provide the live Lightning Labs pays `tap-ldk` observed durable
-  receiver balance.
+- #58 provides the live Lightning Labs pays `tap-ldk` observed durable receiver
+  balance and restart snapshot.
 - #59 must make `live_daemon_gaps_remaining=false` impossible unless both live
   directions agree on asset ID, amount, payment state, proof reference, and
   balances.
