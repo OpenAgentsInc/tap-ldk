@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `3264d96ee6dcbd37cec24473eac5982b1678a560`
+  `31a8c1b004572ed9a4ad299b534f5a874d005a71`
 - Current `rust-lightning` fork commit:
-  `90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+  `5256d1aa4731fe552e01705a235f8fe680ae4871`
 - Tracking issues: #77, #78, #79, #80, #81
 
 ## Why This Fork Exists
@@ -40,8 +40,8 @@ coverage.
    negotiation is enabled without simple taproot.
 4. #80 wires proof, funding, RFQ, quote, and asset HTLC messages plus typed
    asset-channel open/payment APIs. Follow-up fork commits through
-   `3264d96ee6dcbd37cec24473eac5982b1678a560` pin
-   `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`,
+   `31a8c1b004572ed9a4ad299b534f5a874d005a71` pin
+   `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`,
    advertise the Taproot Assets aux Init TLV `65545` with the Lightning Labs
    aux feature bit for no-op HTLCs, align Taproot Asset overlay negotiation
    with Lightning Labs `taproot-overlay-chans`, and expose connected-peer
@@ -52,8 +52,11 @@ coverage.
    previous-output-bound second-level HTLC aux leaves from the Rust Lightning
    fork. It also reports the claimed-HTLC balance-output fix in the runtime
    provenance path and carries BOLT simple-taproot zero legacy signature-field
-   serialization/rejection for funding and commitment messages. The fork does
-   not advertise STXO support until native STXO commitment leaves are
+   serialization/rejection for funding and commitment messages. The current
+   pin also carries the #84 holder commitment fallback fix: simple-taproot
+   force-close spends the P2TR funding input with the persisted aggregate
+   key-path Schnorr signature. The fork does not advertise STXO support until
+   native STXO commitment leaves are
    implemented and verified.
 5. #81 now uses fork-backed live settlement against independent integrated
    Lightning Labs `litd`. The latest completed live run settled the Lightning
@@ -61,8 +64,8 @@ coverage.
    pin adds post-claim balance-output aux-leaf placement for claimed
    full-amount asset HTLCs, fixes the legacy signature-field wire rule, and
    clears the live zero-HTLC post-claim partial-signature failure with a
-   regression fixture. #81 remains open until the force-close fallback path is
-   fixture-backed and clean.
+   regression fixture. It also clears the stale invalid-control-block fallback
+   symptom by carrying the persisted key-path holder commitment signature.
 
 ## Invariants
 

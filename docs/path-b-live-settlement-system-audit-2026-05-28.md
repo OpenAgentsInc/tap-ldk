@@ -19,15 +19,17 @@ fixture-backed, the virtual-lock and exact previous-output-bound HTLC aux-leaf
 fixes get the live run through `commitment_signed`, and fork-backed `ldk-node`
 now records the native receiver-side Taproot Asset balance. The latest
 post-claim-fix run also clears the zero-HTLC post-claim partial-signature
-failure and no longer logs an invalid Taproot control block. The active #81
-blocker is narrower now: the force-close/on-chain fallback path still needs a
-fixture-backed broadcast proof instead of relying on a live run where no
-force-close was triggered.
+failure and no longer logs an invalid Taproot control block. The current #84
+fork follow-up explains the old control-block error as a wrong funding-input
+witness shape: the holder force-close transaction was using a legacy 2-of-2
+P2WSH witness on a P2TR funding input. The fallback now persists the aggregate
+MuSig2 holder commitment signature and uses a one-element key-path Schnorr
+witness for that input.
 
 ## Current Update
 
 Latest live artifact:
-`target/live-lightning-labs-outgoing-payment-post-claim-fix/`.
+`target/live-lightning-labs-outgoing-payment-force-close-witness/`.
 
 Observed state:
 
@@ -108,14 +110,14 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
   applies the current concrete fixes from this audit: second-level Taproot
   Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields, full Taproot Asset counterparty commitments are
   persisted through monitor updates, outgoing HTLC signatures use exact
   previous-output-bound second-level aux leaves, and post-claim commitments
   move claimed full-amount asset HTLCs into the rightful balance output.
-- `OpenAgentsInc/ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560` pins that
+- `OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The latest completed live rerun before the exact-leaf pin produced:
@@ -138,9 +140,9 @@ rerun moved past the post-claim partial-signature failure:
 - artifact directory:
   `target/live-lightning-labs-outgoing-payment-post-claim-fix/`
 - `OpenAgentsInc/rust-lightning`:
-  `90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+  `5256d1aa4731fe552e01705a235f8fe680ae4871`
 - `OpenAgentsInc/ldk-node`:
-  `3264d96ee6dcbd37cec24473eac5982b1678a560`
+  `31a8c1b004572ed9a4ad299b534f5a874d005a71`
 - live report status: `blocked`
 - blocked step: `live_asset_channel_payment_settlement`
 - LND payment wire status: `SUCCEEDED`
@@ -149,16 +151,17 @@ rerun moved past the post-claim partial-signature failure:
 - post-claim partial-signature error logged: `false`
 - invalid Taproot control block logged: `false`
 
-This does not close #81. The post-claim transcript fix was necessary but not
-sufficient. The next honest gate is a fixture-backed force-close/control-block
-proof against the Lightning Labs transcript before touching unrelated signing
+This does not close #81. The post-claim transcript fix and #84 funding-input
+force-close witness fix were necessary but not sufficient for the whole Path B
+program. The next honest gate is the true native-to-Lightning Labs payment
+direction and the remaining BOLT conformance issue set, not unrelated signing
 policy. The BOLT
 simple-taproot spec audit in
 `docs/bolt-simple-taproot-implementation-audit-2026-05-28.md` already moved one
 mandatory gate into the fork: native simple-taproot funding and commitment
 messages now zero legacy signature fields and reject non-zero peer legacy
-fields. The remaining live gates are the post-claim partial-signature transcript
-and force-close control-block path.
+fields. The post-claim partial-signature transcript and #84 funding-input
+control-block symptom are fixed on the current pin.
 
 ## Failing Transcript
 
@@ -530,33 +533,33 @@ asset HTLCs into the correct post-claim balance output.
 
 Acceptance for this phase:
 
-- completed for the current `90212e540...` pin: the live log no longer
+- completed for the current `5256d1aa...` pin: the live log no longer
   contains `invalid_htlc_sig` for our outgoing HTLC signature;
-- completed for the current `90212e540...` pin: the live post-claim
+- completed for the current `5256d1aa...` pin: the live post-claim
   zero-HTLC commitment partial-signature transcript is fixture-backed;
 - BTC-only and fixture-backed Taproot Asset tests remain unchanged.
 
-### Phase 4: Fix Post-Claim Force-Close And HTLC-Success Fallback
+### Phase 4: Fix Post-Claim Holder Force-Close Funding Spend
 
-After the successful Lightning Labs to native settlement, fix the current
-post-claim unilateral recovery failure:
+After the successful Lightning Labs to native settlement, the historical
+post-claim unilateral recovery failure was fixed at the funding-input spend:
 
-- inspect control-block construction for HTLC outputs with asset aux siblings;
-- ensure the control block matches the selected script-path leaf and tree;
-- persist enough HTLC aux-leaf state through monitor serialization;
-- add fixture tests for control-block length, HTLC-success witness content,
-  feerate/RBF behavior, and spend path;
-- rerun the live force-close path.
+- persist the aggregate holder MuSig2 commitment signature;
+- use a key-path P2TR funding-input witness with exactly one 64-byte Schnorr
+  signature;
+- do not place a Taproot control block on the funding-input spend;
+- keep script-path control blocks for later commitment-output spends;
+- rerun the live Lightning Labs to native path.
 
 Acceptance for this phase:
 
-- the post-claim live transcript does not fail simple-taproot commitment
-  partial-signature verification;
-- if a force-close happens, HTLC-success fallback broadcasts cleanly and does
-  not fail with missing/spent inputs, insufficient-fee replacement, or control
-  block errors;
-- monitor restart can reconstruct the same control-block data;
-- BTC-only force-close tests still pass.
+- completed: the post-claim live transcript does not fail simple-taproot
+  commitment partial-signature verification;
+- completed: the latest holder commitment fallback transaction has a stable
+  one-element 64-byte key-path funding-input witness;
+- completed: the live run no longer logs `Invalid Taproot control block size`;
+- remaining broader #61/#82 work: BTC-only force-close and output-spend
+  script-path control-block coverage.
 
 ### Phase 5: Complete Balance Reporting In Both Directions
 

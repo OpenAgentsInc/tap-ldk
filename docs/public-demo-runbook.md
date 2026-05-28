@@ -29,9 +29,10 @@ are in place. Live `litd` asset-channel funding now completes and the channel
 becomes usable for asset keysend. The Lightning Labs to native payment now
 settles and native receiver balance is recorded by fork-backed `ldk-node`. The
 post-claim partial-signature failure is now cleared in the live run and covered
-by a fork regression fixture. The true native `tap-ldk` to Lightning Labs
-receiver direction, force-close fallback proof, and two-sided observed balance
-replacement remain open.
+by a fork regression fixture, and the stale invalid-control-block fallback
+symptom is fixed by the #84 funding-input key-path witness change. The true
+native `tap-ldk` to Lightning Labs receiver direction and two-sided observed
+balance replacement remain open.
 
 ## Prerequisites
 

@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+- Current `tap-ldk` revision: `5256d1aa4731fe552e01705a235f8fe680ae4871`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "90212e54066a35ad982b338e7c2c152bf4fe0b0b"
+rev = "5256d1aa4731fe552e01705a235f8fe680ae4871"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,7 +205,7 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Follow-up revisions through `90212e54066a35ad982b338e7c2c152bf4fe0b0b` add the
+Follow-up revisions through `5256d1aa4731fe552e01705a235f8fe680ae4871` add the
 current concrete transcript fixes from that audit: second-level Taproot Asset
 HTLC aux leaves encode the Lightning Labs virtual `lock_time` and
 `relative_lock_time` fields, full counterparty commitments are persisted
@@ -214,14 +214,17 @@ previous-output-bound second-level aux leaves, the post-claim commitment moves
 a claimed full-amount asset HTLC into the rightful balance output by deriving
 its aux leaf from the previous HTLC output, and simple-taproot funding and
 commitment messages now write zero legacy signature fields while rejecting
-non-zero peer legacy fields.
+non-zero peer legacy fields. The same current revision persists the aggregate
+simple-taproot holder commitment Schnorr signature and uses it for
+force-close fallback so the P2TR funding input is spent through a one-element
+key-path witness instead of a legacy P2WSH witness that Bitcoin Core reads as a
+malformed script-path control block.
 
-With `ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560`, the current pin
+With `ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71`, the current pin
 carries that wire-field fix into the live runtime. The latest live state still
 settles the Lightning Labs to native payment and records native receiver
-balance, and the post-claim partial-signature transcript is now fixed with a
-live regression fixture. #81 remains open until the force-close
-witness/control-block recovery path is fixture-backed and clean.
+balance, and the post-claim partial-signature transcript plus #84
+force-close funding-input witness path are now fixed with regression coverage.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 

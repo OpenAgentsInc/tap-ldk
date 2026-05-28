@@ -7,8 +7,8 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`
-- `OpenAgentsInc/ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560`
+- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
+- `OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71`
 - `tap-ldk` pinned to those forks
 
 ## Summary
@@ -19,11 +19,13 @@ helpers, BIP86 funding outputs, simple-taproot commitment output construction,
 HTLC script helpers, second-level HTLC signing, reestablish/RAA nonce maps, and
 cooperative-close message types.
 
-It does not fully implement the current spec yet. The most important remaining
-#81 gap is:
+It does not fully implement the current spec yet. The latest #84 follow-up
+fixes the force-close funding-input failure that produced
+`Invalid Taproot control block size`:
 
-- local unilateral fallback still needs a fixture-backed, broadcast-clean
-  force-close witness/control-block proof;
+- local unilateral fallback now persists the aggregate holder MuSig2
+  commitment signature and spends the simple-taproot funding output with a
+  one-element key-path Schnorr witness;
 - cooperative close exists behind `simple_close` plus
   `simple_taproot_musig2`, but it is not yet live-proven for the demo channel;
 - splice nonce maps have some multi-funding plumbing, but concurrent splice
@@ -35,13 +37,15 @@ stay limited to the live settlement blocker. The rest of the BOLT conformance
 work is split into the issue set in
 `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
-Follow-up update: `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+Follow-up update: `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
 now serializes 64 zero bytes for the legacy `signature` field when a
 simple-taproot MuSig2 partial-signature TLV is present in `funding_created`,
 `funding_signed`, or `commitment_signed`, rejects non-zero legacy fields on
 decode, derives post-claim Taproot Asset balance script keys with the real CSV
-delay, and includes a live `litd` zero-HTLC post-claim transcript regression.
-`OpenAgentsInc/ldk-node@3264d96ee6dcbd37cec24473eac5982b1678a560` pins those
+delay, includes a live `litd` zero-HTLC post-claim transcript regression, and
+persists the aggregate holder commitment Schnorr signature needed for
+simple-taproot key-path force-close broadcast.
+`OpenAgentsInc/ldk-node@31a8c1b004572ed9a4ad299b534f5a874d005a71` pins those
 fixes for the live runtime.
 
 ## Why This Matters For #81
@@ -57,10 +61,13 @@ The latest live post-claim-fix run reaches real settlement:
 - `native_ldk_invalid_simple_taproot_commitment_partial_sig_logged=false`;
 - `native_ldk_invalid_taproot_control_block_logged=false`.
 
-The BOLT still requires Taproot control blocks to reconstruct the committed
-script path, so #84 remains open until that path has its own fixture-backed
-force-close proof instead of relying only on a live run where no force-close was
-triggered.
+The earlier control-block failure came from using a legacy P2WSH 2-of-2 witness
+to spend the P2TR funding output. Bitcoin Core interpreted that multi-element
+witness as a Taproot script-path spend and treated the legacy funding script as
+a malformed control block. The correct holder commitment broadcast path is a
+key-path funding spend with only the final aggregate BIP340 signature in the
+witness. Output spends still use their own script-path leaves and control
+blocks.
 
 ## Audit Matrix
 
@@ -77,29 +84,27 @@ triggered.
 | `channel_reestablish` nonce map | Type 22 must be sent and checked for every active commitment; retransmitted commits must regenerate partials with new nonces. | Reestablish sends the nonce map and stores received maps. Sent commitment signatures are persisted by funding txid and nonce index. | Partial | Add a reconnect test that forces retransmission and proves the partial is regenerated against the newly received nonce map. |
 | Splice coordination | Every active splice/funding txid needs a distinct nonce entry. | Expected txid calculation includes current funding and pending funding. No live or vector proof of concurrent splice maps exists. | Partial | Add bounded splice nonce-map tests or mark splicing out of the first demo's acceptance criteria. |
 | BIP86 funding output | Funding output must be P2TR over MuSig2 KeyAgg(KeySort(funding keys)). | `SimpleTaprootKeyAggContext` builds BIP86 funding scripts and has BOLT vector replay. | Implemented | Keep vector coverage. |
-| To-local output | NUMS internal key, delay/revocation leaves, correct parity-bearing control blocks, delay sequence. | `simple_taproot_to_local_spend_info` builds delay and revocation leaves and test coverage checks control-block lengths. Taproot Asset aux leaves alter tree depth. | Partial | Fix the live invalid control-block path and add a broadcastable force-close regression for the exact #81 commitment. |
+| To-local output | NUMS internal key, delay/revocation leaves, correct parity-bearing control blocks, delay sequence. | `simple_taproot_to_local_spend_info` builds delay and revocation leaves and test coverage checks control-block lengths. Taproot Asset aux leaves alter tree depth. The #84 live invalid-control-block symptom was the funding-input witness, not a to-local output control block. | Partial | Keep to-local output-spend coverage in the broader BTC-only force-close and Taproot Asset recovery gates. |
 | To-remote output | The draft prose is internally inconsistent here, but the vectors use the global simple-taproot NUMS point, a single CSV-1 script leaf, and sequence 1 spend. | `simple_taproot_to_remote_spend_info` builds the script and uses the global BOLT NUMS point, matching the vectors. | Implemented for base | Confirm Taproot Asset aux-leaf depth/control-block behavior in live force-close tests. |
 | Anchor outputs | Anchor internal key is local delayed key or remote payment key; script is `16 CSV`; omit anchor if corresponding output absent and no HTLCs. | `chan_utils.rs` emits simple-taproot anchors under the BOLT conditions. | Implemented | Add/keep regression for no-output/no-HTLC anchor omission. |
 | HTLC outputs | Offered/accepted HTLCs are P2TR with revocation internal key and split timeout/success leaves. | `simple_taproot_htlc_spend_info_with_aux_leaf_for_variant` implements final and staging variants and can include Taproot Asset aux leaves. | Partial | The base is covered, but live asset aux-leaf transcript must remain fixture-backed for both directions. |
 | Second-level HTLCs | Version 2, sequence 1, zero-fee semantics, SIGHASH_SINGLE|ANYONECANPAY, one delayed output. | `build_htlc_transaction`, `simple_taproot_htlc_sighash_type`, and package/signing code use sequence 1 and `SinglePlusAnyoneCanPay` for simple-taproot/Taproot Asset HTLCs. | Implemented for current path | Keep previous-output-bound Taproot Asset aux-leaf regressions. |
 | Cooperative close | `shutdown`, `closing_complete`, and `closing_sig` carry MuSig2 nonces/partials; aggregate final Schnorr signature; rotate closee nonces for RBF. | Message structs and channel logic exist behind `simple_close` plus `simple_taproot_musig2`; shutdown nonce persistence exists. | Partial | Run native and `litd` cooperative close coverage before closing #61 or #71. |
-| Formal/spec vectors | BOLT vectors should cover TLVs, scripts, commitments, HTLCs, signatures, and trimming. | Vector replay exists for implemented base surfaces. The live post-claim zero-HTLC transcript is now fixture-backed; force-close witnesses still need the same treatment. | Partial | Add exact force-close witness/control-block transcript assertions. |
+| Formal/spec vectors | BOLT vectors should cover TLVs, scripts, commitments, HTLCs, signatures, and trimming. | Vector replay exists for implemented base surfaces. The live post-claim zero-HTLC transcript is fixture-backed. #84 adds a stable holder force-close funding-input witness assertion for the one-element key-path Schnorr witness. | Partial | Add broader BTC-only force-close and output-spend assertions before closing #61. |
 
 ## Required Work From This Audit
 
 Completed follow-up from this audit:
 
-- `OpenAgentsInc/rust-lightning@90212e54066a35ad982b338e7c2c152bf4fe0b0b`
+- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
   adds a focused regression for simple-taproot legacy signature zeroing and
   non-zero legacy signature rejection in `funding_created`, `funding_signed`,
   and `commitment_signed`.
-
-Remaining work that blocks #81:
-
-1. Fix the force-close witness builder so the local commitment transaction
-   spends the funding output with a valid Taproot control block or with the
-   correct simple-taproot key-path signature where the BOLT expects key-path
-   spending.
+- `OpenAgentsInc/rust-lightning@5256d1aa4731fe552e01705a235f8fe680ae4871`
+  also persists the aggregate simple-taproot holder commitment signature in
+  `HolderCommitmentTransaction`, uses it in the on-chain holder funding-output
+  package path, and asserts that the latest holder commitment transaction spends
+  the P2TR funding output with exactly one 64-byte Schnorr witness element.
 
 Remaining work that should be tracked outside #81 before #61 closes:
 

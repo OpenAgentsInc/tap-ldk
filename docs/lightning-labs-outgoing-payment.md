@@ -63,7 +63,7 @@ native receiver asset balance. The current fork handles the post-claim
 zero-HTLC asset commitment-sig blob and derives the claimed asset HTLC's
 post-claim balance-output aux leaf with the correct CSV-bound script key. The
 latest live rerun no longer logs the post-claim partial-signature failure or an
-invalid Taproot control block. Close #81 only after the force-close fallback is
-fixture-backed and clean. After that, implement the true native
-`tap-ldk` to Lightning Labs payment direction for #57, then #58, and the #59
-observed-balance completion gate.
+invalid Taproot control block; the #84 funding-input force-close witness path
+is now key-path and fixture-backed. Next, keep #81's live settlement report
+green, then implement the true native `tap-ldk` to Lightning Labs payment
+direction for #57, then #58, and the #59 observed-balance completion gate.

@@ -14,17 +14,17 @@ Path B now settles the Lightning Labs to native direction: integrated `litd`
 funds an asset channel, sends asset keysend, native LDK claims the HTLC, and
 `ldk-node` records the native receiver balance. The current pins add the
 post-claim balance-output fix, the live zero-HTLC post-claim signature
-regression, and Taproot HTLC script-path claim witnesses. The latest live run
-no longer logs the post-claim partial-signature failure or invalid Taproot
-control block failure. #81 remains open until the force-close fallback is
-fixture-backed and live-proven, then Path B still needs the true native
+regression, Taproot HTLC script-path claim witnesses, and the simple-taproot
+holder force-close funding input as a one-element key-path Schnorr witness. The
+latest live run no longer logs the post-claim partial-signature failure or
+invalid Taproot control-block failure. Path B still needs the true native
 `tap-ldk` to Lightning Labs payment direction.
 
 Spec-compliance work is now split out of #81. #81 stays focused on the live
-settlement gate and force-close fallback; broader BOLT simple-taproot
-conformance is tracked in #82 and #84 through #90 before #61 can close. Path B
-is not done until both payment directions settle against Lightning Labs with
-observed post-settlement balances.
+settlement gate; broader BOLT simple-taproot conformance is tracked in #82 and
+#85 through #90 before #61 can close. Path B is not done until both payment
+directions settle against Lightning Labs with observed post-settlement
+balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
