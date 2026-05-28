@@ -46,9 +46,9 @@ keeps the failing transcripts as regression fixtures, adds the Lightning Labs
 second-level virtual `lock_time`/`relative_lock_time` asset-leaf fields, full
 counterparty commitment monitor persistence, exact previous-output-bound
 second-level HTLC aux leaves before signing outgoing HTLC transactions, native
-receiver-side asset payment accounting, the zero-HTLC asset commitment-sig blob
-on the post-claim `commitment_signed`, and dynamic post-claim balance-output
-aux-leaf placement for claimed full-amount asset HTLCs.
+receiver-side asset payment accounting, zero-HTLC asset commitment-sig blob
+handling for post-claim `commitment_signed`, and dynamic post-claim
+balance-output aux-leaf placement for claimed full-amount asset HTLCs.
 
 Historical outgoing-signature rerun artifact:
 
@@ -103,7 +103,7 @@ correct unilateral recovery once the payment-time commitment path gets farther.
 
 Latest completed live rerun artifact:
 
-- `target/live-lightning-labs-outgoing-payment-empty-commit-sig/report.json`
+- `target/live-lightning-labs-outgoing-payment-claimed-balance-output/report.json`
 - `status`: `blocked`
 - `blocked_step`: `live_asset_channel_payment_settlement`
 - `openagents_rust_lightning_rev`:
@@ -119,21 +119,23 @@ Latest completed live rerun artifact:
 - `native_asset_receiver_remote_balance_after`: `0`
 - `native_ldk_payment_claimable_logged`: `true`
 - `native_ldk_payment_claimed_logged`: `true`
-- `native_ldk_empty_asset_commit_sig_blob_logged`: `true`
+- `native_ldk_empty_asset_commit_sig_blob_logged`: `false` in this rerun's
+  literal log detector; keep the blob checked through the transcript fixture
 - `native_ldk_invalid_commitment_logged`: `true`
 - `native_ldk_counterparty_force_closed_logged`: `true`
 - `native_ldk_onchain_htlc_claim_logged`: `true`
 
 The new result changes the live diagnosis again. The bounded Lightning Labs to
-native direction now settles and persists receiver balance. The post-claim log
-also confirms that `rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`
-sends `taproot_asset_commitment_sig_blob: Some([0])` when there are no HTLC
-signatures left on the post-claim `commitment_signed`. The current pin now
-also derives the claimed asset balance-output aux leaf from the previous HTLC
-output instead of carrying a stale no-asset output leaf. The next live rerun
-must prove whether that closes the `invalid commitment` gap; if not, compare
-the remaining post-claim commitment transaction, signature, and single-asset
-allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
+native direction now settles and persists receiver balance. The current pin
+derives the claimed asset balance-output aux leaf from the previous HTLC output
+instead of carrying a stale no-asset output leaf, but the latest live rerun
+still gets post-claim `invalid commitment` from `litd`. The fallback path also
+fails after the counterparty commitment appears: native LDK races a local
+commitment broadcast, then the HTLC claim against the counterparty commitment
+fails with `Invalid Taproot control block size`. The next work is to compare
+the remaining post-claim commitment transaction, signature, zero-HTLC asset
+blob presence, and single-asset allocation semantics against Lightning Labs
+`tapchannel`/`tapsend`.
 
 ## What Works
 
@@ -165,35 +167,37 @@ allocation semantics against Lightning Labs `tapchannel`/`tapsend`.
   HTLC state to the exact previous-output-bound second-level aux leaf before
   outgoing HTLC signatures are produced.
 - `litd` reports the asset keysend as `SUCCEEDED`.
-- Native LDK emits `PaymentClaimable` and `PaymentClaimed` for the live asset
+- Native LDK logs the received payment and claimed payment for the live asset
   payment.
 - `ldk-node` records the receiver-side Taproot Asset payment as `settled` and
   persists local asset balance `125`.
-- The post-claim `commitment_signed` includes the zero-HTLC asset
-  commitment-sig blob (`Some([0])`).
+- The code path includes zero-HTLC asset commitment-sig blob handling for the
+  post-claim `commitment_signed`; the latest live rerun did not print the
+  literal `Some([0])` string, so the next fixture must verify this from the
+  transcript.
 
 ## What Is Still Broken
 
 The current Rust path accepts the payment-time HTLC commitment, releases the
 next commitment messages, settles the Lightning Labs to native keysend, records
-the receiver balance, and sends a post-claim `commitment_signed` with the
-zero-HTLC asset commitment-sig blob. The observed failure is now:
+the receiver balance, and sends the post-claim `commitment_signed`. The
+observed failure is now:
 
 - valid peer payment-time `commitment_signed`;
 - channel monitor completes update `1`;
 - `revoke_and_ack` is enqueued;
 - `litd` reports the asset keysend as `SUCCEEDED`;
-- native LDK emits `PaymentClaimable` and `PaymentClaimed`;
+- native LDK logs the received payment and claimed payment;
 - fork-backed `ldk-node` records the receiver-side asset payment and balance;
-- Rust sends a post-claim `commitment_signed` with
-  `taproot_asset_commitment_sig_blob: Some([0])`; and
+- Rust sends a post-claim `commitment_signed`; and
 - `litd` rejects that post-claim commitment as `invalid commitment` and
   force-closes.
 
 This points at the post-claim commitment transaction/signature/allocation
 transcript. The first concrete no-HTLC TLV fix is already in the current pin,
-and the live log proves it is present. The next concrete fix is to compare our
-post-claim remote commitment transaction and asset allocation against the
+but the latest live log detector did not print the literal blob string; verify
+that as part of the transcript fixture. The next concrete fix is to compare
+our post-claim remote commitment transaction and asset allocation against the
 Lightning Labs side rather than adding another isolated message-field patch.
 
 The earlier 2026-05-28 diagnostic run still matters as a regression fixture:
@@ -342,12 +346,11 @@ rerun proved that this is enough to move the bounded Lightning Labs to native
 payment path through `SUCCEEDED` plus native receiver accounting.
 
 The right fix remains fixture-backed transcript work, not another isolated
-change to a sighash flag, output value, TLV, or key order. Because the
-post-claim zero-HTLC asset commitment-sig blob is present and `litd` still
-rejects the post-claim commitment, the next step is to port the remaining
-relevant Lightning Labs Taproot Asset post-claim commitment semantics into Rust
-and wire that through rust-lightning and ldk-node as the only accepted Path B
-settlement path.
+change to a sighash flag, output value, TLV, or key order. Because `litd` still
+rejects the post-claim commitment after native settlement, the next step is to
+port the remaining relevant Lightning Labs Taproot Asset post-claim commitment
+semantics into Rust and wire that through rust-lightning and ldk-node as the
+only accepted Path B settlement path.
 
 ## Required Work
 
@@ -376,8 +379,8 @@ checks:
 - control-block bytes used for force-close attempts.
 
 The current pin includes a regression for exact previous-output-bound
-second-level aux leaves and now logs the zero-HTLC asset commitment-sig blob in
-the live report. Add the post-claim `invalid commitment` transcript as the next
+second-level aux leaves. Add the post-claim `invalid commitment` transcript,
+including explicit zero-HTLC asset commitment-sig blob presence, as the next
 checked fixture before changing more behavior.
 
 ### Phase 2: Port Lightning Labs Allocation Semantics

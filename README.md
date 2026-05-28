@@ -13,9 +13,10 @@ the OpenAgentsInc `rust-lightning` asset-channel lifecycle state.
 Path B now settles the Lightning Labs to native direction: integrated `litd`
 funds an asset channel, sends asset keysend, native LDK claims the HTLC, and
 `ldk-node` records the native receiver balance. The current pins add a
-post-claim balance-output aux-leaf fix for the claimed asset HTLC. #81 remains
-open until the live `litd` rerun proves that post-claim transcript and the
-on-chain HTLC-success fallback are clean.
+post-claim balance-output aux-leaf fix for the claimed asset HTLC, but the
+latest live rerun still ends with `litd` rejecting the post-claim commitment
+and the on-chain HTLC claim failing its Taproot control block. #81 remains
+open until that transcript and fallback are clean.
 
 Closure order: #81, #57, #58, #59, #60, then epics #61, #71, and #19. Path B
 is not done until both payment directions settle against Lightning Labs with

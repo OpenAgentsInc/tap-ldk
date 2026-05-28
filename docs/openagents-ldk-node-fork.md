@@ -57,8 +57,9 @@ coverage.
    Lightning Labs `litd`. The latest completed live run settled the Lightning
    Labs to native direction and recorded native receiver balance. The current
    pin adds post-claim balance-output aux-leaf placement for claimed
-   full-amount asset HTLCs; #81 remains open until that rerun proves the
-   post-success transcript and on-chain HTLC-success fallback.
+   full-amount asset HTLCs, but the latest rerun still ends with post-claim
+   `invalid commitment` and an invalid Taproot control block on the HTLC-claim
+   fallback. #81 remains open until both paths are clean.
 
 ## Invariants
 

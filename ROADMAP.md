@@ -30,13 +30,14 @@ Last updated: 2026-05-28
   the Lightning Labs to native direction: `litd` issues an asset, completes
   live asset-channel funding, sends asset keysend, reports `SUCCEEDED`, native
   LDK claims the HTLC, and fork-backed `ldk-node` records the receiver asset
-  payment plus local asset balance `125`. The current `rust-lightning` pin keeps
-  the zero-HTLC asset commitment-sig blob and adds the next #81 fix: when a
-  full-amount asset HTLC is claimed, the following commitment derives the
-  receiver balance-output aux leaf from the previous HTLC output and clears the
-  stale no-asset balance leaf. The next live gate is rerunning this pin against
-  `litd`; #81 stays open until the post-claim transcript and on-chain
-  HTLC-success fallback verify cleanly. The detailed audits in
+  payment plus local asset balance `125`. The current `rust-lightning` pin moves
+  claimed full-amount asset HTLCs into the receiver balance output, but the
+  latest live rerun still gets a post-claim `invalid commitment` from `litd`.
+  The unilateral fallback also fails after the counterparty commitment appears:
+  native LDK races a local commitment broadcast, then the HTLC claim against the
+  counterparty commitment fails with `Invalid Taproot control block size`. #81
+  stays open until the post-claim transcript and on-chain HTLC-success fallback
+  verify cleanly. The detailed audits in
   `docs/path-b-live-settlement-holistic-audit.md` and
   `docs/path-b-live-settlement-system-audit-2026-05-28.md` remain the file-level
   map for the remaining #81 force-close and transcript work.
@@ -318,7 +319,7 @@ evidence changes the dependency graph.
 | Done | #78 | Patch `ldk-node` to use the OpenAgentsInc `rust-lightning` fork | Implemented in `OpenAgentsInc/ldk-node` at `4b7d8de974a8b08ee8bfee94450dc5c332fe596c`; `tap-ldk` consumes the fork line and reports the OpenAgentsInc `rust-lightning` revision from `ldk_node::provenance`. | Closed. |
 | Done | #79 | Expose simple-taproot and Taproot Asset channel config in `ldk-node` | Implemented in `OpenAgentsInc/ldk-node` at `0faa999235050a17b198e6bbfa63c2f19aac4cc6`; BTC-only defaults remain unchanged, Taproot Asset negotiation fails closed without simple taproot, and `tap-ldk` live preflight reports both opt-in flags. | Closed. |
 | Done | #80 | Wire Taproot Asset messages and payment APIs through `ldk-node` | Implemented in `OpenAgentsInc/ldk-node` at `da05c714be061706806bc8757ee74b4709d5a8ef`, with live-feature negotiation fixes, the current rust-lightning HTLC aux-leaf derivation pin, and proof-derived channel-template binding carried through `ce6319df7220aa39cd561fee50ea7115a0b7dd73`; `tap-ldk` pins the latest revision and the live preflight reaches typed asset custom-message, asset-channel open, asset-payment APIs, Lightning Labs aux Init feature bits, and remote taproot feature reporting. The fork now advertises Lightning Labs no-op HTLC aux support and does not advertise STXO until native STXO commitment leaves are implemented. | Closed. |
-| 1 | #81 | Use fork-backed `ldk-node` for live Lightning Labs settlement | The live harness now connects to `litd`, observes both taproot feature sets, issues an asset, completes live asset-channel funding, settles a Lightning Labs to native asset keysend, records native `PaymentClaimed`, persists the receiver asset balance in `ldk-node`, and logs the zero-HTLC asset commitment-sig blob on the post-claim `commitment_signed`. The current pin adds dynamic post-claim balance-output aux-leaf placement for claimed full-amount asset HTLCs; the next live rerun must prove that this removes the `invalid commitment` force-close and leaves the on-chain HTLC-success fallback clean. | The live Path B scripts settle an asset payment over fork-backed `ldk-node`, verify Lightning Labs HTLC signatures and force-close witnesses, and record post-settlement balances. |
+| 1 | #81 | Use fork-backed `ldk-node` for live Lightning Labs settlement | The live harness now connects to `litd`, observes both taproot feature sets, issues an asset, completes live asset-channel funding, settles a Lightning Labs to native asset keysend, records native `PaymentClaimed`, and persists the receiver asset balance in `ldk-node`. The claimed-balance-output pin did not close the live gate: `litd` still rejects the post-claim commitment, and the fallback HTLC claim against the counterparty commitment fails with `Invalid Taproot control block size`. | The live Path B scripts settle an asset payment over fork-backed `ldk-node`, verify Lightning Labs HTLC signatures and force-close witnesses, and record post-settlement balances. |
 | 2 | #57 | Live `tap-ldk` pays Lightning Labs asset payment | Harness reaches live `tapd` proof binding, ordered native asset-payment session readiness, standalone current-balance observation, integrated `litd` readiness, and fork-backed `ldk-node` peer connection/API preflight to `litd` with opt-in asset-channel negotiation enabled and remote feature support observed. | `tap-ldk` pays an independent `litd` receiver over the fork-backed live asset-channel path and records observed post-settlement Lightning Labs receiver balance plus updated sender state. |
 | 3 | #58 | Live Lightning Labs pays `tap-ldk` asset payment | Receiver-side artifacts exist for buy-direction RFQ, quote-bound receive invoice, final-hop HTLC metadata, expected deltas, restart, and rejection cases. | Independent Lightning Labs node pays `tap-ldk`; `tap-ldk` validates the asset metadata, persists the received balance/proof reference, survives restart, and both sides report expected live balances. |
 | 4 | #59 | Replace Path B documented gaps with observed live balance checks | Reports distinguish fixture-backed expected balances from live gates and still keep `live_daemon_gaps_remaining=true`. | Path B cannot report completion without observed post-settlement balances and compatible payment/proof state in both live directions. |

@@ -53,7 +53,7 @@ asset keysend, logs native `PaymentClaimed`, and records the native receiver
 asset balance in fork-backed `ldk-node`. It still stops at
 `live_asset_channel_payment_settlement` because after successful claim
 Lightning Labs force-closes with `invalid commitment`, and the HTLC-success
-fallback/broadcast path still needs witness/transcript cleanup. The current
+fallback/broadcast path still fails its Taproot control block. The current
 #57 gate remains false because the true native `tap-ldk` to Lightning Labs
 direction has not settled yet.
 

@@ -213,13 +213,13 @@ HTLC signatures use exact previous-output-bound second-level aux leaves, and
 the post-claim commitment moves a claimed full-amount asset HTLC into the
 rightful balance output by deriving its aux leaf from the previous HTLC output.
 
-With `ldk-node@ce6319df7220aa39cd561fee50ea7115a0b7dd73`, the current pin is
-ready for the #81 live rerun. The latest completed run before the claimed
-balance-output fix already settled the Lightning Labs to native payment and
-recorded native receiver balance, but `litd` rejected the post-claim
-commitment with `invalid commitment`. #81 remains open until this pin proves
-the post-claim transcript, witness/control-block recovery, and observed
-balances pass.
+With `ldk-node@ce6319df7220aa39cd561fee50ea7115a0b7dd73`, the current pin has
+now been rerun live. It still settles the Lightning Labs to native payment and
+records native receiver balance, but the claimed-balance-output fix did not
+close #81: `litd` rejects the post-claim commitment with `invalid commitment`,
+and the fallback HTLC claim against the counterparty commitment fails with an
+invalid Taproot control block. #81 remains open until that post-claim
+transcript, witness/control-block recovery, and observed balance path pass.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 

@@ -38,7 +38,7 @@ payment harness now moves past readiness into integrated `litd` issuance, live
 asset-channel funding, Lightning Labs to native asset keysend, native
 `PaymentClaimed`, and durable native receiver balance recording. The current
 pin adds post-claim balance-output aux-leaf placement for claimed full-amount
-asset HTLCs, so #81 is now in live rerun verification for that post-claim
-transcript and the on-chain HTLC-success fallback. The current #57 report
-remains false because the true native `tap-ldk` to Lightning Labs direction
-has not settled yet.
+asset HTLCs, but the latest live rerun still gets post-claim
+`invalid commitment` from `litd` and an invalid Taproot control block on the
+HTLC-claim fallback. The current #57 report remains false because the true
+native `tap-ldk` to Lightning Labs direction has not settled yet.

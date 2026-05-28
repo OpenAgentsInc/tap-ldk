@@ -59,10 +59,11 @@ records the Lightning Labs receiver balance after settlement.
 
 Finish #81 first: the live Lightning Labs to native payment now reports
 `SUCCEEDED`, native LDK claims it, and fork-backed `ldk-node` records the
-native receiver asset balance. The current fork also logs the post-claim
-zero-HTLC asset commitment-sig blob and now derives the claimed asset HTLC's
-post-claim balance-output aux leaf from the previous HTLC output. Rerun #81
-against `litd` and close it only if the post-claim transcript and
-HTLC-success fallback are clean. After that, implement the true native
+native receiver asset balance. The current fork handles the post-claim
+zero-HTLC asset commitment-sig blob and derives the claimed asset HTLC's
+post-claim balance-output aux leaf from the previous HTLC output, but the
+latest live rerun still gets post-claim `invalid commitment` from `litd` and
+an invalid Taproot control block on the HTLC-claim fallback. Close #81 only if
+that transcript and fallback are clean. After that, implement the true native
 `tap-ldk` to Lightning Labs payment direction for #57, then #58, and the #59
 observed-balance completion gate.

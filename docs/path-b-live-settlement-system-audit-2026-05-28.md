@@ -19,27 +19,32 @@ fixture-backed, the virtual-lock and exact previous-output-bound HTLC aux-leaf
 fixes get the live run through `commitment_signed`, and fork-backed `ldk-node`
 now records the native receiver-side Taproot Asset balance. The active blocker
 from the latest completed live run is post-success: after native claim and
-fulfill, Lightning Labs force-closes with `invalid commitment`, and the
-on-chain HTLC-success fallback/broadcast path still needs cleanup.
+fulfill, Lightning Labs force-closes with `invalid commitment`. The claimed
+full-amount HTLC balance-output fix did not remove that rejection. The on-chain
+fallback is also still broken: native LDK races a local commitment broadcast
+and then the HTLC claim against the counterparty commitment fails with
+`Invalid Taproot control block size`.
 
 ## Current Update
 
 Latest live artifact:
-`target/live-lightning-labs-outgoing-payment-native-balance/`.
+`target/live-lightning-labs-outgoing-payment-claimed-balance-output/`.
 
 Observed state:
 
 - `litd` asset keysend status: `completed`
 - LND payment wire status: `SUCCEEDED`
-- native `PaymentClaimable`: logged
-- native `PaymentClaimed`: logged
+- native receiver event: `Received payment from payment hash ...`
+- native claim event: `Claimed payment with ID ...`
 - fork-backed `ldk-node` native asset payment status: `settled`
 - native receiver local asset balance after claim: `125`
 - native receiver remote asset balance after claim: `0`
 - remaining failure: `CounterpartyForceClosed` with peer message
   `invalid commitment`
-- on-chain fallback still needs work: HTLC-success is attempted after
-  force-close, and broadcast fails on the current regtest transcript
+- on-chain fallback still needs work: native LDK attempts a local commitment
+  and HTLC-success spend, the local commitment loses to the counterparty
+  commitment, and the later HTLC claim against the counterparty commitment
+  fails with `Invalid Taproot control block size`
 
 ## Current Live Gate
 
@@ -119,16 +124,27 @@ The latest completed live rerun before the exact-leaf pin produced:
 - Lightning Labs result: rejected our outgoing HTLC signature with
   `invalid_htlc_sig`.
 
-The new blocker is narrower. Rust Lightning logs `Received valid
-commitment_signed from peer`, `Completed off-chain monitor update 1`, and
-`Enqueueing message RevokeAndACK`, then signs the remote HTLC transaction. The
-peer responds with `rejected commitment: commit_height=1, invalid_htlc_sig=...`.
-This does not close #81. The next honest gate is to rerun with
-`rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`, which now includes
-both exact previous-output-bound second-level aux leaves and dynamic
-post-claim balance-output aux-leaf placement. If a later rerun exposes another
-signature or force-close transcript delta, compare it against the fixture and
-port the remaining bounded `tapchannel`/`tapsend` allocation semantics before
+The newer claimed-balance-output rerun moved past that blocker:
+
+- artifact directory:
+  `target/live-lightning-labs-outgoing-payment-claimed-balance-output/`
+- `OpenAgentsInc/rust-lightning`:
+  `5cee3fd83db4822eb7b05a5779aa4149d228238f`
+- `OpenAgentsInc/ldk-node`:
+  `ce6319df7220aa39cd561fee50ea7115a0b7dd73`
+- live report status: `blocked`
+- blocked step: `live_asset_channel_payment_settlement`
+- LND payment wire status: `SUCCEEDED`
+- native receiver asset payment status: `settled`
+- native receiver balance: `125`
+- remaining post-claim error from `litd`: `invalid commitment`
+- fallback error: `Invalid Taproot control block size` when spending the
+  counterparty commitment HTLC output
+
+This does not close #81. The claimed-balance-output fix was necessary but not
+sufficient. The next honest gate is a fixture-backed comparison of the
+post-claim remote commitment transaction, asset allocation, signature, and HTLC
+claim witness/control block against the Lightning Labs transcript before
 touching unrelated signing policy.
 
 ## Failing Transcript
@@ -493,22 +509,18 @@ Acceptance for this phase:
 
 ### Phase 3C: Produce Lightning Labs-Compatible Outgoing HTLC Signatures
 
-The latest completed live run failed after Phase 3B when `litd` rejected our
-outgoing HTLC signature. The current pin changes the signing transcript by
-rewriting nondust HTLC state to the exact previous-output-bound Taproot Asset
-second-level aux leaf after commitment txid/output index assignment, and it
-also moves claimed full-amount asset HTLCs into the correct post-claim balance
-output.
+An earlier live run failed after Phase 3B when `litd` rejected our outgoing
+HTLC signature. The current pin fixed that path by rewriting nondust HTLC state
+to the exact previous-output-bound Taproot Asset second-level aux leaf after
+commitment txid/output index assignment, and it also moves claimed full-amount
+asset HTLCs into the correct post-claim balance output.
 
 Acceptance for this phase:
 
-- rerun the live harness with
-  `rust-lightning@5cee3fd83db4822eb7b05a5779aa4149d228238f`;
-- the live log no longer contains `invalid_htlc_sig` for our outgoing HTLC
-  signature;
-- if `litd` still rejects the signature, capture the new commitment tx,
-  sighash, HTLC tx, aux leaves, and signature as the next fixture before
-  changing behavior;
+- completed for the latest `5cee3fd83...` rerun: the live log no longer
+  contains `invalid_htlc_sig` for our outgoing HTLC signature;
+- the next fixture is now the post-claim `invalid commitment` transcript, not
+  the outgoing HTLC signature transcript;
 - BTC-only and fixture-backed Taproot Asset tests remain unchanged.
 
 ### Phase 4: Fix Post-Claim Force-Close And HTLC-Success Fallback

@@ -1089,7 +1089,8 @@ usable for asset keysend, settles a Lightning Labs to native asset keysend, and
 records the native receiver balance through fork-backed `ldk-node`. It still
 blocks at `live_asset_channel_payment_settlement` because after success
 Lightning Labs force-closes with `invalid commitment`, and the on-chain
-HTLC-success fallback/broadcast path needs transcript and witness cleanup.
+HTLC-success fallback/broadcast path fails with local commitment replacement
+and Taproot control-block errors.
 
 Artifacts land in:
 
@@ -1295,7 +1296,7 @@ The shortest path is now the open issue sequence:
 1. Finish #81: the fork-backed live runtime already settles Lightning Labs to
    native and records native receiver balance. The remaining work is the
    post-success `invalid commitment` force-close transcript plus on-chain
-   HTLC-success fallback/broadcast path.
+   HTLC-success fallback/control-block path.
 
 2. Finish #57: live `tap-ldk` pays Lightning Labs.
    - Use `scripts/lightning-labs-counterparty.sh` for standalone proof/balance
