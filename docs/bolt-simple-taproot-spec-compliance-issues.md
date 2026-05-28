@@ -9,8 +9,8 @@ before the project claims simple-taproot support is complete.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
-- `OpenAgentsInc/ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e`
+- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
+- `OpenAgentsInc/ldk-node@766104066e8813e0108a80c98b98f2026a933d20`
 
 The current fork line fixes the completed audit gaps so far: simple-taproot
 `funding_created`, `funding_signed`, and `commitment_signed` now serialize the
@@ -41,6 +41,13 @@ as the authoritative path, reject legacy scalar fallback once simple-taproot
 funding exists, and regenerate retransmitted commitment partials from fresh
 nonce-map material.
 
+It also closes #88: the fork has a BTC-only simple-taproot conformance gate
+that opens a simple-taproot channel, verifies P2TR funding, pays across
+reconnect/reestablish, covers functional cooperative close, force-closes with a
+one-element key-path funding witness, and proves legacy P2WSH channels remain
+unaffected. Run it from `tap-ldk` with
+`./scripts/check-btc-simple-taproot-conformance.sh`.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
@@ -51,7 +58,7 @@ nonce-map material.
 | #85 | Done | Enforce the no-public-simple-taproot-channel rule | Closed after fork pin and docs update |
 | #86 | Done | Fail `open_channel` / `accept_channel` immediately on missing simple-taproot nonces | Closed after fork pin and docs update |
 | #87 | Done | Make type-22 nonce maps authoritative and prove reconnect retransmission | Closed after fork pin and docs update |
-| #88 | BOLT compliance | Add a BTC-only simple-taproot end-to-end conformance gate | #61 |
+| #88 | Done | Add a BTC-only simple-taproot end-to-end conformance gate | Closed after fork pin and docs update |
 | #89 | BOLT compliance | Live-prove cooperative close for simple-taproot channels | #61, #71 |
 | #90 | BOLT compliance | Cover splice nonce maps or explicitly gate splicing out of the first demo | #61, #71 |
 
@@ -60,11 +67,9 @@ nonce-map material.
 These are required for BOLT simple-taproot completion but do not need to be
 stuffed into #81:
 
-1. Add a BTC-only simple-taproot conformance gate covering open, payment,
-   reconnect/reestablish, cooperative close, and force-close.
-2. Prove cooperative close in the live/simple-taproot path before using it as a
+1. Prove cooperative close in the live/simple-taproot path before using it as a
    demo claim.
-3. Either add bounded splice nonce-map coverage or explicitly mark concurrent
+2. Either add bounded splice nonce-map coverage or explicitly mark concurrent
    splicing out of the first demo's acceptance criteria.
 
 ## Closure Policy

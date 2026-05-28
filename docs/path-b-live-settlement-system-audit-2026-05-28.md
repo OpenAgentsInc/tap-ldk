@@ -110,14 +110,14 @@ above:
 - `OpenAgentsInc/rust-lightning@c94f4570587e94e89740f5126a5fa70021b58de2`
   keeps the failing transcript as a regression fixture and preserves the trace
   details needed to compare the Rust and Lightning Labs HTLC signing views.
-- `OpenAgentsInc/rust-lightning@88bc3ec10b594aecbf8463a84a397e9b67028395`
+- `OpenAgentsInc/rust-lightning@7150b421954d655d8e1a61612639f6987388a25a`
   applies the current concrete fixes from this audit: second-level Taproot
   Asset HTLC aux leaves encode Lightning Labs virtual `lock_time` and
   `relative_lock_time` fields, full Taproot Asset counterparty commitments are
   persisted through monitor updates, outgoing HTLC signatures use exact
   previous-output-bound second-level aux leaves, and post-claim commitments
   move claimed full-amount asset HTLCs into the rightful balance output.
-- `OpenAgentsInc/ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e` pins that
+- `OpenAgentsInc/ldk-node@766104066e8813e0108a80c98b98f2026a933d20` pins that
   Rust Lightning revision, and `tap-ldk` now consumes the same fork chain.
 
 The latest completed live rerun before the exact-leaf pin produced:
@@ -140,9 +140,9 @@ rerun moved past the post-claim partial-signature failure:
 - artifact directory:
   `target/live-lightning-labs-outgoing-payment-post-claim-fix/`
 - `OpenAgentsInc/rust-lightning`:
-  `88bc3ec10b594aecbf8463a84a397e9b67028395`
+  `7150b421954d655d8e1a61612639f6987388a25a`
 - `OpenAgentsInc/ldk-node`:
-  `2ac63238090d0e9709435864082ddfafac2f2f9e`
+  `766104066e8813e0108a80c98b98f2026a933d20`
 - live report status: `blocked`
 - blocked step: `live_asset_channel_payment_settlement`
 - LND payment wire status: `SUCCEEDED`
@@ -641,6 +641,7 @@ git diff --check
 ```bash
 cargo fmt --check
 ./scripts/check-openagents-rust-lightning.sh
+./scripts/check-btc-simple-taproot-conformance.sh
 cargo test --locked ldk_fork -- --nocapture
 cargo test --locked live_litd -- --nocapture
 git diff --check

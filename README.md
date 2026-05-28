@@ -20,16 +20,17 @@ They also keep simple-taproot and Taproot Asset opens private by construction.
 Missing required simple-taproot open/accept nonces now fail immediately.
 Reestablish and revoke-and-ack now use type-22 nonce maps as the authoritative
 path and regenerate retransmitted partial signatures from fresh nonce-map
-material.
+material. A BTC-only simple-taproot conformance gate now covers open, payment,
+reconnect/reestablish, functional cooperative close, force-close, P2TR funding
+witnesses, and legacy P2WSH isolation.
 The latest live run no longer logs the post-claim partial-signature failure or
 invalid Taproot control-block failure. Path B still needs the true native
 `tap-ldk` to Lightning Labs payment direction.
 
 Spec-compliance work is now split out of #81. #81 stays focused on the live
 settlement gate; broader BOLT simple-taproot conformance is tracked in #82 and
-#88 through #90 before #61 can close. Path B is not done until both payment
-directions settle against Lightning Labs with observed post-settlement
-balances.
+#89 through #90 before #61 can close. Path B is not done until both payment
+directions settle against Lightning Labs with observed post-settlement balances.
 
 LND, `tapd`, and `litd` are interop peers, not wallet sidecars.
 
@@ -40,6 +41,7 @@ Run the current setup checks from the repo root:
 ```bash
 cargo fmt --check
 cargo test
+./scripts/check-btc-simple-taproot-conformance.sh
 cargo run -p tap-ldk-cli -- --help
 cargo run -p tap-ldk-cli -- regtest-bitcoin-config
 cargo run -p tap-ldk-cli -- lightning-labs-counterparty-config

@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `88bc3ec10b594aecbf8463a84a397e9b67028395`
+- Current `tap-ldk` revision: `7150b421954d655d8e1a61612639f6987388a25a`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "88bc3ec10b594aecbf8463a84a397e9b67028395"
+rev = "7150b421954d655d8e1a61612639f6987388a25a"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -205,7 +205,7 @@ Revision `c94f4570587e94e89740f5126a5fa70021b58de2` keeps the same fail-closed
 policy and adds a regression fixture plus trace diagnostics for the rejected
 HTLC signature transcript: previous output, HTLC tx outputs, aux leaves,
 control block, sighash type, computed sighash, signature, and verifying key.
-Follow-up revisions through `88bc3ec10b594aecbf8463a84a397e9b67028395` add the
+Follow-up revisions through `7150b421954d655d8e1a61612639f6987388a25a` add the
 current concrete transcript fixes from that audit: second-level Taproot Asset
 HTLC aux leaves encode the Lightning Labs virtual `lock_time` and
 `relative_lock_time` fields, full counterparty commitments are persisted
@@ -225,22 +225,24 @@ rejects simple-taproot and Taproot Asset `open_channel`/`accept_channel`
 messages that omit the required type-4 `next_local_nonce`, while legacy
 channels can still omit that TLV.
 
-With `ldk-node@2ac63238090d0e9709435864082ddfafac2f2f9e`, the current pin
+With `ldk-node@766104066e8813e0108a80c98b98f2026a933d20`, the current pin
 carries that wire-field fix into the live runtime. The latest live state still
 settles the Lightning Labs to native payment and records native receiver
 balance, and the post-claim partial-signature transcript plus #84
 force-close funding-input witness path are now fixed with regression coverage.
 The #85 private-only channel rule and #86 immediate nonce-validation rule are
-also carried into the live runtime.
+also carried into the live runtime. The same pin adds the #88 BTC-only
+simple-taproot conformance gate: simple-taproot open, P2TR funding, payment,
+reconnect/reestablish, functional cooperative close, force-close key-path
+funding witness shape, and legacy P2WSH channel isolation.
 Partial split/change-output support remains later #71/#60 work after the
 bounded live path settles.
 
 Issue #61 remains open even though #62 through #70 and #75 are implemented.
-The epic closes only after BTC-only simple-taproot LDK channels open, pay,
-reestablish, cooperatively close, force-close, and prove legacy channels are
-unaffected in live channel-manager paths. Issue #71 remains open until the
-Taproot Assets overlay is wired through those live paths and Path B interop
-records observed live balances.
+The epic closes only after live cooperative close and the splice boundary are
+proved and the BOLT spec-compliance tracker closes. Issue #71 remains open
+until the Taproot Assets overlay is wired through those live paths and Path B
+interop records observed live balances.
 
 As broader forked code lands, the dependency strategy may need to move from a
 direct touchpoint dependency to explicit `[patch.crates-io]` entries for the
