@@ -58,6 +58,51 @@ impl FirstDemoProtocolScope {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SimpleTaprootNegotiationMode {
+    pub name: String,
+    pub status: String,
+    pub rust_lightning_config: String,
+    pub init_feature_bits: String,
+    pub channel_type: String,
+    pub uses_simple_close: bool,
+    pub first_demo_mode: bool,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SimpleTaprootNegotiationReport {
+    pub schema_version: u8,
+    pub active_first_demo_mode: String,
+    pub modes: Vec<SimpleTaprootNegotiationMode>,
+}
+
+impl SimpleTaprootNegotiationReport {
+    pub fn validate(&self) -> Result<(), DemoScopeError> {
+        if self.schema_version != 1 {
+            return Err(DemoScopeError::UnsupportedSchema(self.schema_version));
+        }
+        let final_mode = self
+            .modes
+            .iter()
+            .find(|mode| mode.name == "final-bolt-simple-taproot")
+            .ok_or(DemoScopeError::MissingNegotiationMode(
+                "final-bolt-simple-taproot",
+            ))?;
+        if final_mode.status != "implemented" {
+            return Err(DemoScopeError::UnexpectedPolicy {
+                feature: final_mode.name.clone(),
+                expected: "implemented".to_owned(),
+                actual: final_mode.status.clone(),
+            });
+        }
+        if !final_mode.uses_simple_close {
+            return Err(DemoScopeError::MissingSimpleCloseDependency);
+        }
+        Ok(())
+    }
+}
+
 pub fn first_demo_protocol_scope() -> FirstDemoProtocolScope {
     FirstDemoProtocolScope {
         schema_version: 1,
@@ -83,6 +128,59 @@ pub fn first_demo_protocol_scope() -> FirstDemoProtocolScope {
     }
 }
 
+pub fn simple_taproot_negotiation_report() -> SimpleTaprootNegotiationReport {
+    SimpleTaprootNegotiationReport {
+        schema_version: 1,
+        active_first_demo_mode: "staging-interop-plus-taproot-assets-overlay".to_owned(),
+        modes: vec![
+            SimpleTaprootNegotiationMode {
+                name: "staging-interop".to_owned(),
+                status: "implemented".to_owned(),
+                rust_lightning_config: "negotiate_simple_taproot_channels".to_owned(),
+                init_feature_bits: "180/181".to_owned(),
+                channel_type: "simple_taproot_staging".to_owned(),
+                uses_simple_close: false,
+                first_demo_mode: false,
+                notes: vec![
+                    "Kept for draft/staging peers and Lightning Labs compatibility.".to_owned(),
+                    "Single-funding RAA/reestablish may use the legacy scalar next-local nonce."
+                        .to_owned(),
+                ],
+            },
+            SimpleTaprootNegotiationMode {
+                name: "taproot-assets-overlay".to_owned(),
+                status: "implemented".to_owned(),
+                rust_lightning_config: "negotiate_taproot_asset_channels".to_owned(),
+                init_feature_bits: "180/181 plus taproot-overlay-chans".to_owned(),
+                channel_type: "taproot_asset_single_asset".to_owned(),
+                uses_simple_close: false,
+                first_demo_mode: true,
+                notes: vec![
+                    "This is the current native asset-channel and litd interop demo path."
+                        .to_owned(),
+                    "It remains separate from final option_simple_taproot production mode."
+                        .to_owned(),
+                ],
+            },
+            SimpleTaprootNegotiationMode {
+                name: "final-bolt-simple-taproot".to_owned(),
+                status: "implemented".to_owned(),
+                rust_lightning_config: "negotiate_final_simple_taproot_channels".to_owned(),
+                init_feature_bits: "80/81".to_owned(),
+                channel_type: "simple_taproot".to_owned(),
+                uses_simple_close: true,
+                first_demo_mode: false,
+                notes: vec![
+                    "Advertised only when option_channel_type and option_simple_close are present."
+                        .to_owned(),
+                    "Uses private explicit channel-type negotiation and type-22 nonce maps for RAA/reestablish."
+                        .to_owned(),
+                ],
+            },
+        ],
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DemoScopeError {
     UnsupportedSchema(u8),
@@ -99,6 +197,8 @@ pub enum DemoScopeError {
     MissingReason(String),
     MissingReopenBoundary(String),
     MissingVerification(String),
+    MissingNegotiationMode(&'static str),
+    MissingSimpleCloseDependency,
 }
 
 impl core::fmt::Display for DemoScopeError {
@@ -131,6 +231,15 @@ impl core::fmt::Display for DemoScopeError {
             }
             Self::MissingVerification(feature) => {
                 write!(f, "demo policy for {feature} is missing verification")
+            }
+            Self::MissingNegotiationMode(mode) => {
+                write!(f, "simple taproot negotiation report is missing {mode}")
+            }
+            Self::MissingSimpleCloseDependency => {
+                write!(
+                    f,
+                    "final simple taproot negotiation report is missing simple close dependency"
+                )
             }
         }
     }
@@ -169,5 +278,26 @@ mod tests {
                 .iter()
                 .any(|command| command.contains("splic"))
         );
+    }
+
+    #[test]
+    fn simple_taproot_negotiation_report_distinguishes_staging_and_final_modes() {
+        let report = simple_taproot_negotiation_report();
+
+        report.validate().unwrap();
+        assert_eq!(
+            report.active_first_demo_mode,
+            "staging-interop-plus-taproot-assets-overlay"
+        );
+        assert!(
+            report.modes.iter().any(|mode| {
+                mode.name == "staging-interop" && mode.init_feature_bits == "180/181"
+            })
+        );
+        assert!(report.modes.iter().any(|mode| {
+            mode.name == "final-bolt-simple-taproot"
+                && mode.init_feature_bits == "80/81"
+                && mode.uses_simple_close
+        }));
     }
 }

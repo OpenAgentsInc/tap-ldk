@@ -90,9 +90,10 @@ These are the contracts we definitely want around the rust-lightning work.
 - Experimental asset-channel behavior is behind explicit features, types, or
   negotiated channel flags.
 - BOLT simple taproot channel behavior is behind explicit feature bits and an
-  explicit channel type. During the draft phase this project uses the staging
-  bits for negotiation while keeping the final bits defined but not advertised
-  by default.
+  explicit channel type. Staging bits stay isolated for Lightning Labs interop,
+  while final `option_simple_taproot` bits are advertised only through the
+  separate final-mode config with `option_channel_type` and
+  `option_simple_close` available.
 - A normal BTC channel must not become an asset channel implicitly.
 - A Taproot Asset channel cannot be negotiated unless the BOLT simple taproot
   base channel type was also negotiated.

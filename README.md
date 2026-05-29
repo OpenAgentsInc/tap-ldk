@@ -9,7 +9,7 @@ This is demo software. It is not production-ready wallet infrastructure.
 
 ## Status
 
-Last updated: 2026-05-28
+Last updated: 2026-05-29
 
 - The native wallet-to-wallet demo works: issue demo `OPENUSD`, exchange
   proofs, open one asset channel, pay, restart, close, export proofs, and
@@ -27,9 +27,10 @@ Last updated: 2026-05-28
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
-- Full production BOLT simple-taproot compliance is now tracked in #91 through
-  #95: final feature-bit mode, splice nonce maps, close RBF, and full
-  vector/spend coverage.
+- Final BOLT simple-taproot feature-bit mode is implemented in the forks and
+  exposed separately from the staging/`litd` interop path. Remaining BOLT
+  production work is #92 through #95: splice nonce maps, close RBF, full
+  vector/spend coverage, and the final tracker.
 
 Still not done:
 
@@ -66,6 +67,7 @@ Useful CLI entry points:
 ```bash
 cargo run -p tap-ldk-cli -- --help
 cargo run -p tap-ldk-cli -- first-demo-scope
+cargo run -p tap-ldk-cli -- simple-taproot-negotiation-report
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 ```

@@ -406,12 +406,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `057d0e7c524f7b1255cabf22ae9f7fc261256aea`
+- current revision: `cac9764f5926b081034b88e4fa1c13cc691335c1`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "057d0e7c524f7b1255cabf22ae9f7fc261256aea", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "cac9764f5926b081034b88e4fa1c13cc691335c1", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -423,6 +423,7 @@ rust-lightning feature types are available:
 The current fork integration exposes the first real asset-channel gate:
 
 - `ChannelHandshakeConfig::negotiate_simple_taproot_channels`
+- `ChannelHandshakeConfig::negotiate_final_simple_taproot_channels`
 - `ChannelTypeFeatures::simple_taproot`
 - `ChannelTypeFeatures::simple_taproot_staging`
 - `lightning::ln::taproot_asset::TaprootAssetChannelDescriptor`
@@ -462,14 +463,15 @@ The current fork integration exposes the first real asset-channel gate:
 - `ChannelHandshakeConfig::negotiate_taproot_asset_channels`
 - `ChannelTypeFeatures::taproot_asset_single_asset`
 
-Those gates cover BOLT simple taproot staging feature negotiation, explicit
-simple-taproot channel type handling, native simple-taproot lifecycle wire TLV
-codecs, feature-gated MuSig2 key aggregation/nonce/signature helpers, BIP86
-P2TR funding script handling, P2TR to-local/to-remote/anchor commitment output
-scripts, HTLC P2TR output scripts, second-level HTLC output scripts,
-taproot-sighash signing helpers, tap tweak and control-block reconstruction
-data, BOLT-vector replay coverage for the implemented simple-taproot surfaces,
-and fail-closed malformed/duplicate/unsupported TLV, wrong funding script, and
+Those gates cover BOLT simple taproot staging feature negotiation, final
+`option_simple_taproot` negotiation, explicit simple-taproot channel type
+handling, native simple-taproot lifecycle wire TLV codecs, feature-gated MuSig2
+key aggregation/nonce/signature helpers, BIP86 P2TR funding script handling,
+P2TR to-local/to-remote/anchor commitment output scripts, HTLC P2TR output
+scripts, second-level HTLC output scripts, taproot-sighash signing helpers, tap
+tweak and control-block reconstruction data, BOLT-vector replay coverage for
+the implemented simple-taproot surfaces, and fail-closed malformed/duplicate/
+unsupported TLV, wrong funding script, missing final-mode dependencies, and
 nonce-reuse tests.
 They also cover experimental Taproot Asset channel type handling layered on
 that base and the bounded funding-controller approval surface. They provide
@@ -511,14 +513,18 @@ a real live demo:
 - BOLT simple taproot negotiation: BTC-only simple taproot support must have
   its own feature bits and explicit channel type before the asset overlay can
   claim a real channel. Initial staging-bit support landed in
-  `90054d8fc512eb9506955f27806b496e33d2b346`.
+  `90054d8fc512eb9506955f27806b496e33d2b346`. Final `option_simple_taproot`
+  bits `80/81` are now exposed separately through
+  `negotiate_final_simple_taproot_channels` in
+  `cac9764f5926b081034b88e4fa1c13cc691335c1`; that path requires
+  `option_channel_type` and `option_simple_close`, stays private, and uses
+  type-22 nonce maps for final RAA/reestablish.
 - BOLT simple taproot wire messages: native lifecycle messages must carry the
   MuSig2 nonce and partial-signature TLVs without changing legacy messages.
   Initial TLV codec and message validation support landed in
-  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. The current audit still
-  requires zeroing legacy ECDSA signature fields for simple-taproot
-  `funding_created`, `funding_signed`, and `commitment_signed`, and rejecting
-  non-zero peer legacy fields.
+  `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. Later pins zero legacy ECDSA
+  signature fields for simple-taproot `funding_created`, `funding_signed`, and
+  `commitment_signed`, and reject non-zero peer legacy fields.
 - BOLT simple taproot MuSig2 signer state: simple-taproot funding keys must
   aggregate with BIP-327 sorting, public nonces and partial signatures must
   verify, final Schnorr signatures must aggregate, and nonce-use state must

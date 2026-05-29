@@ -7,9 +7,9 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `eb61dde920493afe1037ec299888c10bc353e33a`
+  `81e141cf58125fff60771fe023b363ff2b591860`
 - Current `rust-lightning` fork commit:
-  `4a3cea6d859d172144e7010a38dc821db7fa5a5b`
+  `cac9764f5926b081034b88e4fa1c13cc691335c1`
 - Tracking issues: #77, #78, #79, #80, #81, #57, #58
 
 ## Why This Fork Exists
@@ -61,8 +61,10 @@ coverage.
    #87 staging/final RAA/reestablish nonce-field split for Lightning Labs
    overlay interop, the #88 BTC-only simple-taproot conformance gate, and the
    #89 cooperative-close P2TR key-path witness assertion through the pinned
-   Rust Lightning revision. The fork does not advertise STXO support until
-   native STXO commitment leaves are
+   Rust Lightning revision. `OpenAgentsInc/ldk-node@81e141cf58125fff60771fe023b363ff2b591860`
+   also exposes the separate final `option_simple_taproot` config flag while
+   keeping Taproot Asset overlay config on the staging base. The fork does not
+   advertise STXO support until native STXO commitment leaves are
    implemented and verified.
 5. #81 uses fork-backed live settlement against independent integrated
    `litd`. The latest completed live run settled the Lightning
@@ -73,7 +75,7 @@ coverage.
    regression fixture. It also clears the stale invalid-control-block fallback
    symptom by carrying the persisted key-path holder commitment signature.
 6. #57 uses the same fork-backed live channel for the reverse native-to-`litd`
-   send. `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`
+   send. `OpenAgentsInc/ldk-node@81e141cf58125fff60771fe023b363ff2b591860`
    emits the canonical Lightning Labs outer-TLV Taproot Asset HTLC blob, and
    the live harness sends 354,000 msat with the 125-unit asset HTLC so LND's
    dust check passes.

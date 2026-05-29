@@ -9,9 +9,9 @@ Source reviewed:
 
 Current local line audited:
 
-- `tap-ldk@5d06d6d6b531472339b214b0e2d1efa374b5f4f6`
-- `OpenAgentsInc/rust-lightning@4a3cea6d859d172144e7010a38dc821db7fa5a5b`
-- `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`
+- `tap-ldk@current main after #91 docs/pin update`
+- `OpenAgentsInc/rust-lightning@cac9764f5926b081034b88e4fa1c13cc691335c1`
+- `OpenAgentsInc/ldk-node@81e141cf58125fff60771fe023b363ff2b591860`
 
 ## Audit Result
 
@@ -19,11 +19,15 @@ Current local line audited:
 It is not a production-complete BOLT simple-taproot claim. The remaining work
 is now tracked in:
 
-- #91: final `option_simple_taproot` production negotiation;
 - #92: full splice nonce-map compliance;
 - #93: cooperative-close RBF nonce rotation;
 - #94: full BOLT vector and unilateral spend-path replay;
 - #95: production compliance tracker.
+
+#91 is now implemented. The final `option_simple_taproot` bits are a separate
+mode from staging/overlay interop, require `option_channel_type` and
+`option_simple_close`, keep opens private, and use type-22 nonce maps for final
+RAA/reestablish.
 
 The first-demo path remains valid. The gap is between that bounded demo and a
 100% simple-taproot BOLT implementation.
@@ -31,7 +35,7 @@ The first-demo path remains valid. The gap is between that bounded demo and a
 ## Implemented Or Demo-Covered
 
 These areas do not need new issues from this audit unless regressions are
-found while implementing #91 through #94:
+found while implementing #92 through #94:
 
 - fixed-width TLV parsing and serialization for simple-taproot nonces and
   partial signatures;
@@ -53,8 +57,8 @@ found while implementing #91 through #94:
 
 | Area | Spec expectation | Current state | Required issue |
 | --- | --- | --- | --- |
-| Final feature bits | Final `option_simple_taproot` depends on `option_channel_type` and `option_simple_close`, and should use explicit channel type negotiation. | Final and staging bits exist, but the demo path is staging/overlay oriented and docs still treat final-bit production activation as partial. | #91 |
-| Public-channel behavior | Simple-taproot channel type must not become a public default channel type. | Private-only behavior is implemented. Final-bit activation still needs a production-mode regression so staging behavior is not mistaken for final compliance. | #91 |
+| Final feature bits | Final `option_simple_taproot` depends on `option_channel_type` and `option_simple_close`, and should use explicit channel type negotiation. | Implemented under `negotiate_final_simple_taproot_channels`, with staging/overlay kept separate. | Done in #91 |
+| Public-channel behavior | Simple-taproot channel type must not become a public default channel type. | Implemented for staging, Taproot Asset overlay, and final mode. | Done in #91 |
 | RAA nonce maps | Final simple-taproot `revoke_and_ack` must carry type-22 entries for every active funding txid. | Map machinery exists. Staging single-funding scalar interop remains intentionally supported. Multi-funding/final paths need production splice coverage. | #92 |
 | Reestablish nonce maps | Final simple-taproot `channel_reestablish` must carry fresh type-22 entries for every active funding txid and regenerate partials from the new peer map. | Map machinery and selected retransmission coverage exist. Production splice/restart coverage is not complete. | #92 |
 | Splice coordination | Every active current or splice funding txid needs a distinct nonce map entry. Multiple pending splices need distinct txid/nonce pairs and no reuse. | Concurrent simple-taproot splicing is explicitly excluded from the first public demo. | #92 |
@@ -72,6 +76,6 @@ found while implementing #91 through #94:
 
 ## Closure Rule
 
-#95 can close only after #91 through #94 close, `tap-ldk` pins the completed
+#95 can close only after #92 through #94 close, `tap-ldk` pins the completed
 fork revisions, and the docs no longer describe any first-demo exclusion as
 part of a production-complete BOLT simple-taproot claim.

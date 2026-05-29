@@ -11,11 +11,11 @@ simple-taproot support.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@4a3cea6d859d172144e7010a38dc821db7fa5a5b`
-- `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`
+- `OpenAgentsInc/rust-lightning@cac9764f5926b081034b88e4fa1c13cc691335c1`
+- `OpenAgentsInc/ldk-node@81e141cf58125fff60771fe023b363ff2b591860`
 
 Production-complete BOLT simple-taproot work after the first-demo closure is
-now tracked in #91 through #95 and audited in
+now tracked in #92 through #95 and audited in
 `docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md`.
 
 The current fork line fixes the completed audit gaps so far: simple-taproot
@@ -80,11 +80,11 @@ tests for every active splice/funding txid's type-22 nonce-map entry.
 | #88 | Done | Add a BTC-only simple-taproot end-to-end conformance gate | Closed after fork pin and docs update |
 | #89 | Done | Prove native/fixture cooperative close and document the live Lightning Labs close boundary | Closed after fork pin and docs update |
 | #90 | Done | Cover splice nonce maps or explicitly gate splicing out of the first demo | Closed with machine-readable first-demo splice exclusion |
-| #91 | Open | Enable final `option_simple_taproot` production negotiation | Production BOLT final-bit mode |
+| #91 | Done | Enable final `option_simple_taproot` production negotiation | Implemented in the OpenAgentsInc forks and exposed through `tap-ldk-cli simple-taproot-negotiation-report` |
 | #92 | Open | Implement full simple-taproot splice nonce-map compliance | Production splice support |
 | #93 | Open | Complete simple-taproot cooperative-close RBF nonce rotation | Production close RBF support |
 | #94 | Open | Replay full simple-taproot BOLT vectors and unilateral spend paths | Production vector/spend proof |
-| #95 | Open | Track production BOLT simple-taproot compliance | Tracker for #91-#94 |
+| #95 | Open | Track production BOLT simple-taproot compliance | Tracker for #92-#94 |
 
 ## #61 Closure Result
 
@@ -104,8 +104,8 @@ These are still required before any production/simple-taproot-complete claim:
 1. Replace the first-demo splice exclusion with bounded splice nonce-map tests
    for missing, stale, duplicate, and wrong-funding-txid entries across every
    active current or splice funding candidate.
-2. Complete #91 through #94 and keep #95 open until the final feature-bit,
-   splice, close-RBF, vector, and spend-path work is pinned in `tap-ldk`.
+2. Complete #92 through #94 and keep #95 open until the splice, close-RBF,
+   vector, and spend-path work is pinned in `tap-ldk`.
 
 ## Closure Policy
 
@@ -119,5 +119,5 @@ These are still required before any production/simple-taproot-complete claim:
   replace the first-demo exclusion.
 - Keep #19 closed only while the simple-taproot base is clean enough for the
   Taproot Asset overlay claims made by the demo.
-- Do not close #95 until #91 through #94 are complete and `tap-ldk` pins the
+- Do not close #95 until #92 through #94 are complete and `tap-ldk` pins the
   fork revisions that contain those changes.

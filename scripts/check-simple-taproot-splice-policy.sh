@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUST_LIGHTNING_DIR="${TAP_LDK_RUST_LIGHTNING_DIR:-$ROOT_DIR/../.worktrees/rust-lightning}"
-EXPECTED_RUST_LIGHTNING_REV="8a54739ac030ba3e439496eacb7e1c1216e11c6f"
+EXPECTED_RUST_LIGHTNING_REV="cac9764f5926b081034b88e4fa1c13cc691335c1"
 
 if [ ! -d "$RUST_LIGHTNING_DIR/.git" ]; then
   echo "check-simple-taproot-splice-policy: missing rust-lightning checkout at $RUST_LIGHTNING_DIR" >&2

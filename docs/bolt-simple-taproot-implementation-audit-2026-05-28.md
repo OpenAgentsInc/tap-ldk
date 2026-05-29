@@ -7,11 +7,11 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@4a3cea6d859d172144e7010a38dc821db7fa5a5b`
-- `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`
+- `OpenAgentsInc/rust-lightning@cac9764f5926b081034b88e4fa1c13cc691335c1`
+- `OpenAgentsInc/ldk-node@81e141cf58125fff60771fe023b363ff2b591860`
 - `tap-ldk` pinned to those forks
 
-Follow-up production audit: #91 through #95 now track the remaining work for a
+Follow-up production audit: #92 through #95 now track the remaining work for a
 production-complete BOLT simple-taproot claim. See
 `docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md`.
 
@@ -100,7 +100,7 @@ blocks.
 
 | Spec area | Spec requirement | Current implementation | Status | Required work |
 | --- | --- | --- | --- | --- |
-| Feature bits | Define final `option_simple_taproot` bits 80/81 and staging bits 180/181; use explicit channel type. | `lightning-types/src/features.rs` defines final and staging bits. `ChannelHandshakeConfig::negotiate_simple_taproot_channels` advertises staging only. | Partial | Keep staging for `litd` interop, but document final-bit dependency on `option_simple_close` before enabling final bits. |
+| Feature bits | Define final `option_simple_taproot` bits 80/81 and staging bits 180/181; use explicit channel type. | Final bits are implemented behind `negotiate_final_simple_taproot_channels` with `option_channel_type` and `option_simple_close` dependency checks. Staging remains behind `negotiate_simple_taproot_channels` for `litd` interop. | Implemented for #91 | Keep staging and final modes separate in docs and runtime reports. |
 | Public-channel prohibition | A simple-taproot opener must not set `announce_channel`. | Outbound simple-taproot and Taproot Asset opens clear the public bit when those channel types are selected; inbound public opens for those channel types fail closed. Regressions cover BTC-only simple-taproot, Taproot Asset, and peer-provided public channel types. | Implemented | Keep legacy public BTC channel behavior covered while later BOLT work proceeds. |
 | TLV wire types | Fixed TLV payloads: type 2 partial signature with nonce, type 4 next local nonce, type 6 partial signature, type 8 shutdown nonce, type 22 nonce map. | `lightning/src/ln/simple_taproot.rs` defines the fixed constants and validates 66-byte public nonces as two compressed secp points. `msgs.rs` round-trips these TLVs. | Implemented | Keep vector tests pinned to the upstream BOLT fixture payloads. |
 | `open_channel` / `accept_channel` nonces | Messages must include type 4 `next_local_nonce`; receivers fail on absent or invalid nonces. | Open/accept generation derives counter nonces. `channel_type_from_open_channel` and `do_accept_channel_checks` now reject simple-taproot and Taproot Asset opens/accepts when the nonce is absent; legacy channel types can still omit it. Invalid points fail parse. | Implemented | Keep message-level and channel-level missing-nonce regressions. |
