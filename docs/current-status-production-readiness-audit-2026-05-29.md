@@ -38,6 +38,45 @@ complete Taproot Assets proof-history validation, live close and recovery
 behavior, asset-channel splice/RBF state, broader interop, network operations,
 and verification hardening.
 
+Against the BOLTs repository's `bolt-simple-taproot.md` Simple Taproot
+Channels document, the pinned OpenAgentsInc Rust Lightning fork implements the
+BTC simple-taproot channel base we need for this project. That means the fork
+covers final `option_simple_taproot` feature and channel-type negotiation,
+keeps the staging feature bits isolated for current Lightning Labs interop,
+requires private channels for this channel type, parses and serializes the
+new nonce and partial-signature TLVs, implements MuSig2 key aggregation,
+nonce handling, partial-signature verification, and final Schnorr aggregation,
+derives BIP86 P2TR funding outputs from sorted aggregate funding keys, handles
+simple-taproot funding and commitment signing, implements the to-local,
+to-remote, anchor, HTLC, and second-level HTLC output scripts, supports
+cooperative close with close nonce handling and RBF nonce rotation, carries
+type-22 nonce maps through final revoke-and-ack and reestablish flows, covers
+BTC-level splice nonce maps for current, pending splice, and RBF funding
+transaction IDs, and persists the tap tweaks, script roots, leaf scripts,
+control blocks, nonces, and signatures needed for unilateral spends and
+restart.
+
+The implementation is not just a shape match. The fork replays the BOLTs
+simple-taproot transaction vectors for the no-HTLC, five-HTLC, trimmed-HTLC,
+and HTLC-resolution cases; checks deterministic BIP340 HTLC signatures and
+witness stacks; and consensus-verifies to-local, to-remote, anchor, HTLC, and
+second-level spend paths. The remaining caveat inside the BOLTs document is a
+known accepted-HTLC draft inconsistency: the JSON script fields disagree with
+the prose and executable transaction vectors. The fork follows the prose and
+transaction vectors for final BOLT mode and keeps the Lightning Labs staging
+behavior explicit.
+
+That BOLT implementation claim is deliberately narrow. The BOLTs
+simple-taproot document specifies the BTC channel base: feature bits, TLVs,
+MuSig2 signing, P2TR funding, commitment outputs, close behavior, HTLC
+transactions, unilateral spend data, and vectors. It does not specify the
+production Taproot Assets proof engine, stablecoin issuance policy, proof
+courier, grouped-asset behavior, proof-history replay, asset-channel
+splice/RBF overlay, or live close/sweep proof recovery. Those are the next
+production-hardening items for `tap-ldk`, tracked separately in #96 through
+#106. Also, this is a pinned OpenAgentsInc Rust Lightning fork implementation,
+not a claim that the work has already been upstreamed into LDK.
+
 The proof-of-concept issues are closed, and the current open work is the
 production-hardening sequence for proof replay and formal verification. That
 new sequence is tracked in #96 through #106.
