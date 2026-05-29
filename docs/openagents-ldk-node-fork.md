@@ -7,10 +7,11 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
+  `1e439b10c94a6e42442d245f95945a906dd6221e`
 - Current `rust-lightning` fork commit:
-  `90f2e34fac15b18011bee7d939cd9c80141f4b8e`
-- Tracking issues: #77, #78, #79, #80, #81, #57, #58, #91, #92, #93
+  `3db3229733b724f45e7a356d923715213cb4f269`
+- Tracking issues: #77, #78, #79, #80, #81, #57, #58, #91, #92,
+  #93, #94, #95
 
 ## Why This Fork Exists
 
@@ -62,10 +63,11 @@ coverage.
    overlay interop, the #88 BTC-only simple-taproot conformance gate, and the
    #89 cooperative-close P2TR key-path witness assertion and the #93
    cooperative-close RBF nonce-rotation support through the pinned Rust
-   Lightning revision. `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
+   Lightning revision. `OpenAgentsInc/ldk-node@1e439b10c94a6e42442d245f95945a906dd6221e`
    also exposes the separate final `option_simple_taproot` config flag while
    keeping Taproot Asset overlay config on the staging base, and pins the
-   Rust Lightning splice nonce-map support from #92. The fork does not
+   Rust Lightning splice nonce-map support from #92, close-RBF support from
+   #93, and BOLT vector/unilateral-spend coverage from #94. The fork does not
    advertise STXO support until native STXO commitment leaves are implemented
    and verified.
 5. #81 uses fork-backed live settlement against independent integrated
@@ -77,7 +79,7 @@ coverage.
    regression fixture. It also clears the stale invalid-control-block fallback
    symptom by carrying the persisted key-path holder commitment signature.
 6. #57 uses the same fork-backed live channel for the reverse native-to-`litd`
-   send. `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
+   send. `OpenAgentsInc/ldk-node@1e439b10c94a6e42442d245f95945a906dd6221e`
    emits the canonical Lightning Labs outer-TLV Taproot Asset HTLC blob, and
    the live harness sends 354,000 msat with the 125-unit asset HTLC so LND's
    dust check passes.

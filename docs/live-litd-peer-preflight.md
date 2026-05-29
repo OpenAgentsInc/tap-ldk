@@ -30,8 +30,8 @@ This preflight is no longer the whole #57 story by itself; it is the live node
 state source used by the #57 regression gate. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@90f2e34fac15b18011bee7d939cd9c80141f4b8e` and
-`OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`, the
+`OpenAgentsInc/rust-lightning@3db3229733b724f45e7a356d923715213cb4f269` and
+`OpenAgentsInc/ldk-node@1e439b10c94a6e42442d245f95945a906dd6221e`, the
 integrated `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises the
 taproot-assets no-op HTLC aux feature without advertising unimplemented STXO

@@ -11,11 +11,11 @@ simple-taproot support.
 
 ## Current Fork Line
 
-- `OpenAgentsInc/rust-lightning@90f2e34fac15b18011bee7d939cd9c80141f4b8e`
-- `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
+- `OpenAgentsInc/rust-lightning@3db3229733b724f45e7a356d923715213cb4f269`
+- `OpenAgentsInc/ldk-node@1e439b10c94a6e42442d245f95945a906dd6221e`
 
 Production-complete BOLT simple-taproot work after the first-demo closure is
-now tracked in #94 and #95 and audited in
+now closed by #94 and #95 and audited in
 `docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md`.
 
 The current fork line fixes the completed audit gaps so far: simple-taproot
@@ -78,6 +78,17 @@ after each `closing_sig`, uses fresh closer nonces for later proposals, persists
 sent and received close state across reload, and fails closed on missing or
 reused shutdown, close partial, and close nonce state.
 
+It also closes #94 for production hardening: the fork replays exact no-HTLC,
+five-HTLC, trimmed-HTLC, and HTLC-resolution BOLT vectors, including complete
+witness stacks and deterministic remote HTLC signatures. It consensus-verifies
+to-local, to-remote, anchor, HTLC, and second-level unilateral spends and
+checks restart-safe reconstruction of tap tweaks, script roots, leaf scripts,
+and control blocks.
+
+It also closes #95: the production tracker now points at the pinned fork line
+that contains #91 through #94. Remaining project work is Taproot Assets overlay
+hardening, not the BTC simple-taproot BOLT base.
+
 ## Issue Map
 
 | Issue | Role | Scope | Blocks |
@@ -94,8 +105,8 @@ reused shutdown, close partial, and close nonce state.
 | #91 | Done | Enable final `option_simple_taproot` production negotiation | Implemented in the OpenAgentsInc forks and exposed through `tap-ldk-cli simple-taproot-negotiation-report` |
 | #92 | Done | Implement full simple-taproot splice nonce-map compliance | BTC-level production splice nonce-map support |
 | #93 | Done | Complete simple-taproot cooperative-close RBF nonce rotation | Production close RBF support |
-| #94 | Open | Replay full simple-taproot BOLT vectors and unilateral spend paths | Production vector/spend proof |
-| #95 | Open | Track production BOLT simple-taproot compliance | Tracker for #94 |
+| #94 | Done | Replay full simple-taproot BOLT vectors and unilateral spend paths | Production vector/spend proof |
+| #95 | Done | Track production BOLT simple-taproot compliance | Production tracker closed after #94 |
 
 ## #61 Closure Result
 
@@ -110,10 +121,9 @@ these facts:
    `./scripts/check-simple-taproot-splice-policy.sh` passed against the
    first-demo fork pin used for #61 closure.
 
-These are still required before any production/simple-taproot-complete claim:
-
-1. Complete #94 and keep #95 open until the vector and spend-path work is
-   pinned in `tap-ldk`.
+The production/simple-taproot-complete BTC base claim is now pinned in
+`tap-ldk`. Taproot Assets overlay splice/RBF and live close/recovery hardening
+remain separate.
 
 ## Closure Policy
 
@@ -123,9 +133,9 @@ These are still required before any production/simple-taproot-complete claim:
 - #82 is closed for first-demo scope because all child issues #83 through #90
   are closed, and #91/#92 now add final negotiation plus BTC-level splice
   nonce-map support.
-- #61 is closed for first-demo scope. Do not describe it as
-  production-complete simple-taproot support until #94 closes.
+- #61 is closed for first-demo scope; #94/#95 now close the later production
+  BTC simple-taproot BOLT-base tracker.
 - Keep #19 closed only while the simple-taproot base is clean enough for the
   Taproot Asset overlay claims made by the demo.
-- Do not close #95 until #94 is complete and `tap-ldk` pins the fork revision
+- #95 can close because #94 is complete and `tap-ldk` pins the fork revision
   that contains that work.

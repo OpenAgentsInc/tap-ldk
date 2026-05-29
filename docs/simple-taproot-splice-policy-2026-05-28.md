@@ -67,8 +67,10 @@ cargo check -p lightning --features simple_taproot_musig2
 
 ## Remaining Boundary
 
-Do not treat this as a production-complete BOLT claim yet. The remaining BOLT
-work is #94 full vector/unilateral spend-path replay.
+The BTC simple-taproot BOLT base is now production-complete in the pinned fork
+line after #94/#95. This document still does not claim Taproot Assets overlay
+splice/RBF support; that requires separate asset-state and proof-transition
+coverage.
 
 Any Taproot Asset channel claim that uses concurrent splice/RBF candidates must
 add asset-state and proof-transition coverage for every active funding txid.

@@ -28,9 +28,10 @@ Last updated: 2026-05-29
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
 - Final BOLT simple-taproot mode is implemented separately from the
-  staging/`litd` interop path. The fork now covers splice nonce maps and
-  cooperative-close RBF nonce rotation. Remaining BOLT production work is #94
-  plus the #95 tracker: full vector and unilateral spend coverage.
+  staging/`litd` interop path. The fork now covers feature negotiation, splice
+  nonce maps, cooperative-close RBF nonce rotation, BOLT vector replay,
+  unilateral spends, and restart-safe spend metadata for the BTC
+  simple-taproot base. The Taproot Assets overlay remains experimental.
 
 Still not done:
 
@@ -42,8 +43,7 @@ Still not done:
 - live force-close and sweep recovery;
 - live post-close proof and balance checks;
 - live `lnd`/`tapd`/`litd` RFQ signature checks;
-- concurrent splice/RBF asset-channel support;
-- any production claim that the simple-taproot BOLT is fully implemented.
+- concurrent splice/RBF asset-channel support.
 
 LND, `tapd`, and `litd` are test peers only. They are not sidecars inside the
 `tap-ldk` wallet.

@@ -6,7 +6,7 @@ Date: 2026-05-28
 
 Native BTC simple-taproot cooperative close is now covered in the
 OpenAgentsInc `rust-lightning` fork at
-`90f2e34fac15b18011bee7d939cd9c80141f4b8e`. The focused shutdown test opens a
+`3db3229733b724f45e7a356d923715213cb4f269`. The focused shutdown test opens a
 simple-taproot channel, exchanges `shutdown`, `closing_complete`, and
 `closing_sig`, checks that both peers broadcast the same final transaction, and
 asserts that the final transaction spends the P2TR funding output with exactly

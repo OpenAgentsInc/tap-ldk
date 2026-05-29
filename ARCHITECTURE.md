@@ -56,11 +56,12 @@ The `lnd`/`tapd`/`litd` path now has a live bidirectional payment regression:
   `issue_57_acceptance_met=true`, no invalid commitment, no invalid
   simple-taproot signature, no invalid Taproot control-block, and no
   counterparty force-close marker.
-- The 2026-05-28 BOLT simple-taproot audit confirms the fork is not yet
-  production spec-complete. The current scope covers base BTC simple-taproot
-  open/pay/reestablish/cooperative-close/force-close and now covers BTC-level
-  splice nonce maps for current, pending splice, and RBF funding txids. Close
-  RBF nonce rotation and full vector/unilateral-spend replay remain open.
+- The 2026-05-28 BOLT simple-taproot audit is now closed for the BTC base. The
+  current fork covers final feature negotiation, open/pay/reestablish,
+  cooperative close, force-close, splice nonce maps for current/pending/RBF
+  funding txids, close RBF nonce rotation, full BOLT vector replay, unilateral
+  spend paths, and restart-safe spend metadata. Taproot Assets overlay
+  production hardening remains separate.
 - The ordered local asset-payment message session remains useful for bounded
   negative-path checks, but #57 is now proved by the live integrated `litd`
   channel run instead of by that loopback session.
@@ -407,12 +408,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `90f2e34fac15b18011bee7d939cd9c80141f4b8e`
+- current revision: `3db3229733b724f45e7a356d923715213cb4f269`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "90f2e34fac15b18011bee7d939cd9c80141f4b8e", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "3db3229733b724f45e7a356d923715213cb4f269", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -470,10 +471,10 @@ handling, native simple-taproot lifecycle wire TLV codecs, feature-gated MuSig2
 key aggregation/nonce/signature helpers, BIP86 P2TR funding script handling,
 P2TR to-local/to-remote/anchor commitment output scripts, HTLC P2TR output
 scripts, second-level HTLC output scripts, taproot-sighash signing helpers, tap
-tweak and control-block reconstruction data, BOLT-vector replay coverage for
-the implemented simple-taproot surfaces, and fail-closed malformed/duplicate/
-unsupported TLV, wrong funding script, missing final-mode dependencies, and
-nonce-reuse tests.
+tweak and control-block reconstruction data, exact BOLT-vector replay for the
+BTC simple-taproot base, unilateral spend validation, restart metadata
+reconstruction, and fail-closed malformed/duplicate/unsupported TLV, wrong
+funding script, missing final-mode dependencies, and nonce-reuse tests.
 They also cover experimental Taproot Asset channel type handling layered on
 that base and the bounded funding-controller approval surface. They provide
 the first versioned channel monitor aux blob hook for asset commitment state,
@@ -517,7 +518,7 @@ a real live demo:
   `90054d8fc512eb9506955f27806b496e33d2b346`. Final `option_simple_taproot`
   bits `80/81` are now exposed separately through
   `negotiate_final_simple_taproot_channels` in
-  `90f2e34fac15b18011bee7d939cd9c80141f4b8e`; that path requires
+  `3db3229733b724f45e7a356d923715213cb4f269`; that path requires
   `option_channel_type` and `option_simple_close`, stays private, and uses
   type-22 nonce maps for final RAA/reestablish.
 - BOLT simple taproot wire messages: native lifecycle messages must carry the
@@ -544,9 +545,9 @@ a real live demo:
   P2TR to-local, to-remote, and anchor outputs with tapscript roots, tap
   tweaks, and control blocks that can be reconstructed after restart. Initial
   support landed in `b0b952531329a31265f8de28752ee5334d9d9d4f`; MuSig2
-  commitment signing/reestablish moved in #67 and HTLC scripts landed in #69.
-  The current live force-close path still fails with an invalid Taproot
-  control block, so this surface is not complete for #81 closure.
+  commitment signing/reestablish moved in #67, HTLC scripts landed in #69, and
+  #94 verifies to-local, to-remote, anchor, HTLC, and second-level unilateral
+  spends plus restart metadata reconstruction.
 - BOLT simple taproot commitment update/reestablish state: channel-ready,
   commitment-signed, revoke-and-ack, and channel-reestablish paths must carry
   next-local nonces, preserve sent partial signatures for retransmission, and
@@ -574,20 +575,24 @@ a real live demo:
   second-level spends, sign BIP342 `SIGHASH_SINGLE|ANYONECANPAY` tapscript
   spends, and build the correct witness stack for each offered/accepted
   success/timeout path. Initial support landed in
-  `6af69ad385b864d7666edebbbbb668dab485bdde`; #75 now layers the bounded
-  single-asset lifecycle state on top of these surfaces. The live
-  channel-manager and interop exercises are closed for first-demo scope in the
-  Path B epic #19, while #61 plus #71 stay as first-demo simple-taproot and
+  `6af69ad385b864d7666edebbbbb668dab485bdde`; #94 adds exact BOLT HTLC
+  resolution transaction hex, complete witness stacks, deterministic remote
+  HTLC signature checks, and consensus verification for those spends. #75 now
+  layers the bounded single-asset lifecycle state on top of these surfaces.
+  The live channel-manager and interop exercises are closed for first-demo
+  scope in the Path B epic #19, while #61 plus #71 stay as simple-taproot and
   Taproot Assets-over-LDK regression gates.
 - BOLT simple taproot vector replay: the fork must keep fixture tests tied to
   `bolt-simple-taproot.md` for TLV payloads, nonce and partial-signature wire
   shapes, funding scripts, commitment output scripts and leaf hashes, close
   behavior, HTLC scripts, second-level outputs, and multi-HTLC value/trimming
   cases. Initial coverage landed in
-  `983c4385ff66105ab70d766d34f49c1bd547a81a`. The BOLT draft transaction JSON
-  currently disagrees with its script-vector section for some multi-HTLC
-  output keys, so the fork asserts unambiguous script vectors exactly and uses
-  transaction cases for output count, value/order, P2TR shape, and trimming.
+  `983c4385ff66105ab70d766d34f49c1bd547a81a`; #94 extends it to exact no-HTLC,
+  five-HTLC, trimmed-HTLC, and HTLC-resolution transaction replay. The current
+  BOLT draft has an internal accepted-HTLC key-order conflict between the JSON
+  script fields and the prose/transaction vectors. The implementation follows
+  the prose and executable transaction vectors for the final BOLT path and
+  keeps the Lightning Labs staging path explicit.
 - Taproot Asset channel lifecycle state: funding, commitments, HTLC metadata,
   cooperative close, monitor aux persistence, and proof-ownership recovery must
   be tied to one simple-taproot asset-channel state object instead of loose
@@ -1298,8 +1303,8 @@ cargo run -p tap-ldk-cli -- first-demo-scope
 
 Before any Taproot Asset channel path with concurrent splice/RBF candidates,
 the asset layer needs tests that cover each active funding txid's corresponding
-asset-channel state and proof transition. Before a production-complete
-simple-taproot BOLT claim, #94 still needs to close.
+asset-channel state and proof transition. The BTC simple-taproot BOLT base is
+now covered by #94 and #95 in the pinned fork line.
 
 ## What Works End To End
 

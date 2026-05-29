@@ -147,6 +147,10 @@ These are the contracts we definitely want around the rust-lightning work.
   replay and distinguish exact script-vector assertions from transaction-case
   assertions when the draft's generated transaction JSON is internally
   inconsistent.
+- The current BOLT draft's accepted-HTLC JSON script fields conflict with the
+  prose and executable transaction vectors; the final-mode implementation
+  follows the prose/transaction vectors, while Lightning Labs staging behavior
+  stays behind explicit staging channel-type selection.
 - A peer must not send asset-channel messages before feature negotiation
   succeeds.
 - A peer must not accept asset-channel funding unless the asset ID, genesis,
