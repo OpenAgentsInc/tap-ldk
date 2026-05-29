@@ -400,6 +400,16 @@ engine is a new authority surface, not yet the only wallet gate; #100 through
 #103 track wiring it into wallet balances, funding, commitments, close, sweep,
 and recovery.
 
+The second step is now represented in the checked formal harness. Issue #98
+adds `formal/tla/proof_validation/ProofValidation.tla` and `.cfg`, modeling a
+bounded proof-history path through import, issuance, split, transfer, channel
+funding, commitment update, close, and sweep. The model checks that accepted
+balances have valid issuance history, coherent asset fields, a well-formed
+proof file, present STXO, stable chain view, and no bad proof reason. It also
+models wrong genesis, wrong anchor, wrong owner, invalid split sum, malformed
+proof-file transport, missing STXO, stale proof, and reorg-sensitive history
+as paths that cannot end in accepted balances.
+
 The first implementation step is to replace the current bounded proof-history
 surface with an explicit proof-chain replay engine. That engine should live
 around `proof.rs`, `tapd_proof.rs`, `mssmt.rs`, `taproot_commitment.rs`, and

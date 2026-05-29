@@ -13,6 +13,24 @@ This model covers the policy enforced by
   fail closed;
 - Lightning Labs `TAPF` imports must agree with the latest decoded asset leaf.
 
+`ProofValidation.tla` also covers the next proof-history replay boundary added
+for #97. It models a bounded valid path through well-formed proof import,
+issuance, accepted issuance, split, transfer, channel funding, commitment
+update, close, and sweep. It also models invalid paths for wrong genesis,
+wrong anchor, wrong owner script key, invalid split sum, malformed proof-file
+transport, missing STXO, stale proof, and reorg-sensitive history.
+
+The checked invariants are narrow:
+
+- an accepted balance must have a valid issuance history;
+- accepted asset ID, amount, owner, anchor, and symbolic root must agree;
+- accepted states require a well-formed proof file, present STXO, stable chain
+  view, and no recorded bad proof reason;
+- invalid or reorg-sensitive paths cannot end in an accepted balance;
+- accepted amount cannot exceed the modeled issued supply.
+
 The model does not prove Bitcoin transaction inclusion, script execution,
-Taproot control-block validity, or historical proof-chain replay. Those are
-protocol-vector and future production-hardening surfaces.
+Taproot control-block validity, MuSig2 correctness, real hash preimages,
+database crash consistency, peer networking, or full historical proof-chain
+storage. Those are covered by protocol-vector tests, Rust regression tests,
+and later production-hardening issues.

@@ -62,6 +62,8 @@ formal/
       boundaries.md
       invariants.md
     proof_validation/
+      ProofValidation.tla
+      ProofValidation.cfg
       assumptions.md
       boundaries.md
       invariants.md
