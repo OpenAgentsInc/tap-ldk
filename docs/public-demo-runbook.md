@@ -17,14 +17,14 @@ close proof artifacts. The recovery smoke also validates bounded force-close,
 second-level HTLC, and final sweep proof-ownership records and refuses BTC-only
 sweeps as asset recovery.
 
-Path B is the native `tap-ldk` to independent Lightning Labs compatibility
-demo. It runs fixture-backed Lightning Labs blob/proof/funding/RFQ/payment
-checks and optionally starts a Docker- or Podman-backed Bitcoin
+Path B is the native `tap-ldk` to independent `lnd`/`tapd`/`litd` compatibility
+demo. It runs fixture-backed Lightning Labs software blob/proof/funding/RFQ
+checks plus native payment-state checks, and optionally starts a Docker- or Podman-backed Bitcoin
 Core/LND/`tapd` counterparty. LND and `tapd` are compatibility peers, not
 `tap-ldk` runtime sidecars. The live gate now also starts integrated `litd`
 for the asset-channel path, connects the fork-backed OpenAgentsInc `ldk-node`
-runtime to that `litd` peer, funds a live asset channel, settles Lightning Labs
-to native, then sends the asset back from native LDK to `litd`. The latest
+runtime to that `litd` peer, funds a live asset channel, settles `litd` to
+native, then sends the asset back from native LDK to `litd`. The latest
 live report has `issue_81_acceptance_met=true`, `issue_57_acceptance_met=true`,
 and `issue_58_acceptance_met=true` with no invalid-commitment or counterparty
 force-close markers. The Path B wrapper completion report now has
@@ -43,7 +43,7 @@ force-close; production splice claims require separate nonce-map coverage.
 - Rust `1.85` or newer. This runbook was last checked with
   `rustc 1.94.1` and `cargo 1.94.1`.
 - Docker or Podman is optional. A container runtime is only needed for the
-  independent Lightning Labs Path B counterparty smoke.
+  independent `lnd`/`tapd`/`litd` Path B counterparty smoke.
 - Path B counterparty target: Bitcoin Core `30.0`, LND `0.19.0-beta`,
   `tapd` `0.7.0-alpha`.
 
@@ -110,7 +110,7 @@ Mocked or bounded pieces:
 - Live on-chain sweeper integration remains pending. The bounded recovery
   smoke refuses BTC-only sweep state as asset recovery.
 
-## Path B: Lightning Labs Interop
+## Path B: `lnd`/`tapd`/`litd` Interop
 
 Run:
 
@@ -129,7 +129,7 @@ Expected output includes:
 
 ```text
 path-b-lightning-labs-demo: artifacts=...
-Path B Lightning Labs interop demo artifacts: ...
+Path B `lnd`/`tapd`/`litd` interop demo artifacts: ...
 Independent counterparty:
 - target: Bitcoin Core 30.0, LND 0.19.0-beta, tapd 0.7.0-alpha
 Fixture-backed checks:
@@ -137,8 +137,8 @@ Fixture-backed checks:
 - proof fixtures: ...
 - funding interop: ...
 - RFQ invoice compatibility: ...
-- tap-ldk pays Lightning Labs artifacts: ...
-- Lightning Labs pays tap-ldk artifacts: ...
+- tap-ldk pays `litd` artifacts: ...
+- `litd` pays tap-ldk artifacts: ...
 - consolidated checks: ...
 ```
 
@@ -148,7 +148,7 @@ the Docker Desktop app bundle CLI before falling back to Podman:
 
 ```text
 Neither Docker nor Podman is installed. Path B fixture-backed checks ran, but
-the independent Lightning Labs LND/tapd counterparty was not started.
+the independent `lnd`/`tapd` counterparty was not started.
 
 <runtime> is installed at <path>, but its daemon or machine is not reachable.
 ```
@@ -179,12 +179,12 @@ Mocked or bounded pieces:
 - Proof courier is local fixture/import-export plumbing.
 - Manual/local discovery is used for the first interop target.
 - Live `tap-ldk` peer smoke is local `tap-ldk` to `tap-ldk`; it is not yet a
-  Lightning Labs daemon-backed P2P session.
+  `lnd`/`tapd`/`litd` daemon-backed P2P session.
 - Live `tapd` proof binding can bind daemon-exported proof material when the
-  Lightning Labs runtime is reachable.
+  `lnd`/`tapd`/`litd` runtime is reachable.
 - Fork-backed `ldk-node` can connect to integrated `litd`, reach the Taproot
-  Asset message/channel/payment APIs, and complete the #81 live Lightning Labs
-  to native settlement gate over that connected peer.
+  Asset message/channel/payment APIs, and complete the #81 live `litd` to
+  native settlement gate over that connected peer.
 - Live LND/`tapd`/`litd` settlement and post-settlement observed balance
   comparison remain open.
 

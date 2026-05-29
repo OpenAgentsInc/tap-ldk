@@ -3,7 +3,7 @@
 Date: 2026-05-28
 
 This document records the BOLT simple-taproot work that was split out of #81.
-#81 is complete and should stay a live Lightning Labs to native settlement
+#81 is complete and should stay a live `litd` to native settlement
 regression gate.
 Broader production BOLT conformance after the first-demo claim belongs in a
 new focused issue set before the project claims production-complete
@@ -27,7 +27,7 @@ fixture asserting sighash
 It also closes the #84 funding-input force-close witness gap: holder commitment
 transactions now persist the aggregate simple-taproot MuSig2 Schnorr signature,
 the on-chain fallback uses a one-element key-path witness for the P2TR funding
-output, and the latest live Lightning Labs to native run no longer logs
+output, and the latest live `litd` to native run no longer logs
 `Invalid Taproot control block size`.
 
 It also closes #85: outbound simple-taproot and Taproot Asset opens clear
@@ -54,7 +54,7 @@ It also closes #89: native simple-taproot cooperative close now asserts a
 single 64-byte Taproot key-path funding witness, the Taproot Asset
 asset-channel smoke confirms the latest close allocation survives restart, and
 `tap-ldk` exposes both `./scripts/check-simple-taproot-cooperative-close.sh`
-and a live `litd` close command. The live Lightning Labs post-close proof and
+and a live `litd` close command. The live `litd` post-close proof and
 balance observer is still a documented Path B boundary, not a claimed success.
 
 It also closes #90 for the first-demo scope: concurrent simple-taproot splicing

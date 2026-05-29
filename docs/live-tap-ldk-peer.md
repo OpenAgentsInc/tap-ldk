@@ -31,11 +31,11 @@ status, proof reassembly lengths, and the derived session payment id.
 
 ## Boundary
 
-This is a live `tap-ldk` peer smoke, not a completed Lightning Labs daemon
+This is a live `tap-ldk` peer smoke, not a completed `lnd`/`tapd`/`litd` daemon
 interop run. It proves the native peer process can run, accept a connection,
 use the rust-lightning fork negotiation surface, and move encoded asset custom
 messages over a socket. The ordered payment-session smoke proves the native
 message sequence can run over that live transport, but it is still localhost
 `tap-ldk` to `tap-ldk`. The completed Path B work replaces the loopback
-peer with real Lightning wire peer management, the Lightning Labs LND/`tapd`
+peer with real Lightning wire peer management, the `lnd`/`tapd`
 counterparty, and observed live balance checks.

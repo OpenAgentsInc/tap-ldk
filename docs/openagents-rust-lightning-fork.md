@@ -231,7 +231,7 @@ maps for final simple-taproot and any multi-funding path.
 
 With `ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`, the current pin
 carries that wire-field fix into the live runtime. The latest live state still
-settles the Lightning Labs to native payment and records native receiver
+settles the `litd` to native payment and records native receiver
 balance, and the post-claim partial-signature transcript plus #84
 force-close funding-input witness path are now fixed with regression coverage.
 The #85 private-only channel rule and #86 immediate nonce-validation rule are

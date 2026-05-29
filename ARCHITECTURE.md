@@ -9,7 +9,7 @@ quote, HTLC, payment, persistence, and recovery logic live in Rust/LDK code.
 
 This document explains what exists now, how the pieces fit together, what has
 been wired against `rust-lightning`, and what still has to be built before the
-Lightning Labs interop demo is real.
+`lnd`/`tapd`/`litd` interop demo is real.
 
 ## Current State
 
@@ -25,7 +25,7 @@ The native demo works as a bounded local smoke:
   peer over TCP, negotiate the experimental single-asset capability through the
   rust-lightning fork, and round-trip an encoded native RFQ custom message.
 
-The Lightning Labs path now has a live bidirectional payment regression:
+The `lnd`/`tapd`/`litd` path now has a live bidirectional payment regression:
 
 - The repo can decode Lightning Labs funding, HTLC, commitment, RFQ, and proof
   fixtures.
@@ -34,8 +34,8 @@ The Lightning Labs path now has a live bidirectional payment regression:
 - It writes a live outgoing-payment gate that links live `tapd` proof binding
   to the native outgoing RFQ/invoice/HTLC artifact, integrated `litd`
   channel state, fork-backed native LDK receiver/sender state, and observed
-  Lightning Labs channel balance.
-- It can start integrated Lightning Labs `litd`, confirm the asset-channel RPC
+  `litd` channel balance.
+- It can start integrated `litd`, confirm the asset-channel RPC
   surface is reachable, then start the fork-backed `ldk-node` runtime and
   connect it to the `litd` Lightning P2P address.
 - The current #57/#81 gate reaches `proof_binding_status=bound`,
@@ -43,15 +43,15 @@ The Lightning Labs path now has a live bidirectional payment regression:
   `integrated_litd_counterparty_ready=true`,
   `native_litd_peer_connected=true`, both remote taproot feature observations,
   live `litd` asset-channel funding, `channel_ready`, a keysend-usable `litd`
-  asset-channel balance, Lightning Labs to native asset keysend success,
+  asset-channel balance, `litd` to native asset keysend success,
   native `PaymentClaimed`, and durable native receiver balance recording in
   `ldk-node`. It then sends the asset back from native LDK to `litd` with a
   canonical Taproot Asset HTLC blob and a dust-covering BTC amount.
 - It now uses fork-backed `ldk-node`, so the live peer path reaches the
   OpenAgentsInc `rust-lightning` simple-taproot and Taproot Asset channel
   hooks.
-- It completes live funding, Lightning Labs to native settlement, native to
-  Lightning Labs settlement, and the returned `litd` channel asset-balance
+- It completes live funding, `litd` to native settlement, native to
+  `litd` settlement, and the returned `litd` channel asset-balance
   observation. The latest live report has `issue_81_acceptance_met=true`,
   `issue_57_acceptance_met=true`, no invalid commitment, no invalid
   simple-taproot signature, no invalid Taproot control-block, and no
@@ -156,10 +156,10 @@ Important modules:
 - `lightning_labs_funding`: fixture-backed funding interop report and store.
 - `lightning_labs_rfq`: Lightning Labs RFQ request/accept/reject compatibility.
 - `lightning_labs_payment`: fixture-backed outgoing and incoming payment
-  reports for Lightning Labs interop.
+  reports for Lightning Labs software interop.
 - `lightning_labs_interop_checks`: consolidated Track B report that says which
   checks passed and which live-daemon gaps remain.
-- `regtest`: local regtest and Lightning Labs counterparty config material.
+- `regtest`: local regtest and `lnd`/`tapd`/`litd` counterparty config material.
 - `address` and `virtual_psbt`: imported TAP BIP fixture support.
 
 ### `tap-ldk-cli`
@@ -213,7 +213,7 @@ and balance conservation checks.
 - `merge_same_asset_inputs` for funding multiple same-asset inputs.
 
 `mssmt.rs` implements the protocol-shaped tree primitive separately from the
-bounded asset helper. It matches the Lightning Labs node hashing shape, bit
+bounded asset helper. It matches the taproot-assets node-hashing shape, bit
 order, inclusion/exclusion proof walk, and compressed proof format against
 imported `taproot-assets` vectors.
 
@@ -251,8 +251,8 @@ data would make interop results meaningless.
 - rejection of unknown even required types.
 
 Most protocol modules use this TLV layer directly. That includes native proof
-files, native peer messages, HTLC custom records, Lightning Labs blob fixtures,
-Lightning Labs RFQ payloads, and `tapd` proof-file parsing.
+files, native peer messages, HTLC custom records, Lightning Labs software blob
+fixtures, Lightning Labs software RFQ payloads, and `tapd` proof-file parsing.
 
 ## Proof Handling
 
@@ -286,7 +286,7 @@ HTLC receipt does not accept an independently invented proof root. The
 final-hop metadata must validate normally and match the proof root hash and sum
 already committed in the channel monitor blob before settlement can advance.
 
-### Lightning Labs proof path
+### `tapd` Proof Path
 
 `tapd_proof.rs` parses Lightning Labs proof files:
 
@@ -384,7 +384,7 @@ cargo run -p tap-ldk-cli -- live-litd-peer-preflight target/live-litd-peer-prefl
 
 Current boundary:
 
-- the ordered asset-payment message exchange is not yet a Lightning Labs
+- the ordered asset-payment message exchange is not yet an `lnd`/`tapd`/`litd`
   daemon-backed session;
 - the `live-litd-peer-preflight` command uses the OpenAgentsInc `ldk-node`
   fork to connect to integrated `litd`, prove fork provenance, observe remote
@@ -907,10 +907,12 @@ This is still not a live on-chain force-close. The remaining work is to wire
 the bounded records through real channel-manager, resolver, and sweeper call
 sites.
 
-## Lightning Labs Compatibility
+## `lnd`/`tapd`/`litd` Compatibility
 
-Track B is the Lightning Labs interop path. It uses Lightning Labs as an
-independent counterparty, not as a wallet sidecar.
+Track B is the `lnd`/`tapd`/`litd` interop path. It uses nodes running the
+Lightning Labs software stack as independent protocol peers. The named payer
+and receiver in docs and artifacts must be the actual peer, usually native
+`tap-ldk` or `litd`, not the software vendor.
 
 Current target:
 
@@ -986,7 +988,7 @@ outpoint and live proof chain are bound to the run.
 It can convert between local quote-bound invoice state and Lightning Labs RFQ
 payloads. It also derives the Lightning Labs SCID alias from the RFQ ID.
 
-Signature validation against a live Lightning Labs peer is not implemented yet.
+Signature validation against a live `lnd`/`tapd`/`litd` peer is not implemented yet.
 That belongs in the live daemon path.
 
 ### Proof compatibility
@@ -1003,8 +1005,8 @@ STXO/grouped-asset handling, and reorg hardening remain future production work.
 
 `lightning_labs_payment.rs` builds reports for both directions:
 
-- `tap-ldk` pays Lightning Labs;
-- Lightning Labs pays `tap-ldk`.
+- `tap-ldk` pays `litd`;
+- `litd` pays `tap-ldk`.
 
 The reports include:
 
@@ -1092,15 +1094,15 @@ target/path-a-native-demo/<timestamp>/
 
 ### Path B
 
-`scripts/path-b-lightning-labs-demo.sh` runs the Lightning Labs compatibility
-demo as far as it can go today.
+`scripts/path-b-lightning-labs-demo.sh` runs the `lnd`/`tapd`/`litd` software
+compatibility demo as far as it can go today.
 
 It:
 
 1. records version information;
-2. writes Lightning Labs counterparty config;
+2. writes `lnd`/`tapd`/`litd` counterparty config;
 3. tries to print counterparty status;
-4. tries to run the Lightning Labs counterparty smoke if Docker or Podman is
+4. tries to run the `lnd`/`tapd`/`litd` counterparty smoke if Docker or Podman is
    available and healthy;
 5. records an explicit dependency gap if the runtime is unavailable;
 6. decodes blob fixtures;
@@ -1117,7 +1119,7 @@ When Docker is reachable, the live outgoing-payment gate also runs the
 standalone proof-binding/current-balance path, starts integrated `litd`, and
 runs the fork-backed `ldk-node` to `litd` path. It now reaches live
 asset-channel funding, confirms the channel, sees `litd` report the channel
-usable for asset keysend, settles a Lightning Labs to native asset keysend, and
+usable for asset keysend, settles a `litd` to native asset keysend, and
 records the native receiver balance through fork-backed `ldk-node`. It still
 blocks at `live_asset_channel_payment_settlement` because after success native
 LDK rejects `litd`'s zero-HTLC post-claim commitment with `Invalid
@@ -1141,7 +1143,7 @@ target/full-demo-smoke/<timestamp>/
 ## Counterparty Harness
 
 `scripts/lightning-labs-counterparty.sh` is supposed to start an independent
-Lightning Labs topology:
+`lnd`/`tapd`/`litd` topology:
 
 - Bitcoin Core;
 - LND;
@@ -1155,7 +1157,7 @@ It now detects Docker or Podman:
 - override: `TAP_LDK_CONTAINER_RUNTIME=podman`.
 
 The script performs the counterparty bootstrap needed before live Path B work
-can attach to the Lightning Labs side:
+can attach to the `lnd`/`tapd`/`litd` side:
 
 - wait for bitcoind RPC;
 - create or unlock the LND wallet;
@@ -1234,8 +1236,8 @@ This applies to:
 - native payment store;
 - close store;
 - Lightning Labs funding interop store;
-- Lightning Labs outgoing payment store;
-- Lightning Labs incoming payment store.
+- Lightning Labs-format outgoing payment store;
+- Lightning Labs-format incoming payment store.
 
 The design goal is simple: if a state transition matters for the demo claim,
 the artifact should survive restart and be inspectable.
@@ -1316,7 +1318,7 @@ It does not prove:
 - production stablecoin issuance;
 - reserve management;
 - compliance;
-- live Lightning Labs routing;
+- live routing through public Lightning nodes;
 - production-complete Taproot Assets proof history replay for grouped assets,
   STXO/split/change paths, reorg watcher handling, and every historical virtual
   transaction witness;
@@ -1325,7 +1327,7 @@ It does not prove:
 
 ## Future Hardening
 
-The first-demo live Lightning Labs interop path is complete.
+The first-demo live `lnd`/`tapd`/`litd` interop path is complete.
 
 Still outside the first public demo claim:
 
@@ -1340,8 +1342,8 @@ Still outside the first public demo claim:
 The first-demo regression set is now:
 
 1. Keep #81, #57, #58, #59, #60, #61, and #71 green as regressions.
-   - #81 proves Lightning Labs to native settlement.
-   - #57 proves native to Lightning Labs settlement over the same integrated
+   - #81 proves `litd` to native settlement.
+   - #57 proves native to `litd` settlement over the same integrated
      `litd` asset channel.
    - #58 proves the native receiver payment/balance checkpoint survives
      restart.
@@ -1368,10 +1370,10 @@ The project intentionally separates four layers:
 
 1. Native asset semantics in `tap-ldk-core`.
 2. LDK/rust-lightning channel integration in the OpenAgentsInc fork.
-3. Lightning Labs compatibility as an external interop target.
+3. `lnd`/`tapd`/`litd` software compatibility as an external interop target.
 4. Scripts and CLI as demo/operator surfaces.
 
-That separation matters. If the Lightning Labs daemon performs wallet duties
+That separation matters. If the `lnd`/`tapd`/`litd` daemon performs wallet duties
 for `tap-ldk`, the demo fails its own goal. If `tap-ldk` implements asset
 semantics but never integrates with live LDK channel state, the demo is only a
 state-machine smoke. The final proof of concept needs both: native asset logic
@@ -1386,5 +1388,5 @@ When changing the architecture:
 - Update this file if a module, hook, or live-demo boundary changes.
 - Add or update tests for every new protocol behavior.
 - Keep fixture-backed, smoke-backed, and live-backed claims separate.
-- Never claim live Lightning Labs success from expected-only balances.
+- Never claim live `litd` success from expected-only balances.
 - Never hide mocked pieces in public demo docs.

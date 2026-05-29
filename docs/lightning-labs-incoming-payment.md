@@ -1,11 +1,12 @@
-# Lightning Labs Incoming Payment
+# `litd` to `tap-ldk` Incoming Payment
 
 `tap-ldk` now builds the receiver-side artifacts for the second Track B
-payment direction: a Lightning Labs counterparty paying a native `tap-ldk`
-wallet. The smoke uses the imported Lightning Labs funding and commitment
-fixtures, constructs a native quote-bound receive invoice, emits Lightning Labs
-buy-direction RFQ request/accept payload digests, validates final-hop asset
-HTLC metadata, computes the expected Lightning Labs sender and `tap-ldk`
+payment direction: a `lnd`/`tapd`/`litd` counterparty paying a native `tap-ldk`
+wallet. The smoke uses the imported Lightning Labs software funding and
+commitment fixtures, constructs a native quote-bound receive invoice, emits
+taproot-assets buy-direction RFQ request/accept payload digests,
+validates final-hop asset
+HTLC metadata, computes the expected `litd` sender and `tap-ldk`
 receiver balance delta, and persists a restart-safe interop payment state.
 
 ```bash
@@ -23,8 +24,8 @@ verifies the received payment/balance checkpoint reloads. The latest #58 run is
 
 ## Checks
 
-- Reuses the fixture-backed Lightning Labs funding state.
-- Builds and validates Lightning Labs buy-direction RFQ request/accept
+- Reuses the fixture-backed Lightning Labs software funding state.
+- Builds and validates taproot-assets buy-direction RFQ request/accept
   payloads.
 - Binds the RFQ to opaque BOLT 11 invoice text without changing the invoice.
 - Encodes, decodes, and validates final-hop asset HTLC custom records.
@@ -32,7 +33,7 @@ verifies the received payment/balance checkpoint reloads. The latest #58 run is
 - Persists the incoming payment gap state and reloads it unchanged.
 - The live gate includes
   `native-ldk-litd-peer-restart-snapshot.json`, which proves the received
-  Lightning Labs payment survives a native-node restart.
+  `litd` payment survives a native-node restart.
 
 ## Next Step
 

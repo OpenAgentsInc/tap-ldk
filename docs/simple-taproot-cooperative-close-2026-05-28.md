@@ -21,14 +21,14 @@ simple-taproot asset-channel smoke. The report now records that the close:
   and commitment number from the latest valid channel state;
 - survives a close-store round trip and reload with the same allocation.
 
-The consolidated Lightning Labs interop check treats those native and
+The consolidated Lightning Labs software interop check treats those native and
 fixture-backed close/recovery vectors as passing automated checks.
 
-## Lightning Labs Boundary
+## `litd` Close Boundary
 
-Lightning Labs exposes the peer side of asset cooperative close through LND
-`CloseChannel` and the taproot-assets custom-channel closer. The relevant
-reference code is in the local synced Lightning Labs repo:
+The `lnd`/`tapd`/`litd` stack exposes the peer side of asset cooperative close
+through LND `CloseChannel` and the taproot-assets custom-channel closer. The
+relevant reference code is in the local synced Lightning Labs repo:
 
 - `projects/lightninglabs/repos/taproot-assets/tapchannel/aux_closer.go`
 - `projects/lightninglabs/repos/taproot-assets/itest/custom_channels/restart_coop_close_test.go`
@@ -52,7 +52,7 @@ The live Path B harness still does not claim completed live cooperative close.
 The missing observation is native-side post-close Taproot Asset proof and
 balance recording after the `litd` close completes and after restart. Until
 that observer exists, the interop report records
-`live Lightning Labs cooperative close remains documented gap` rather than
+`live litd cooperative close remains documented gap` rather than
 reporting false success.
 
 ## Verification

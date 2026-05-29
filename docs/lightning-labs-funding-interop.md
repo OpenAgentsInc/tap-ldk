@@ -1,4 +1,4 @@
-# Lightning Labs Funding Interop
+# Lightning Labs Software Funding Interop
 
 The current Track B funding interop step is fixture-backed. `tap-ldk` decodes
 the Lightning Labs `tapchannelmsg` funding and commitment blobs, confirms they

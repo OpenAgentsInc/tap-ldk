@@ -8,7 +8,7 @@ Build a simple operator-facing web application that makes the current
 `tap-ldk` demo understandable, inspectable, and configurable. The app should
 show what is happening in Path A and Path B, let an operator create bounded
 demo assets, run multiple local native `tap-ldk` instances, and exercise the
-independent Lightning Labs counterparty path through a local Polar/headless
+independent `lnd`/`tapd`/`litd` counterparty path through a local Polar/headless
 regtest topology.
 
 The web app is a demo control plane and visualization layer. It must not become
@@ -18,7 +18,7 @@ the Rust implementation and smoke scripts.
 ## Current Source Of Truth
 
 - Path A native-to-native demo: `scripts/path-a-native-demo.sh`.
-- Path B Lightning Labs interop demo: `scripts/path-b-lightning-labs-demo.sh`.
+- Path B `lnd`/`tapd`/`litd` interop demo: `scripts/path-b-lightning-labs-demo.sh`.
 - Full wrapper: `scripts/full-demo-smoke.sh`.
 - Current machine-readable artifacts: JSON and proof files under `target/`.
 - Current protocol and demo constraints: `INVARIANTS.md`, `ROADMAP.md`, and
@@ -98,7 +98,7 @@ The MVP should support:
 - Load and visualize the latest Path A or Path B artifact directory.
 - Start a Path A run with configurable demo inputs.
 - Start a Path B fixture/interoperability run and show its documented gaps.
-- Start or connect to a local Polar/headless Lightning Labs topology when the
+- Start or connect to a local Polar/headless `lnd`/`tapd`/`litd` topology when the
   local agent supports it.
 - Create a bounded demo asset and use it in a Path A run.
 - Run two to five local native `tap-ldk` instances in one demo run.
@@ -180,9 +180,9 @@ already present.
 The first implementation may compile this into repeated existing CLI commands
 and a new JSON run plan before adding a long-lived wallet daemon.
 
-### 4. Run Path B With Lightning Labs Counterparty
+### 4. Run Path B With `lnd`/`tapd`/`litd` Counterparty
 
-1. User chooses `Path B: Lightning Labs litd counterparty`.
+1. User chooses the `litd` counterparty mode.
 2. App verifies local agent, Docker, and Polar/headless topology readiness.
 3. App starts or attaches to the configured local network.
 4. App runs the current Path B wrapper.
@@ -252,7 +252,7 @@ tables, and deterministic spacing.
 
 - Channel graph:
   - native `tap-ldk` nodes;
-  - Lightning Labs `litd` or LND/`tapd` nodes;
+  - `litd` or LND/`tapd` nodes;
   - channel lines with asset balance labels;
   - animated payment path during replay.
 - Balance ledger:
@@ -315,7 +315,7 @@ Docker, Polar, or native binaries.
 - Start/stop/status for:
   - Path A regtest Bitcoin;
   - native `tap-ldk` demo instances;
-  - Lightning Labs standalone LND/`tapd`;
+  - standalone LND/`tapd` nodes running Lightning Labs software;
   - integrated `litd`;
   - Polar network when available.
 - Run allowlisted scripts and CLI subcommands.
@@ -559,7 +559,7 @@ final balances and close-proof artifacts as the script.
 Exit condition: The app can run a multi-node local native plan and prove asset
 conservation across the displayed topology.
 
-### Phase 3: Path B / Polar / Lightning Labs
+### Phase 3: Path B / Polar / `lnd`/`tapd`/`litd`
 
 - Add local agent adapters for existing headless scripts.
 - Add Polar attachment/start support after the Polar topology is stable enough

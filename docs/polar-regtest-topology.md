@@ -2,9 +2,9 @@
 
 Date: 2026-05-25
 
-Polar is useful for the manual Lightning Labs interop side of the demo and as
-a reference for the headless harness. It must not become a wallet sidecar for
-`tap-ldk`.
+Polar is useful for the manual `lnd`/`tapd`/`litd` software interop side of the
+demo and as a reference for the headless harness. It must not become a wallet
+sidecar for `tap-ldk`.
 
 ## Source Build Status
 
@@ -63,25 +63,25 @@ For the first Track B interop smoke, use either:
 
 The explicit LND/`tapd` pair is better for validating the daemon split. `litd`
 is useful if the manual UI path is simpler, but the docs and demo should still
-state which Lightning Labs daemon surface is acting as the counterparty.
+state which `lnd`/`tapd`/`litd` daemon surface is acting as the counterparty.
 
 ## Recommended Track B Manual Topology
 
-Use Polar to operate only the Lightning Labs side:
+Use Polar to operate only the `lnd`/`tapd`/`litd` side:
 
 1. Start a Polar regtest network with one Bitcoin Core node.
 2. Add one LND node and one `tapd` node attached to it, or one `litd` node if
    that path is more reliable for manual testing.
-3. Mine enough blocks and fund the Lightning Labs node through Polar.
-4. Mint or import the demo asset on the Lightning Labs side.
+3. Mine enough blocks and fund the `lnd`/`tapd`/`litd` node through Polar.
+4. Mint or import the demo asset on the `lnd`/`tapd`/`litd` side.
 5. Export or synchronize the asset proof through the local proof/universe path
    expected by the `tap-ldk` harness.
 6. Start the native `tap-ldk` wallet outside Polar.
 7. Connect `tap-ldk` to the Polar-managed Bitcoin regtest backend and to the
-   Lightning Labs peer as an external counterparty.
+   `lnd`/`tapd`/`litd` peer as an external counterparty.
 8. Run the RFQ, invoice, payment, balance, and proof checks.
 
-The key boundary is that Polar may manage Bitcoin Core and Lightning Labs
+The key boundary is that Polar may manage Bitcoin Core plus `lnd`/`tapd`/`litd`
 daemons, but `tap-ldk` must still implement Taproot Assets logic natively.
 
 ## Headless Harness Implications
@@ -96,5 +96,5 @@ The Rust/CI harness should reuse Polar as a reference for:
 - manual export/import shape.
 
 The headless harness should not depend on the Polar Electron app. It should be
-able to run Bitcoin Core and the needed Lightning Labs counterparty containers
+able to run Bitcoin Core and the needed `lnd`/`tapd`/`litd` counterparty containers
 directly, then launch native `tap-ldk` processes against that network.

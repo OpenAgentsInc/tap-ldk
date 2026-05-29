@@ -1,6 +1,6 @@
 # Invariants
 
-- The Lightning Labs node is an independent counterparty, not a sidecar.
+- The `lnd`/`tapd`/`litd` node is an independent counterparty, not a sidecar.
 - Fixture-backed Lightning Labs blob decoding is read-only in the model; a
   decoded funding, HTLC, or commitment blob cannot by itself advance proof,
   channel, RFQ, payment, or balance state.
@@ -15,12 +15,12 @@
   bounded to TLV transport, message IDs, RFQ-ID-derived aliases, quote/invoice
   expiry, and replay checks until live daemon signature verification exists.
 - Sender-side outgoing payment artifacts may enter a documented-gap state, but
-  cannot be modeled as settled interop payment until the Lightning Labs
-  receiver balance is observed and agrees with the expected asset delta.
+  cannot be modeled as settled interop payment until the `litd` receiver
+  balance is observed and agrees with the expected asset delta.
 - Receiver-side incoming payment artifacts may enter a documented-gap state,
-  but cannot be modeled as settled interop payment until a live Lightning Labs
-  sender is driven and the durable `tap-ldk` receiver balance agrees with the
-  expected asset delta.
+  but cannot be modeled as settled interop payment until a live `litd` sender
+  is driven and the durable `tap-ldk` receiver balance agrees with the expected
+  asset delta.
 - A consolidated interop check can pass fixture-backed checks while the model
   still remains in a documented-gap state for live daemon balance observation.
 - Unsupported required blob fields and malformed blob structure lead to a

@@ -1,9 +1,9 @@
-# Lightning Labs Interop Checks
+# `lnd`/`tapd`/`litd` Interop Checks
 
 The Track B interop check smoke runs the fixture-backed funding state, tapd
-proof fixture decode, `tap-ldk` to Lightning Labs payment artifacts, and
-Lightning Labs to `tap-ldk` payment artifacts as one report. It also decodes
-the Lightning Labs HTLC metadata fixture and runs the fork-backed
+proof fixture decode, `tap-ldk` to `litd` payment artifacts, and
+`litd` to `tap-ldk` payment artifacts as one report. It also decodes
+the Lightning Labs software HTLC metadata fixture and runs the fork-backed
 simple-taproot asset-channel lifecycle smoke. It compares asset IDs, amounts,
 expected balance deltas, proof availability, RFQ message types, HTLC RFQ
 metadata, close/proof recovery, metadata rejection checks, and restart round
@@ -21,11 +21,11 @@ Path B wrapper now writes `path-b-completion-report.json` as the live gate that
 consumes observed daemon/channel balances.
 
 Current live status is more specific: the completed #81 gate and current #57
-path can start the relevant Lightning Labs stacks, bind a live proof, run the
+path can start the relevant `lnd`/`tapd`/`litd` stacks, bind a live proof, run the
 native ordered asset-payment-session smoke, connect fork-backed `ldk-node` to
 integrated `litd`, exercise the fork-backed asset message/channel/payment APIs, settle
-Lightning Labs to native asset keysend, and record the native receiver asset
-balance. #57 adds the native-to-Lightning Labs returned channel-balance
+`litd` to native asset keysend, and record the native receiver asset
+balance. #57 adds the native-to-`litd` returned channel-balance
 observation, #58 adds the native receiver restart snapshot, and #59 adds the
 wrapper completion report that sets `live_daemon_gaps_remaining=false` only
 from those live observed balances. Live cooperative close still remains a
@@ -37,8 +37,8 @@ documented gap until native post-close proof and balance observation exists.
 - Funding, outgoing payment, and incoming payment stores serialize and reload
   unchanged.
 - Funding proof material and TAPF proof-file material are present and decode.
-- Lightning Labs HTLC fixture metadata carries an RFQ ID.
-- Both payment directions use Lightning Labs RFQ request/accept/reject message
+- Lightning Labs software HTLC fixture metadata carries an RFQ ID.
+- Both `litd` interop directions use taproot-assets RFQ request/accept/reject message
   types.
 - Both payment directions use the funding asset ID and conserve expected
   balances.
@@ -46,14 +46,14 @@ documented gap until native post-close proof and balance observation exists.
   latest allocation preservation, close-store restart, and proof-ownership
   recovery checks pass through the OpenAgentsInc rust-lightning fork state.
 - Wrong, stale, malformed, and replayed payment metadata checks remain true.
-- Fixture-only observed balance gaps and live Lightning Labs cooperative-close
+- Fixture-only observed balance gaps and live `litd` cooperative-close
   post-close observation are recorded as documented gaps, not success.
 
 ## Closure Gate
 
-- #57 must provide the live `tap-ldk` pays Lightning Labs observed receiver
+- #57 must provide the live native-to-`litd` observed receiver
   balance.
-- #58 provides the live Lightning Labs pays `tap-ldk` observed durable receiver
+- #58 provides the live `litd`-to-native observed durable receiver
   balance and restart snapshot.
 - #59 makes `live_daemon_gaps_remaining=false` impossible unless both live
   directions agree on asset ID, amount, payment state, proof reference, and

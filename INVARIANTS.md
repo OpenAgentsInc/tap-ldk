@@ -15,7 +15,7 @@ Before changing an invariant-bearing surface, read this file and
   recovery state;
 - RFQ, invoice, expiry, replay, route, and custom-record behavior;
 - rust-lightning/LDK fork or extension boundaries;
-- Lightning Labs LND/`tapd`/`litd` compatibility paths;
+- `lnd`/`tapd`/`litd` compatibility paths;
 - regtest, Polar, fixture, smoke, and formal-verification harnesses.
 
 When a change adds, removes, relaxes, or materially reinterprets an invariant:
@@ -49,7 +49,7 @@ regression test or a documented model-boundary exception.
   native wallet runtime and not the only automated harness.
 - The headless Bitcoin regtest harness is infrastructure only; it must not
   become wallet logic or an implicit sidecar dependency.
-- The Lightning Labs counterparty harness is an external interop topology only;
+- The `lnd`/`tapd`/`litd` counterparty harness is an external interop topology only;
   it must not perform native `tap-ldk` wallet duties.
 - The public demo must clearly label mocked pieces: issuer identity, price
   oracle, discovery, proof courier, UI, and any compatibility gaps.
@@ -214,8 +214,8 @@ These are the contracts we definitely want around the rust-lightning work.
 
 ## Interop Invariants
 
-- The native-to-native demo and Lightning Labs interop demo are both required.
-- Track B must use a Lightning Labs node as an independent counterparty, not as
+- The native-to-native demo and `lnd`/`tapd`/`litd` interop demo are both required.
+- Track B must use an `lnd`/`tapd`/`litd` node as an independent counterparty, not as
   the wallet's sidecar.
 - Interop claims require a compatibility matrix that says which direction works
   and which protocol or implementation gap remains.
@@ -421,7 +421,7 @@ Invariants:
 - restart after close or force-close preserves enough state to either recover
   or explicitly refuse recovery.
 
-### Lightning Labs Interop Handshake
+### `lnd`/`tapd`/`litd` Interop Handshake
 
 Model:
 
@@ -435,12 +435,12 @@ Model:
 
 Invariants:
 
-- the Lightning Labs peer is an external counterparty, not a wallet sidecar;
+- the `lnd`/`tapd`/`litd` peer is an external counterparty, not a wallet sidecar;
 - interop cannot claim success unless both sides agree on asset ID, amount,
   payment state, and resulting balance;
 - a compatibility gap must terminate as a documented failure state, not a
   partial success;
-- Track B must not use Lightning Labs daemons to perform native wallet duties
+- Track B must not use `lnd`/`tapd`/`litd` daemons to perform native wallet duties
   that the demo claims are handled by Rust/LDK.
 
 ### Persistence Atomicity
@@ -533,12 +533,12 @@ Do not claim these guarantees until implementation and verification exist:
   commitment, HTLC, RFQ, and proof fixtures, then run the fork-backed
   simple-taproot asset-channel lifecycle, close, and recovery checks before it
   can mark automated interop vector checks as passed.
-- Sender-side `tap-ldk` to Lightning Labs payment artifacts can be built and
+- Sender-side `tap-ldk` to `litd` payment artifacts can be built and
   persisted as a documented-gap state. Do not claim a successful Track B
-  outgoing payment until a live Lightning Labs receiver balance is observed and
+  outgoing payment until a live `litd` receiver balance is observed and
   matches the expected asset delta.
-- The #81 gate now records a live Lightning Labs to fork-backed native LDK
-  payment with durable receiver accounting. Do not claim #58 or full Track B
+- The #81 gate now records a live `litd` to fork-backed native LDK payment with
+  durable receiver accounting. Do not claim #58 or full Track B
   incoming-payment completion until the issue-specific flow persists the
   native `tap-ldk` receiver proof/balance, survives restart, and matches both
   sides' observed asset deltas.

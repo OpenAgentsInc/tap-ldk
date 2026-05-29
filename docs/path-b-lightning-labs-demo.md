@@ -1,6 +1,6 @@
-# Path B Lightning Labs Demo
+# Path B `lnd`/`tapd`/`litd` Demo
 
-Path B is the native `tap-ldk` to independent Lightning Labs interop demo. The
+Path B is the native `tap-ldk` to independent `lnd`/`tapd`/`litd` interop demo. The
 current harness captures version info, counterparty config/status, blob
 fixtures, TAPF proof fixtures, the live localhost `tap-ldk` peer smoke, funding
 interop, RFQ/invoice compatibility, both payment directions, the live `tapd`
@@ -9,7 +9,7 @@ fork-backed `ldk-node` to `litd` peer preflight report, the live outgoing-paymen
 gate, the consolidated interop check report, and the Path B completion report
 into an ignored artifact directory. The
 consolidated report now includes the HTLC RFQ metadata vector, Lightning Labs
-RFQ message-type vectors, and the fork-backed simple-taproot asset-channel
+software RFQ message-type vectors, and the fork-backed simple-taproot asset-channel
 lifecycle, close, and proof-recovery checks.
 
 ```bash
@@ -20,11 +20,11 @@ Artifacts are written under `target/path-b-lightning-labs-demo/<timestamp>` by
 default. Override with `TAP_LDK_PATH_B_ARTIFACT_DIR=/path/to/artifacts`.
 
 If Docker or Podman is available, the script attempts the independent Bitcoin
-Core/LND/`tapd` counterparty smoke with the selected Lightning Labs target.
+Core/LND/`tapd` counterparty smoke with the selected `lnd`/`tapd`/`litd` target.
 That smoke now includes daemon readiness, LND wallet init/unlock, regtest
 mining, LND funding, LND sync, tapd startup ordering, and tapd readiness. The
 live outgoing-payment gate also starts an integrated `litd` counterparty,
-because real asset-channel settlement needs Lightning Labs' aux funding
+because real asset-channel settlement needs the `taproot-assets` aux funding
 controller with taproot overlay channels enabled. If no runtime is available,
 or if the selected daemon/machine is down, the script records the runtime
 prerequisite and still runs every fixture-backed Track B check. LND, `tapd`,
@@ -60,13 +60,13 @@ wrapper artifact is
 The live peer smoke is local `tap-ldk` to `tap-ldk`: it starts a real listener,
 connects a second peer, negotiates the asset-channel capability through the
 OpenAgentsInc rust-lightning fork, and sends an encoded native RFQ custom
-message over the socket. It is not yet a Lightning Labs daemon-backed P2P
+message over the socket. It is not yet a `lnd`/`tapd`/`litd` daemon-backed P2P
 session. The `litd` peer preflight now proves that the OpenAgentsInc
 `ldk-node` fork can connect to integrated `litd`, report the OpenAgentsInc
 `rust-lightning` revision, opt into simple-taproot/Taproot Asset channel
 negotiation locally, observe remote simple-taproot and Taproot Asset channel
 support, reach typed asset-channel message/payment APIs, and complete the #81
-live Lightning Labs to native settlement gate, the #57 native-to-`litd`
+live `litd` to native settlement gate, the #57 native-to-`litd`
 return payment gate, the #58 native receiver restart snapshot, and the #59
 observed-balance completion gate. Proof binding now also uses the #60 semantic
 proof boundary before native wallet state advances.

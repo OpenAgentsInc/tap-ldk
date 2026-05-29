@@ -41,4 +41,4 @@ This is the native custom-record and final-hop validation layer. It now calls
 the OpenAgentsInc rust-lightning fork's HTLC metadata and final-hop validation
 hook before settlement is allowed. It is ready for fixture comparison, but it
 does not yet implement full onion forwarding, real Lightning HTLC dispatch,
-Taproot Assets second-level HTLC scripts, or Lightning Labs interop decoding.
+Taproot Assets second-level HTLC scripts, or Lightning Labs software interop decoding.

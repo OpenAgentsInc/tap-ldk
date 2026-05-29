@@ -5,8 +5,8 @@ Date: 2026-05-28
 This audit records the root-cause work that cleared the live Lightning Labs
 Path B #81 blocker and the work path that remains after it. The failure was not
 a Docker, peer-connection, funding, or basic feature-negotiation problem. The
-live path now reaches a real Lightning Labs `litd` asset channel, settles a
-Lightning Labs to native asset keysend, and records the native receiver-side
+live path now reaches a real `litd` asset channel, settles a
+`litd` to native asset keysend, and records the native receiver-side
 asset payment and balance through the fork-backed `ldk-node` runtime. The
 post-claim partial-signature blocker and the force-close/on-chain Taproot
 witness fallback blocker are fixed and fixture-backed.
@@ -167,7 +167,7 @@ and must stay green as a regression.
 - After the latest pin update, all `lightning*` packages in `tap-ldk` resolve
   to
   `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`.
-- The live harness starts an integrated Lightning Labs `litd` counterparty.
+- The live harness starts an integrated `litd` counterparty.
 - The native LDK node connects to `litd`.
 - The peer feature path observes simple-taproot and Taproot Asset channel
   support.
@@ -205,10 +205,10 @@ and must stay green as a regression.
 
 The post-claim partial-signature transcript is no longer the active blocker.
 The current Rust path accepts the payment-time HTLC commitment, settles the
-Lightning Labs to native keysend, records receiver balance, and no longer logs
+`litd` to native keysend, records receiver balance, and no longer logs
 the invalid post-claim partial signature or invalid Taproot control-block
 fallback. The remaining live-settlement work is the true
-native-to-Lightning Labs payment direction and two-sided observed balance
+native-to-`litd` payment direction and two-sided observed balance
 reporting.
 
 The earlier 2026-05-28 diagnostic run still matters as a regression fixture:
@@ -291,7 +291,7 @@ Important live surfaces:
 - second-level HTLC aux leaf derivation;
 - force-close witness/control-block reconstruction.
 
-### Lightning Labs LND Module
+### `lnd` Module
 
 Local module path audited:
 
@@ -316,7 +316,7 @@ Important source behavior:
 - Taproot HTLC signing uses `TaprootScriptSpendSignMethod`;
 - staging simple-taproot second-level scripts differ from final/prod scripts.
 
-### Lightning Labs `taproot-assets`
+### Lightning Labs `taproot-assets` Software
 
 Reference repo audited:
 
@@ -355,7 +355,7 @@ were known. That was useful to get past earlier open/funding failures, but it
 was not an adequate source of truth for live payment-time HTLC signing. The
 current pin now rewrites nondust HTLC state to an exact previous-output-bound
 second-level aux leaf after the commitment transaction is built, and the live
-rerun proved that this is enough to move the bounded Lightning Labs to native
+rerun proved that this is enough to move the bounded `litd` to native
 payment path through `SUCCEEDED` plus native receiver accounting.
 
 The right fix remains fixture-backed transcript work, not another isolated
@@ -396,7 +396,7 @@ second-level aux leaves. Add the post-claim zero-HTLC commitment partial
 signature transcript, including explicit zero-HTLC asset commitment-sig blob
 presence, as the next checked fixture before changing more behavior.
 
-### Phase 2: Port Lightning Labs Allocation Semantics
+### Phase 2: Port taproot-assets Allocation Semantics
 
 Implement the bounded but exact single-asset subset of the Lightning Labs
 `tapchannel` and `tapsend` pipeline in Rust for the post-claim commitment and
@@ -468,9 +468,9 @@ from fixture-only or readiness reports. Keep the closed #81, #57, #58, #59,
 
 Required live evidence for closure:
 
-- `tap-ldk` pays Lightning Labs and the payment reaches a terminal successful
+- `tap-ldk` pays `litd` and the payment reaches a terminal successful
   state;
-- Lightning Labs pays `tap-ldk` and the payment reaches a terminal successful
+- `litd` pays `tap-ldk` and the payment reaches a terminal successful
   state;
 - both sides report the same asset ID and amount;
 - both sides report compatible pre/post asset balances;

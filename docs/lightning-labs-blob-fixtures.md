@@ -1,4 +1,4 @@
-# Lightning Labs Blob Fixtures
+# Lightning Labs Software Blob Fixtures
 
 Date: 2026-05-25
 

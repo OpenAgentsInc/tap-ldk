@@ -26,7 +26,7 @@ cargo run -p tap-ldk-cli -- wallet-export-proof-file target/demo-wallet.json '<p
 cargo run -p tap-ldk-cli -- wallet-verify-proof-file target/proof.tlv
 ```
 
-Lightning Labs `tapd` proof files can be imported from raw `TAPF` bytes or
+`tapd` proof files can be imported from raw `TAPF` bytes or
 hex fixture files and exported back as raw bytes:
 
 ```bash

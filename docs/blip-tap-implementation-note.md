@@ -12,8 +12,8 @@ The first public demo should stay narrow:
 
 - one Taproot Asset ID per asset channel;
 - one asset-channel payment path between two native `tap-ldk` wallets;
-- one interop path between native `tap-ldk` and an independent Lightning Labs
-  LND/`tapd` or `litd` counterparty;
+- one interop path between native `tap-ldk` and an independent LND/`tapd` or
+  `litd` counterparty using the taproot-assets software stack;
 - BOLT 11 invoice format unchanged;
 - Taproot Asset semantics carried by RFQ, route metadata, and HTLC custom
   records;
@@ -121,7 +121,7 @@ First-demo requirements:
 
 ## Interop Constraints
 
-Track B must prove `tap-ldk` can interact with a Lightning Labs node as an
+Track B must prove `tap-ldk` can interact with a `lnd`/`tapd`/`litd` node as an
 external counterparty. It must not use LND, `tapd`, or `litd` as a wallet
 sidecar.
 

@@ -1,7 +1,7 @@
-# Lightning Labs litd Counterparty
+# `litd` Counterparty
 
-`scripts/lightning-labs-litd-counterparty.sh` starts the Lightning Labs
-counterparty topology needed for real Taproot Asset channel interop: Bitcoin
+`scripts/lightning-labs-litd-counterparty.sh` starts the `litd` counterparty
+topology needed for real Taproot Asset channel interop: Bitcoin
 Core plus integrated `litd`, where `litd` runs LND and taproot-assets in the
 same process with the aux funding controller and `simple-taproot-overlay-chans`
 enabled.
@@ -25,11 +25,11 @@ that identity and P2P address to run a fork-backed `ldk-node` peer preflight
 against `litd`.
 In the current #57 gate this reaches `integrated_litd_counterparty_ready=true`
 and `native_litd_peer_connected=true`, with the fork-backed asset-channel
-message/payment APIs reachable. It does not mark a `tap-ldk` to Lightning Labs
-payment complete; #81 now completes live asset-channel funding, confirms the
-channel, settles the Lightning Labs to native keysend direction, and records
+message/payment APIs reachable. It does not mark a native-to-`litd` payment
+complete; #81 now completes live asset-channel funding, confirms the
+channel, settles the `litd` to native keysend direction, and records
 the native receiver balance through fork-backed `ldk-node`. The true native to
-Lightning Labs payment direction remains #57.
+`litd` payment direction remains #57.
 
 `close-asset-channel` wraps the integrated LND `closechannel` RPC for a channel
 point returned by `asset-channel-status`. It records exit status, stdout,

@@ -22,7 +22,7 @@ validation now exist in `tap-ldk-core`, and #75 now wires the bounded
 single-asset channel lifecycle through the rust-lightning
 `TaprootAssetChannelState`. The #60 semantic proof boundary now covers first-demo
 proof import and channel-state advancement, while #57 through #59 own live
-Lightning Labs settlement and observed balance reporting. #76 is implemented
+`litd` settlement and observed balance reporting. #76 is implemented
 as consolidated vector and live-gate coverage. The BOLT draft
 transaction JSON currently differs from its script-vector section for some
 multi-HTLC output keys, so the fork asserts the
@@ -206,5 +206,5 @@ The project should not claim full native Taproot Asset support for LDK until:
 - asset funding, commitment, HTLC, close, and recovery state are persisted
   through LDK monitors before the matching Lightning commitment is considered
   safe;
-- Lightning Labs `tapd` or `litd` interop shows observed balance changes and
+- `tapd` or `litd` interop shows observed balance changes and
   proof compatibility in both payment directions.

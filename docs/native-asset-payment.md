@@ -34,4 +34,4 @@ and payment store do not advance after failure.
 
 This is still a bounded native-to-native demo path. It does not yet perform
 real onion forwarding, rust-lightning HTLC dispatch, cooperative close, proof
-export, or Lightning Labs interop.
+export, or Lightning Labs software interop.

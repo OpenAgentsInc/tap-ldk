@@ -1,7 +1,7 @@
-# Lightning Labs Counterparty Harness
+# `lnd`/`tapd`/`litd` Counterparty Harness
 
 `scripts/lightning-labs-counterparty.sh` starts the Track B external
-counterparty topology with Docker or Podman:
+`lnd`/`tapd` counterparty topology with Docker or Podman:
 
 - Bitcoin Core via `polarlightning/bitcoind:30.0`
 - LND via `polarlightning/lnd:0.19.0-beta`
@@ -41,7 +41,7 @@ The standalone LND container is started with `simple-taproot-chans`,
 `simple-taproot-overlay-chans`. Standalone LND exits when that overlay flag is
 set without an aux funding controller. The live asset-channel payment issue
 therefore still needs the Taproot Assets/Lit aux-controller path or an
-equivalent daemon integration before it can claim a Lightning Labs
+equivalent daemon integration before it can claim `lnd`/`tapd`/`litd`
 asset-channel settlement.
 
 For that asset-channel target topology, use
@@ -57,7 +57,7 @@ starts. This remains counterparty harness state under `.tap-ldk/`, not native
 `tap-ldk` wallet state.
 
 `start` now performs the ordered bootstrap needed before Path B can talk to a
-live Lightning Labs counterparty:
+live `lnd`/`tapd`/`litd` counterparty:
 
 - start Bitcoin Core and wait for RPC;
 - create or load the regtest mining wallet;

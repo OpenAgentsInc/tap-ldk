@@ -20,7 +20,7 @@ This phase does not model:
 - revocation;
 - close or force-close;
 - persistence crash windows;
-- Lightning Labs interop;
+- Lightning Labs software interop;
 - real network transport;
 - external APIs;
 - production data.

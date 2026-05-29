@@ -81,7 +81,7 @@ Rust Lightning verified the peer HTLC signature against:
   `a03dc2c5816d1b158b5966351690f4e49b4e937cd90bfaaef974eb36665afa42`
 - `adjusted_for_taproot_asset`: `true`
 
-## Lightning Labs Side Evidence
+## `litd` Side Evidence
 
 The `litd` trace shows Lightning Labs using the `tapchannel`/`tapsend`
 allocation path for the same HTLC.
@@ -151,4 +151,4 @@ The concrete mismatch is the payment-time Taproot Asset commitment model:
 4. Rerun the same live harness and require the native log to show the same
    transcript values Lightning Labs signed.
 5. Only after the HTLC signature verifies, fix the force-close control-block
-   path and record observed native/Lightning Labs balances.
+   path and record observed native/`litd`/native balances.

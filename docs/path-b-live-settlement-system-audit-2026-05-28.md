@@ -3,7 +3,7 @@
 Date: 2026-05-28
 
 This audit is the current working map for getting Path B from "funded but not
-settled" to a completed live Lightning Labs interop demo. It exists because the
+settled" to a completed live `lnd`/`tapd`/`litd` interop demo. It exists because the
 last several fixes were useful but too local: they moved the harness from peer
 readiness to funding, then from funding to payment-time HTLC delivery, then
 past the first HTLC signature mismatch, through monitor update completion, and
@@ -33,7 +33,7 @@ Latest live artifact:
 
 Observed state:
 
-- live Lightning Labs to native keysend reports `SUCCEEDED`;
+- live `litd` to native keysend reports `SUCCEEDED`;
 - fork-backed `ldk-node` records native receiver asset payment `settled`;
 - native receiver local asset balance after payment is `125`;
 - `native_ldk_invalid_simple_taproot_commitment_partial_sig_logged=false`;
@@ -98,7 +98,7 @@ What it does not prove:
 
 - payment settlement;
 - receiver-side native asset state;
-- post-settlement Lightning Labs balance agreement;
+- post-settlement `litd` balance agreement;
 - force-close recovery;
 - semantic proof ancestry validation.
 
@@ -170,7 +170,7 @@ The subsequent #81 rerun completed the gate:
   block, and counterparty force-close logs: all `false`
 
 This closes #81 but not the whole Path B program. The next honest gate is the
-true native-to-Lightning Labs payment direction, the #58 issue-specific
+true native-to-`litd` payment direction, the #58 issue-specific
 incoming receive/restart proof, observed balance reporting, and the remaining
 BOLT conformance issue set, not unrelated signing policy. The BOLT
 simple-taproot spec audit in
@@ -215,7 +215,7 @@ Rust checks the peer HTLC signature:
 - computed sighash:
   `a03dc2c5816d1b158b5966351690f4e49b4e937cd90bfaaef974eb36665afa42`
 
-Lightning Labs logs for the same payment-time second-level allocation show:
+The `litd` logs for the same payment-time second-level allocation show:
 
 - internal key:
   `03770ea7c98b45d4fc078b2ec1024eb48490219d2a4bca3097cdc3f9827ebf9495`
@@ -257,7 +257,7 @@ Responsibilities:
 - run bounded outgoing-payment fixtures;
 - run native asset payment-session smoke;
 - bind live `tapd` proof data;
-- start integrated Lightning Labs `litd`;
+- start integrated `litd`;
 - mint a live asset;
 - start the fork-backed native LDK peer hold process;
 - let `litd` fund an asset channel to that peer;
@@ -381,7 +381,7 @@ Current core mismatch:
 This must be fixed in Rust Lightning first. The exact allocation transcript is
 part of the channel state machine, not a CLI or harness concern.
 
-### Lightning Labs References
+### Lightning Labs Software References
 
 Primary files:
 
@@ -462,7 +462,7 @@ Acceptance for this phase:
   target;
 - it must not be an ignored failing test.
 
-### Phase 2: Port The Bounded Lightning Labs Allocation Semantics
+### Phase 2: Port The Bounded taproot-assets Allocation Semantics
 
 Add Rust helpers in `lightning/src/ln/taproot_asset.rs` and/or
 `lightning/src/ln/simple_taproot.rs` for the single-asset, one-HTLC path:
@@ -541,7 +541,7 @@ Acceptance for this phase:
   blocker with a concrete transcript;
 - BTC-only monitor update behavior remains unchanged.
 
-### Phase 3C: Produce Lightning Labs-Compatible Outgoing HTLC Signatures
+### Phase 3C: Produce taproot-assets-Compatible Outgoing HTLC Signatures
 
 An earlier live run failed after Phase 3B when `litd` rejected our outgoing
 HTLC signature. The current pin fixed that path by rewriting nondust HTLC state
@@ -559,7 +559,7 @@ Acceptance for this phase:
 
 ### Phase 4: Fix Post-Claim Holder Force-Close Funding Spend
 
-After the successful Lightning Labs to native settlement, the historical
+After the successful `litd` to native settlement, the historical
 post-claim unilateral recovery failure was fixed at the funding-input spend:
 
 - persist the aggregate holder MuSig2 commitment signature;
@@ -567,7 +567,7 @@ post-claim unilateral recovery failure was fixed at the funding-input spend:
   signature;
 - do not place a Taproot control block on the funding-input spend;
 - keep script-path control blocks for later commitment-output spends;
-- rerun the live Lightning Labs to native path.
+- rerun the live `litd` to native path.
 
 Acceptance for this phase:
 
@@ -581,7 +581,7 @@ Acceptance for this phase:
 
 ### Phase 5: Complete Balance Reporting In Both Directions
 
-The Lightning Labs to native direction now records native receiver balance and
+The `litd` to native direction now records native receiver balance and
 the #58 restart snapshot proves the received checkpoint reloads. The remaining
 balance work is to tighten the consolidated Path B report:
 

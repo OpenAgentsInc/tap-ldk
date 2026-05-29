@@ -1,6 +1,6 @@
 # Live tapd Proof Binding
 
-This is the Path B command path for turning live Lightning Labs `tapd` output
+This is the Path B command path for turning live `tapd` output
 into native `tap-ldk` wallet state.
 
 ```bash
@@ -8,7 +8,7 @@ into native `tap-ldk` wallet state.
 ```
 
 When Docker or Podman is reachable, the script starts the independent
-Lightning Labs counterparty, mints an `OPENUSD` normal asset through `tapcli`,
+`lnd`/`tapd`/`litd` counterparty, mints an `OPENUSD` normal asset through `tapcli`,
 finalizes the minting batch, mines confirmations, exports the raw TAPF proof,
 and imports that proof into the `tap-ldk` wallet through:
 

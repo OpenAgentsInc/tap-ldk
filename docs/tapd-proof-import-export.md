@@ -22,7 +22,7 @@ STXO/split/change path, grouped asset path, and reorg watcher policy remains
 future production hardening.
 
 For the first demo, the local proof/universe courier is mocked infrastructure:
-the Lightning Labs side can mint or receive the asset, export a proof file,
+the `lnd`/`tapd`/`litd` side can mint or receive the asset, export a proof file,
 and hand that file to `tap-ldk`; `tap-ldk` can then export the same raw proof
 file back for verification by Lightning Labs tooling. This is interop plumbing,
 not production proof-discovery infrastructure.

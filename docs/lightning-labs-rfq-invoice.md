@@ -1,4 +1,4 @@
-# Lightning Labs RFQ Invoice Compatibility
+# taproot-assets RFQ Invoice Compatibility
 
 `tap-ldk` now has a bounded Lightning Labs RFQ codec for the selected
 `taproot-assets` target at commit
@@ -13,7 +13,7 @@ cargo run -p tap-ldk-cli -- lightning-labs-rfq-invoice-compat-smoke 7a3811630bb3
 
 ## Wire Surface
 
-Lightning Labs RFQ peer messages use the taproot-assets base offset
+taproot-assets RFQ messages use the Lightning Labs software base offset
 `32768 + 20116 = 52884`:
 
 | Message | Type |
@@ -25,7 +25,7 @@ Lightning Labs RFQ peer messages use the taproot-assets base offset
 The existing native `tap-ldk` peer-message shells still use the asset-channel
 offset plus `64..66`; those native message IDs intentionally do not match the
 Lightning Labs RFQ IDs. Track B uses `tap_ldk_core::lightning_labs_rfq` for
-Lightning Labs interop payloads and the native shells for native-to-native
+Lightning Labs software interop payloads and the native shells for native-to-native
 experiments.
 
 ## Checks
