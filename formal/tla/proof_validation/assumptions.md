@@ -13,8 +13,10 @@
 - A present STXO means the replay engine has enough prior proof state to spend
   the input. Missing STXO is modeled as a rejection or unresolved history, not
   as a recoverable accepted state.
-- Reorg-sensitive history is modeled as a chain-view state change that prevents
-  acceptance. The model does not attempt to prove Bitcoin reorg depth policy.
+- Reorg-sensitive history is modeled as a bounded anchor-state policy. Anchors
+  can be unknown, pending, confirmed, stale, or reorged, and only confirmed
+  anchors satisfy the model's accepted-balance policy. The model does not
+  attempt to prove Bitcoin consensus or reorg depth policy.
 - Grouped assets, collectibles, reissuance policy, multi-asset channels, and
   full network proof transport are outside this model and remain separate
   production work.

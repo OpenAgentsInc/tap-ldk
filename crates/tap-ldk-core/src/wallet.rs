@@ -15,9 +15,10 @@ use crate::{
         derive_hash_sum_root, validate_split_conservation,
     },
     proof::{
-        AcceptedBalanceExplanation, ProofError, ProofFile, ProofHistoryEngine, ProofHistoryOutput,
-        ProofHistoryRecord, ProofHistoryReplayError, ProofHistoryState, ProofNetwork,
-        ProofTransitionKind, ProofValidationContext, VerificationScope,
+        AcceptedBalanceExplanation, ProofAnchorPolicy, ProofAnchorState, ProofError, ProofFile,
+        ProofHistoryEngine, ProofHistoryOutput, ProofHistoryRecord, ProofHistoryReplayError,
+        ProofHistoryState, ProofNetwork, ProofTransitionKind, ProofValidationContext,
+        VerificationScope,
     },
     tapd_proof::{TapdProofError, TapdProofFileSummary, decode_tapd_proof_file},
 };
@@ -84,7 +85,15 @@ impl WalletState {
         &mut self,
         proof: ProofFile,
     ) -> Result<ImportOutcome, WalletError> {
-        self.import_verified_proof_with_tapd(proof, None, None)
+        self.import_verified_proof_with_anchor_state(proof, ProofAnchorState::Confirmed)
+    }
+
+    pub fn import_verified_proof_with_anchor_state(
+        &mut self,
+        proof: ProofFile,
+        anchor_state: ProofAnchorState,
+    ) -> Result<ImportOutcome, WalletError> {
+        self.import_verified_proof_with_tapd(proof, None, None, anchor_state)
     }
 
     pub fn import_tapd_proof_file(
@@ -98,6 +107,7 @@ impl WalletState {
             proof,
             Some(request.tapd_proof_file),
             Some(proof_summary),
+            ProofAnchorState::Confirmed,
         )
     }
 
@@ -106,6 +116,7 @@ impl WalletState {
         proof: ProofFile,
         tapd_proof_file: Option<Vec<u8>>,
         tapd_proof_summary: Option<TapdProofFileSummary>,
+        anchor_state: ProofAnchorState,
     ) -> Result<ImportOutcome, WalletError> {
         let validation_context = match tapd_proof_summary {
             Some(summary) => ProofValidationContext::for_tapd_import(summary),
@@ -163,10 +174,11 @@ impl WalletState {
             asset_id: proof.asset_id.to_hex(),
             genesis_outpoint: proof.genesis_outpoint.clone(),
             anchor_outpoint: proof.anchor_outpoint.clone(),
+            anchor_state,
             script_key: proof.script_key.to_hex(),
             amount: proof.amount.value(),
             proof_history_output_id: proof_history.output_id.clone(),
-            status: UtxoStatus::Spendable,
+            status: UtxoStatus::from_anchor_state(anchor_state),
         };
 
         self.proofs.insert(
@@ -186,6 +198,30 @@ impl WalletState {
         self.validate()?;
 
         Ok(ImportOutcome::Imported { proof_id })
+    }
+
+    pub fn update_anchor_state(
+        &mut self,
+        anchor_outpoint: &str,
+        anchor_state: ProofAnchorState,
+    ) -> Result<(), WalletError> {
+        let mut next = self.clone();
+        let mut matched = false;
+        for utxo in next.spendable_utxos.values_mut() {
+            if utxo.anchor_outpoint == anchor_outpoint {
+                utxo.anchor_state = anchor_state;
+                utxo.status = UtxoStatus::from_anchor_state(anchor_state);
+                matched = true;
+            }
+        }
+        if !matched {
+            return Err(WalletError::UnknownAnchorOutpoint(
+                anchor_outpoint.to_owned(),
+            ));
+        }
+        next.validate()?;
+        *self = next;
+        Ok(())
     }
 
     pub fn import_encoded_proof(&mut self, bytes: &[u8]) -> Result<ImportOutcome, WalletError> {
@@ -427,9 +463,22 @@ impl WalletState {
                 .proofs
                 .get(&utxo.proof_id)
                 .ok_or_else(|| WalletError::UnknownProof(utxo.proof_id.clone()))?;
+            if utxo.status != UtxoStatus::from_anchor_state(utxo.anchor_state) {
+                return Err(WalletError::StorageInvariant(format!(
+                    "utxo {key} status does not match anchor state {}",
+                    utxo.anchor_state.as_str()
+                )));
+            }
             let explanation = validate_stored_proof_history(stored, proof)?;
             if explanation.output_id != utxo.proof_history_output_id {
                 return Err(WalletError::UnexplainedProofHistory(utxo.proof_id.clone()));
+            }
+            if utxo.status == UtxoStatus::Spendable {
+                validate_stored_proof_history_with_anchor_policy(
+                    stored,
+                    proof,
+                    &anchor_policy_for_utxo(utxo),
+                )?;
             }
         }
 
@@ -458,7 +507,11 @@ impl WalletState {
         }
         let encoded = decode_hex(&stored.proof_tlv_hex)?;
         let proof = ProofFile::decode(&encoded).map_err(WalletError::Proof)?;
-        let explanation = validate_stored_proof_history(stored, &proof)?;
+        let explanation = validate_stored_proof_history_with_anchor_policy(
+            stored,
+            &proof,
+            &anchor_policy_for_utxo(utxo),
+        )?;
         if explanation.output_id != utxo.proof_history_output_id {
             return Err(WalletError::UnexplainedProofHistory(proof_id.to_owned()));
         }
@@ -510,6 +563,8 @@ pub struct SpendableAssetUtxo {
     pub asset_id: String,
     pub genesis_outpoint: String,
     pub anchor_outpoint: String,
+    #[serde(default = "confirmed_anchor_state")]
+    pub anchor_state: ProofAnchorState,
     pub script_key: String,
     pub amount: u64,
     pub proof_history_output_id: String,
@@ -520,6 +575,24 @@ pub struct SpendableAssetUtxo {
 #[serde(rename_all = "snake_case")]
 pub enum UtxoStatus {
     Spendable,
+    Pending,
+    Unresolved,
+    Rejected,
+}
+
+impl UtxoStatus {
+    fn from_anchor_state(anchor_state: ProofAnchorState) -> Self {
+        match anchor_state {
+            ProofAnchorState::Confirmed => Self::Spendable,
+            ProofAnchorState::Pending => Self::Pending,
+            ProofAnchorState::Unknown => Self::Unresolved,
+            ProofAnchorState::Stale | ProofAnchorState::Reorged => Self::Rejected,
+        }
+    }
+}
+
+fn confirmed_anchor_state() -> ProofAnchorState {
+    ProofAnchorState::Confirmed
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -717,6 +790,7 @@ pub enum WalletError {
     InvalidHexByte(String),
     ConflictingProof(String),
     UnknownProof(String),
+    UnknownAnchorOutpoint(String),
     NoTapdProofFile(String),
     UnexplainedProofHistory(String),
     ObsoleteProofExport(String),
@@ -745,6 +819,9 @@ impl fmt::Display for WalletError {
                 write!(f, "conflicting proof already exists for {proof_id}")
             }
             Self::UnknownProof(proof_id) => write!(f, "unknown wallet proof: {proof_id}"),
+            Self::UnknownAnchorOutpoint(anchor_outpoint) => {
+                write!(f, "unknown wallet anchor outpoint: {anchor_outpoint}")
+            }
             Self::NoTapdProofFile(proof_id) => {
                 write!(f, "wallet proof {proof_id} has no tapd proof file")
             }
@@ -822,9 +899,35 @@ fn validate_stored_proof_history(
     replay_wallet_proof_history(&metadata, proof)
 }
 
+fn validate_stored_proof_history_with_anchor_policy(
+    stored: &StoredProof,
+    proof: &ProofFile,
+    anchor_policy: &ProofAnchorPolicy,
+) -> Result<AcceptedBalanceExplanation, WalletError> {
+    let metadata = accepted_wallet_proof_history(&stored.proof_id, proof)?;
+    if !stored.matches_proof_history(&metadata) {
+        return Err(WalletError::UnexplainedProofHistory(
+            stored.proof_id.clone(),
+        ));
+    }
+    replay_wallet_proof_history_with_anchor_policy(&metadata, proof, anchor_policy)
+}
+
 fn replay_wallet_proof_history(
     metadata: &WalletProofHistory,
     proof: &ProofFile,
+) -> Result<AcceptedBalanceExplanation, WalletError> {
+    replay_wallet_proof_history_with_anchor_policy(
+        metadata,
+        proof,
+        &ProofAnchorPolicy::assume_all_confirmed_for_regtest(),
+    )
+}
+
+fn replay_wallet_proof_history_with_anchor_policy(
+    metadata: &WalletProofHistory,
+    proof: &ProofFile,
+    anchor_policy: &ProofAnchorPolicy,
 ) -> Result<AcceptedBalanceExplanation, WalletError> {
     let record = ProofHistoryRecord {
         record_id: metadata.record_id.clone(),
@@ -841,11 +944,17 @@ fn replay_wallet_proof_history(
             resulting_state: ProofHistoryState::Accepted,
         }],
     };
-    let replay = ProofHistoryEngine::replay(&[record]).map_err(WalletError::ProofHistory)?;
+    let replay = ProofHistoryEngine::replay_with_anchor_policy(&[record], anchor_policy)
+        .map_err(WalletError::ProofHistory)?;
     replay
         .accepted_explanation(&metadata.output_id)
         .cloned()
         .ok_or_else(|| WalletError::UnexplainedProofHistory(metadata.output_id.clone()))
+}
+
+fn anchor_policy_for_utxo(utxo: &SpendableAssetUtxo) -> ProofAnchorPolicy {
+    ProofAnchorPolicy::strict_confirmed()
+        .with_anchor_state(utxo.anchor_outpoint.clone(), utxo.anchor_state)
 }
 
 fn wallet_proof_history_metadata(
@@ -1095,6 +1204,85 @@ mod tests {
             wallet.export_encoded_proof(&proof_id),
             Err(WalletError::ObsoleteProofExport(id)) if id.as_str() == proof_id
         ));
+    }
+
+    #[test]
+    fn wallet_anchor_state_policy_blocks_reorged_and_stale_balances() {
+        let proof = valid_proof();
+        let anchor = proof.anchor_outpoint.clone();
+        let mut wallet = WalletState::default();
+        let outcome = wallet.import_verified_proof(proof).expect("proof imports");
+        let proof_id = outcome.proof_id().to_owned();
+        assert_eq!(wallet.balances().expect("balances"), expected_balances());
+
+        wallet
+            .update_anchor_state(&anchor, ProofAnchorState::Reorged)
+            .expect("anchor updates to reorged");
+        let utxo = wallet.spendable_utxos.get(&proof_id).expect("utxo exists");
+        assert_eq!(utxo.status, UtxoStatus::Rejected);
+        assert_eq!(wallet.balances().expect("balances"), Vec::new());
+        assert!(matches!(
+            wallet.export_encoded_proof(&proof_id),
+            Err(WalletError::UnexplainedProofHistory(id)) if id.as_str() == proof_id
+        ));
+
+        wallet
+            .update_anchor_state(&anchor, ProofAnchorState::Stale)
+            .expect("anchor updates to stale");
+        assert_eq!(
+            wallet
+                .spendable_utxos
+                .get(&proof_id)
+                .expect("utxo exists")
+                .status,
+            UtxoStatus::Rejected
+        );
+        assert_eq!(wallet.balances().expect("balances"), Vec::new());
+
+        assert!(matches!(
+            wallet.update_anchor_state(
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0",
+                ProofAnchorState::Confirmed,
+            ),
+            Err(WalletError::UnknownAnchorOutpoint(anchor)) if anchor.ends_with(":0")
+        ));
+    }
+
+    #[test]
+    fn wallet_pending_anchor_is_explicit_until_confirmed_or_replaced() {
+        let proof = valid_proof();
+        let anchor = proof.anchor_outpoint.clone();
+        let mut wallet = WalletState::default();
+        let pending = wallet
+            .import_verified_proof_with_anchor_state(proof, ProofAnchorState::Pending)
+            .expect("pending proof imports");
+        let pending_proof_id = pending.proof_id().to_owned();
+        assert_eq!(
+            wallet
+                .spendable_utxos
+                .get(&pending_proof_id)
+                .expect("utxo exists")
+                .status,
+            UtxoStatus::Pending
+        );
+        assert_eq!(wallet.balances().expect("balances"), Vec::new());
+
+        wallet
+            .update_anchor_state(&anchor, ProofAnchorState::Confirmed)
+            .expect("anchor confirms");
+        assert_eq!(wallet.balances().expect("balances"), expected_balances());
+
+        wallet
+            .update_anchor_state(&anchor, ProofAnchorState::Reorged)
+            .expect("anchor reorgs");
+        let mut replacement = valid_proof();
+        replacement.anchor_outpoint =
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1".to_owned();
+        wallet
+            .import_verified_proof(replacement)
+            .expect("replacement proof imports");
+
+        assert_eq!(wallet.balances().expect("balances"), expected_balances());
     }
 
     #[test]

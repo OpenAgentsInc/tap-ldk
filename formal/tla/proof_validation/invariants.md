@@ -15,6 +15,9 @@
 - Accepted proof-history state must keep asset ID, amount, owner script key,
   anchor, and root coherent across issuance, split, transfer, channel funding,
   commitment update, close, and sweep.
+- Accepted proof-history state must also satisfy the configured anchor policy:
+  unknown, pending, stale, and reorged anchors cannot produce spendable wallet
+  or channel balances in the default model.
 - Wrong genesis, wrong anchor, wrong owner script key, wrong asset type, wrong
   amount, wrong root hash, wrong root sum, mismatched TapCommitment output
   root, invalid split sum, missing STXO, malformed proof-file transport, stale

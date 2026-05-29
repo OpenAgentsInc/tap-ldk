@@ -70,6 +70,10 @@ regression test or a documented model-boundary exception.
   outpoints, the first-demo normal asset type, derived Taproot Asset root
   hash/sum, and fail-closed expected asset, owner, amount, anchor, and stale
   proof checks before wallet or channel state advances.
+- A proof-history replay that can explain wallet or channel balance must pass
+  the configured anchor policy. Unknown, stale, or reorged anchors cannot be
+  treated as spendable; pending anchors must remain explicit unless a caller
+  deliberately opts into pending-anchor acceptance for a bounded policy.
 - Lightning Labs `TAPF` imports must validate the proof-file envelope, chained
   checksums, strict `TAPP` TLVs, latest asset-leaf genesis-derived asset ID,
   asset type, amount, owner script key, and genesis outpoint before wallet

@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, error::Error, fmt, str::FromStr};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     asset::{
         AssetAmount, AssetError, AssetLeaf, AssetType, Bytes32, CompressedKey, RootHashSum,
@@ -461,6 +463,90 @@ pub struct ProofValidationReport {
     pub tapd_proof_file_digest: Option<Bytes32>,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProofAnchorState {
+    Unknown,
+    Pending,
+    Confirmed,
+    Stale,
+    Reorged,
+}
+
+impl ProofAnchorState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Pending => "pending",
+            Self::Confirmed => "confirmed",
+            Self::Stale => "stale",
+            Self::Reorged => "reorged",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProofAnchorPolicy {
+    default_anchor_state: ProofAnchorState,
+    accept_pending: bool,
+    anchor_states: BTreeMap<String, ProofAnchorState>,
+}
+
+impl ProofAnchorPolicy {
+    pub fn strict_confirmed() -> Self {
+        Self {
+            default_anchor_state: ProofAnchorState::Unknown,
+            accept_pending: false,
+            anchor_states: BTreeMap::new(),
+        }
+    }
+
+    pub fn assume_all_confirmed_for_regtest() -> Self {
+        Self {
+            default_anchor_state: ProofAnchorState::Confirmed,
+            accept_pending: false,
+            anchor_states: BTreeMap::new(),
+        }
+    }
+
+    pub fn with_pending_accepted(mut self, accept_pending: bool) -> Self {
+        self.accept_pending = accept_pending;
+        self
+    }
+
+    pub fn with_anchor_state(
+        mut self,
+        anchor_outpoint: impl Into<String>,
+        state: ProofAnchorState,
+    ) -> Self {
+        self.anchor_states.insert(anchor_outpoint.into(), state);
+        self
+    }
+
+    pub fn anchor_state(&self, anchor_outpoint: &str) -> ProofAnchorState {
+        self.anchor_states
+            .get(anchor_outpoint)
+            .copied()
+            .unwrap_or(self.default_anchor_state)
+    }
+
+    pub fn accepts_anchor_state(&self, state: ProofAnchorState) -> bool {
+        match state {
+            ProofAnchorState::Confirmed => true,
+            ProofAnchorState::Pending => self.accept_pending,
+            ProofAnchorState::Unknown | ProofAnchorState::Stale | ProofAnchorState::Reorged => {
+                false
+            }
+        }
+    }
+}
+
+impl Default for ProofAnchorPolicy {
+    fn default() -> Self {
+        Self::strict_confirmed()
+    }
+}
+
 /// Runtime proof-history states.
 ///
 /// These names intentionally mirror the future `formal/tla/proof_validation`
@@ -589,6 +675,7 @@ pub struct AcceptedBalanceExplanation {
     pub amount: AssetAmount,
     pub script_key: CompressedKey,
     pub anchor_outpoint: String,
+    pub anchor_state: ProofAnchorState,
     pub tap_asset_root: RootHashSum,
     pub prior_states: Vec<ProofHistoryPriorState>,
     pub resulting_state: ProofHistoryState,
@@ -620,6 +707,16 @@ pub struct ProofHistoryEngine;
 impl ProofHistoryEngine {
     pub fn replay(
         records: &[ProofHistoryRecord],
+    ) -> Result<ProofHistoryReplay, ProofHistoryReplayError> {
+        Self::replay_with_anchor_policy(
+            records,
+            &ProofAnchorPolicy::assume_all_confirmed_for_regtest(),
+        )
+    }
+
+    pub fn replay_with_anchor_policy(
+        records: &[ProofHistoryRecord],
+        anchor_policy: &ProofAnchorPolicy,
     ) -> Result<ProofHistoryReplay, ProofHistoryReplayError> {
         let mut seen_records = BTreeMap::<String, ()>::new();
         let mut outputs = BTreeMap::<String, AcceptedBalanceExplanation>::new();
@@ -684,6 +781,18 @@ impl ProofHistoryEngine {
                     }
                 }
 
+                let anchor_state = anchor_policy.anchor_state(&output.anchor_outpoint);
+                if output.resulting_state.can_explain_balance()
+                    && !anchor_policy.accepts_anchor_state(anchor_state)
+                {
+                    return Err(ProofHistoryReplayError::UnacceptableAnchorState {
+                        record_id: record.record_id.clone(),
+                        output_id: output.output_id.clone(),
+                        anchor_outpoint: output.anchor_outpoint.clone(),
+                        anchor_state,
+                    });
+                }
+
                 let explanation = AcceptedBalanceExplanation {
                     output_id: output.output_id.clone(),
                     record_id: record.record_id.clone(),
@@ -693,6 +802,7 @@ impl ProofHistoryEngine {
                     amount: output.amount,
                     script_key: output.script_key,
                     anchor_outpoint: output.anchor_outpoint.clone(),
+                    anchor_state,
                     tap_asset_root: output.tap_asset_root,
                     prior_states: prior_states.clone(),
                     resulting_state: output.resulting_state,
@@ -920,6 +1030,12 @@ pub enum ProofHistoryReplayError {
         expected_sum: u64,
         actual_sum: u64,
     },
+    UnacceptableAnchorState {
+        record_id: String,
+        output_id: String,
+        anchor_outpoint: String,
+        anchor_state: ProofAnchorState,
+    },
     AmountNotConserved {
         record_id: String,
         input: u64,
@@ -1023,6 +1139,16 @@ impl fmt::Display for ProofHistoryReplayError {
                 "proof history record {record_id} output {output_id} root mismatch: expected {}:{expected_sum}, got {}:{actual_sum}",
                 expected_hash.to_hex(),
                 actual_hash.to_hex()
+            ),
+            Self::UnacceptableAnchorState {
+                record_id,
+                output_id,
+                anchor_outpoint,
+                anchor_state,
+            } => write!(
+                f,
+                "proof history record {record_id} output {output_id} has {} anchor {anchor_outpoint}",
+                anchor_state.as_str()
             ),
             Self::AmountNotConserved {
                 record_id,
@@ -2067,6 +2193,129 @@ mod tests {
                 && output_id == "reorged"
                 && state == ProofHistoryState::Stale
         ));
+    }
+
+    #[test]
+    fn proof_history_replay_applies_anchor_policy() {
+        let asset_id = Bytes32([10; 32]);
+        let confirmed_output = output(
+            "confirmed-output",
+            asset_id,
+            100,
+            key(2),
+            1,
+            ProofHistoryState::Accepted,
+        );
+        let confirmed_anchor = confirmed_output.anchor_outpoint.clone();
+        let records = vec![record(
+            "issue",
+            ProofTransitionKind::Issuance,
+            1,
+            vec![],
+            vec![confirmed_output],
+        )];
+
+        assert!(matches!(
+            ProofHistoryEngine::replay_with_anchor_policy(
+                &records,
+                &ProofAnchorPolicy::strict_confirmed()
+            ),
+            Err(ProofHistoryReplayError::UnacceptableAnchorState {
+                output_id,
+                anchor_state: ProofAnchorState::Unknown,
+                ..
+            }) if output_id == "confirmed-output"
+        ));
+
+        let replay = ProofHistoryEngine::replay_with_anchor_policy(
+            &records,
+            &ProofAnchorPolicy::strict_confirmed()
+                .with_anchor_state(&confirmed_anchor, ProofAnchorState::Confirmed),
+        )
+        .expect("confirmed anchor replays");
+        assert_eq!(
+            replay
+                .accepted_explanation("confirmed-output")
+                .expect("accepted explanation")
+                .anchor_state,
+            ProofAnchorState::Confirmed
+        );
+
+        assert!(matches!(
+            ProofHistoryEngine::replay_with_anchor_policy(
+                &records,
+                &ProofAnchorPolicy::strict_confirmed()
+                    .with_anchor_state(&confirmed_anchor, ProofAnchorState::Stale),
+            ),
+            Err(ProofHistoryReplayError::UnacceptableAnchorState {
+                output_id,
+                anchor_state: ProofAnchorState::Stale,
+                ..
+            }) if output_id == "confirmed-output"
+        ));
+        assert!(matches!(
+            ProofHistoryEngine::replay_with_anchor_policy(
+                &records,
+                &ProofAnchorPolicy::strict_confirmed()
+                    .with_anchor_state(&confirmed_anchor, ProofAnchorState::Reorged),
+            ),
+            Err(ProofHistoryReplayError::UnacceptableAnchorState {
+                output_id,
+                anchor_state: ProofAnchorState::Reorged,
+                ..
+            }) if output_id == "confirmed-output"
+        ));
+        assert!(matches!(
+            ProofHistoryEngine::replay_with_anchor_policy(
+                &records,
+                &ProofAnchorPolicy::strict_confirmed()
+                    .with_anchor_state(&confirmed_anchor, ProofAnchorState::Pending),
+            ),
+            Err(ProofHistoryReplayError::UnacceptableAnchorState {
+                output_id,
+                anchor_state: ProofAnchorState::Pending,
+                ..
+            }) if output_id == "confirmed-output"
+        ));
+
+        let pending_replay = ProofHistoryEngine::replay_with_anchor_policy(
+            &records,
+            &ProofAnchorPolicy::strict_confirmed()
+                .with_pending_accepted(true)
+                .with_anchor_state(&confirmed_anchor, ProofAnchorState::Pending),
+        )
+        .expect("pending anchor can be policy accepted");
+        assert_eq!(
+            pending_replay
+                .accepted_explanation("confirmed-output")
+                .expect("accepted pending explanation")
+                .anchor_state,
+            ProofAnchorState::Pending
+        );
+
+        let replacement_output = output(
+            "replacement-output",
+            asset_id,
+            100,
+            key(2),
+            2,
+            ProofHistoryState::Accepted,
+        );
+        let replacement_anchor = replacement_output.anchor_outpoint.clone();
+        let replacement_records = vec![record(
+            "replacement-issue",
+            ProofTransitionKind::Issuance,
+            2,
+            vec![],
+            vec![replacement_output],
+        )];
+        ProofHistoryEngine::replay_with_anchor_policy(
+            &replacement_records,
+            &ProofAnchorPolicy::strict_confirmed()
+                .with_anchor_state(confirmed_anchor, ProofAnchorState::Reorged)
+                .with_anchor_state(replacement_anchor, ProofAnchorState::Confirmed),
+        )
+        .expect("confirmed replacement path replays");
     }
 
     fn record(

@@ -19,16 +19,17 @@ issuance, accepted issuance, split, transfer, channel funding, commitment
 update, close, and sweep. It also models invalid paths for wrong genesis,
 wrong anchor, wrong owner script key, wrong asset type, wrong amount, wrong
 root hash, wrong root sum, mismatched TapCommitment output root, invalid split
-sum, malformed proof-file transport, missing STXO, stale proof, and
-reorg-sensitive history.
+sum, malformed proof-file transport, missing STXO, stale proof,
+pending-anchor refusal, and reorg-sensitive history.
 
 The checked invariants are narrow:
 
 - an accepted balance must have a valid issuance history;
 - accepted asset ID, amount, owner, anchor, and symbolic root must agree;
 - accepted states require a well-formed proof file, present STXO, stable chain
-  view, and no recorded bad proof reason;
-- invalid or reorg-sensitive paths cannot end in an accepted balance;
+  view, a confirmed anchor, and no recorded bad proof reason;
+- invalid, pending-anchor, stale-anchor, or reorg-sensitive paths cannot end in
+  an accepted balance;
 - accepted amount cannot exceed the modeled issued supply.
 
 For #100, wallet proof export is treated as a terminal accepted-output claim:

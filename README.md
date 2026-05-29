@@ -22,7 +22,9 @@ Last updated: 2026-05-29
   asset proof checks, asset commitments, simple taproot channel support, asset
   payment metadata, restart-safe storage, close handling, and recovery records.
 - Proof import is intentionally strict. The wallet rejects shallow or mismatched
-  proofs before balance or channel state can change.
+  proofs before balance or channel state can change. Wallet balance/export
+  checks now also distinguish confirmed, pending, stale, and reorged proof
+  anchors at the bounded replay boundary.
 - The first demo is complete. The closed issues #81, #57, #58, #59, #60, #61,
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
@@ -35,10 +37,10 @@ Last updated: 2026-05-29
 
 Still not done:
 
-- production-grade proof history checks;
+- full production proof-history checks beyond the bounded demo surfaces;
 - grouped assets and multi-asset channels;
 - split/change proof replay;
-- reorg handling;
+- live chain watcher and reorg integration;
 - production proof courier policy;
 - live force-close and sweep recovery;
 - live post-close proof and balance checks;

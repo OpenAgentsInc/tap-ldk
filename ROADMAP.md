@@ -133,6 +133,12 @@ Last updated: 2026-05-29
 - Production BOLT simple-taproot work for the BTC base is complete in the
   pinned fork line. Asset-channel splice/RBF, grouped assets, and production
   proof-history/reorg hardening remain outside that BOLT base claim.
+- Proof-engine hardening is now in progress after the first demo. Issues #97
+  through #104 add typed proof-history replay, the proof-validation formal
+  model, negative proof vectors, wallet/funding/commitment/close/recovery
+  replay gates, and a bounded anchor-state policy for confirmed, pending,
+  stale, and reorged anchors. Live chain watcher integration and broader
+  Rust-native verification remain in #105 and #106.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

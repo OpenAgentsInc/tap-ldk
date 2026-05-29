@@ -87,6 +87,14 @@ also records replayed proof-history output metadata for unilateral commitment,
 second-level HTLC, and final sweep spend kinds, ending in closed or swept
 state as appropriate.
 
+Issue #104 adds the first chain-state boundary to proof-history replay. The
+replay engine now accepts a typed anchor policy with unknown, pending,
+confirmed, stale, and reorged states. The legacy bounded-regtest `replay()`
+entry point still assumes confirmed anchors, but wallet balance/export paths
+use explicit anchor state. Confirmed anchors are spendable, pending anchors are
+represented but not spendable by default, and stale or reorged anchors are
+kept as rejected wallet state until a replacement proof path is imported.
+
 ## Fail-Closed Cases
 
 Tests and fixtures cover malformed outpoints, unsupported scopes/networks,
@@ -103,7 +111,7 @@ proof verification. Still out of scope:
 - full virtual transaction witness execution for every historical proof;
 - grouped assets, collectibles, reissuance, and multi-asset proof paths;
 - full split/change/STXO inclusion and exclusion proof replay;
-- reorg watcher integration and production proof courier/universe policy.
+- live reorg watcher integration and production proof courier/universe policy.
 
 Those items remain future production-hardening work, not a reason to accept
 shallow proof fields in the demo wallet.

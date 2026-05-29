@@ -36,7 +36,7 @@ the repository pinned to
 remaining production work is mostly above and around the completed demo:
 complete Taproot Assets proof-history validation, live close and recovery
 behavior, asset-channel splice/RBF state, broader interop, network operations,
-and verification hardening.
+live chain-watcher policy, and verification hardening.
 
 The codebase now has a strong, but specific, implementation claim against the
 BOLTs repository's official `bolt-simple-taproot.md` Simple Taproot Channels
@@ -77,10 +77,11 @@ implemented by the BOLT, and therefore not completed merely by satisfying the
 BOLT, is the production Taproot Assets layer: proof-chain replay as the wallet
 balance authority, stablecoin issuance policy, proof courier behavior,
 grouped-asset behavior, asset-channel splice/RBF state, live close/sweep proof
-recovery, reorg handling, and full asset-history recovery. Those are the next
-production-hardening items for `tap-ldk`, tracked separately in #96 through
-#106. This is also a pinned OpenAgentsInc Rust Lightning fork implementation,
-not a claim that the work has already been upstreamed into LDK.
+recovery, live reorg-watcher integration, and full asset-history recovery.
+Those are the next production-hardening items for `tap-ldk`, tracked
+separately in #96 through #106. This is also a pinned OpenAgentsInc Rust
+Lightning fork implementation, not a claim that the work has already been
+upstreamed into LDK.
 
 The proof-of-concept issues are closed, and the current open work is the
 production-hardening sequence for proof replay and formal verification. That
@@ -397,7 +398,7 @@ typed proof-history replay engine in `tap-ldk-core::proof`, with runtime
 states aligned to the planned `formal/tla/proof_validation` vocabulary and
 tests for valid lifecycle replay plus missing or contradictory histories. The
 engine is a new authority surface, not yet the only wallet gate; #100 through
-#103 track wiring it into wallet balances, funding, commitments, close, sweep,
+#104 track wiring it into wallet balances, funding, commitments, close, sweep,
 and recovery.
 
 The second step is now represented in the checked formal harness. Issue #98
@@ -446,6 +447,16 @@ proof-history output metadata for unilateral commitment, second-level HTLC,
 and final sweep spend kinds; those reports end in closed or swept state rather
 than a generic recovered flag.
 
+Issue #104 adds a bounded chain-state boundary to the proof replay engine and
+wallet. Proof replay can now run with an explicit anchor policy whose states
+are unknown, pending, confirmed, stale, and reorged. The existing bounded
+regtest `replay()` entry point still assumes confirmed anchors, but wallet
+balance and proof-export authority now use stored anchor state. Confirmed
+anchors are spendable. Pending anchors are retained as explicit pending state
+and are not counted by default. Stale or reorged anchors are retained as
+rejected wallet state and cannot produce accepted balances or exported proofs
+until a replacement proof path is imported.
+
 The replay engine baseline is now in place. It builds a typed history graph
 from issuance, split, transfer, channel funding, commitment update,
 cooperative close, unilateral close, second-level HTLC, sweep, and
@@ -472,16 +483,17 @@ readiness.
 
 Proof replay is now connected to wallet balances, proof export, channel
 funding, commitment updates, cooperative close, bounded unilateral recovery,
-second-level HTLC recovery, and final sweep recovery. The remaining
-implementation work in this phase is reorg policy, Rust-native verification
-harnesses, and CI wiring. The already-wired funding path proves that the asset
-input being locked into the channel is spendable, owned by the expected key,
-tied to the expected asset ID and genesis, and conserved into the channel
-allocation. The already-wired commitment path consumes the previous
-channel-locked proof-history output and records the new channel-locked output
-for the latest commitment. The close/recovery path now ties exported close
-proofs and recovered unilateral outputs to replayed closed or swept proof
-states.
+second-level HTLC recovery, final sweep recovery, and bounded anchor-state
+policy. The remaining implementation work in this phase is Rust-native
+verification harnesses and CI wiring. Live chain-watcher integration remains a
+production boundary above the current synthetic regtest policy. The
+already-wired funding path proves that the asset input being locked into the
+channel is spendable, owned by the expected key, tied to the expected asset ID
+and genesis, and conserved into the channel allocation. The already-wired
+commitment path consumes the previous channel-locked proof-history output and
+records the new channel-locked output for the latest commitment. The
+close/recovery path now ties exported close proofs and recovered unilateral
+outputs to replayed closed or swept proof states.
 
 The matching models are `asset_channel`, `asset_commitment`, and
 `asset_conservation`. They now make proof replay part of the checked state
@@ -507,21 +519,23 @@ or reassign assets outside the modeled recovery path, and that proof export
 references either the cooperative close output or final sweep output rather
 than an obsolete commitment view.
 
-The fifth implementation step is reorg-sensitive history. Production proof
-acceptance needs a chain-state boundary. The wallet should distinguish a proof
-whose anchor is confirmed and stable enough for the configured policy from a
-proof whose anchor is missing, stale, reorged, or still pending. For regtest
-and demo mode this can start as a small synthetic chain-state adapter, but the
-core replay engine should already carry enough status to avoid treating a
-reorged output as spendable. Reorg handling should be added before the wallet
-claims production-grade proof import or recovery.
+The fifth implementation step, reorg-sensitive history, is now implemented at
+the bounded replay and wallet-policy layer. Production proof acceptance needs a
+chain-state boundary, and the current code now has one: an anchor can be
+unknown, pending, confirmed, stale, or reorged. Confirmed anchors satisfy the
+default wallet policy. Pending anchors remain explicit and unspendable by
+default. Stale and reorged anchors move dependent wallet records to rejected
+state, and balance/export calls cannot use them. A confirmed replacement proof
+path can recover accepted state. The remaining production work is connecting
+this policy to a live chain watcher instead of only synthetic regtest/demo
+updates.
 
-The formal model should keep reorg handling bounded. It should not attempt to
-prove Bitcoin consensus. It should model anchor states such as unknown,
-pending, confirmed, stale, and reorged, then prove that accepted balances can
-only depend on anchors that satisfy the configured policy. A reorged anchor
-should move dependent balances to rejected or unresolved until a valid
-replacement proof path is replayed.
+The formal model keeps reorg handling bounded. It does not attempt to prove
+Bitcoin consensus. It now models unknown, pending, confirmed, stale, and
+reorged anchors and proves that accepted balances can only depend on anchors
+that satisfy the configured policy. Reorged and stale anchors cannot be
+accepted, and pending anchors remain explicit rather than silently counted as
+spendable.
 
 The sixth implementation step is to make Rust-native verification a gate. The
 TLA+ models should describe the intended state space, but the parser,
