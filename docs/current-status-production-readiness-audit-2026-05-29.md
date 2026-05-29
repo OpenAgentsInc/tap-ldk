@@ -2,29 +2,45 @@
 
 Date: 2026-05-29
 
-This audit records the current state of `tap-ldk` after the first-demo issue
-sequence and the BOLT simple-taproot production tracker were closed. It is
-written on top of `tap-ldk` main after `9d2333a`, with the repository pinned to
+This document is written for someone new to the project. `tap-ldk` is an
+experimental Rust/LDK implementation of Taproot Assets over simple-taproot
+Lightning-style channels. The question it is testing is narrow and concrete:
+can an LDK-based wallet issue, verify, send, and receive a stablecoin-like
+Taproot Asset without embedding LND or `tapd` as its wallet runtime, while
+still interoperating with the existing Lightning Labs software stack?
+
+The current answer is yes for the bounded regtest proof of concept. The live
+interop demonstration has two independent sides. One side is the Lightning Labs
+stack, run through integrated `litd`, which exposes LND and Taproot Assets
+behavior for the test. The other side is the native LDK wallet path in
+`tap-ldk`, using the OpenAgentsInc `ldk-node` and `rust-lightning` forks. In
+that setup, integrated `litd` issued the demo Taproot Asset, funded an asset
+channel with the native LDK peer, sent that asset to native LDK, and native LDK
+recorded the received asset balance. The native LDK side then sent the same
+Taproot Asset back to integrated `litd`, and both sides reported the expected
+post-settlement balances. That is the central completed demo claim.
+
+There is also a native-to-native proof of concept where two `tap-ldk` wallets
+exchange proofs, open a bounded single-asset channel, pay, restart, close,
+export proof records, and recover the recorded asset state. Separately, the
+BTC simple-taproot BOLT base is now implemented in the pinned Rust Lightning
+fork line. Those facts make this a working experimental implementation, not
+just a design sketch. They still do not make it production wallet
+infrastructure.
+
+This audit records the current state after the bounded interop issue sequence
+and the BOLT simple-taproot production tracker were closed. It is written with
+the repository pinned to
 `OpenAgentsInc/rust-lightning@3db3229733b724f45e7a356d923715213cb4f269` and
-`OpenAgentsInc/ldk-node@1e439b10c94a6e42442d245f95945a906dd6221e`.
+`OpenAgentsInc/ldk-node@1e439b10c94a6e42442d245f95945a906dd6221e`. The
+remaining production work is mostly above and around the completed demo:
+complete Taproot Assets proof-history validation, live close and recovery
+behavior, asset-channel splice/RBF state, broader interop, network operations,
+and verification hardening.
 
-The short version is this: the demo is now real for the bounded scope it
-claims, but it is still not production wallet infrastructure. The native
-wallet-to-wallet path works as a controlled proof of concept. The independent
-`lnd`/`tapd`/`litd` compatibility path works for the first demo against
-integrated `litd`, with observed settlement and balances in both directions.
-The BTC simple-taproot BOLT base is now implemented and covered in the pinned
-Rust Lightning fork line. The remaining production work is mostly above and
-around that base: complete Taproot Assets proof-history validation, live close
-and recovery behavior, asset-channel splice/RBF state, broader interop, network
-operations, and verification hardening.
-
-At the time of this audit, `gh issue list --state open` returned no open
-`tap-ldk` issues. That does not mean the product is finished. It means the
-explicit issue sequence that was created for the first proof of concept and
-the BTC simple-taproot BOLT base has been completed. The next work should be
-tracked as a new production-hardening sequence, not by reopening the already
-closed first-demo issues unless one of their regression gates breaks.
+The proof-of-concept issues are closed, and the current open work is the
+production-hardening sequence for proof replay and formal verification. That
+new sequence is tracked in #96 through #106.
 
 ## What This Project Currently Is
 
@@ -47,19 +63,19 @@ and in the pinned `ldk-node` fork. The `tap-ldk` repo is the coordination
 point that pins those revisions, exposes verification scripts, holds fixtures,
 and runs the demo flows.
 
-The project has two demo surfaces. The first is native wallet-to-wallet:
-two native `tap-ldk` wallets issue or receive a demo asset, exchange proof
-material, open a bounded single-asset channel, pay, restart, close, export
-proof records, and recover the recorded state. The second is compatibility
-with Lightning Labs software: integrated `litd` issues the asset and funds an
-asset channel against the fork-backed native LDK peer, then the asset is paid
-in both directions and both sides report the expected balances after
-settlement.
+The project has two completed proof-of-concept surfaces. The first is native
+wallet-to-wallet: two native `tap-ldk` wallets issue or receive a demo asset,
+exchange proof material, open a bounded single-asset channel, pay, restart,
+close, export proof records, and recover the recorded state. The second is
+interop with the Lightning Labs stack: integrated `litd` issues the asset and
+funds an asset channel against the fork-backed native LDK peer, then the same
+Taproot Asset is paid in both directions and both sides report the expected
+balances after settlement.
 
 Those flows are enough for the experimental claim: native Rust/LDK code can
-drive Taproot Asset channel behavior and interoperate with the Lightning Labs
-software stack for a bounded demo. They are not enough for a production
-stablecoin wallet.
+drive Taproot Asset channel behavior and can trade the same Taproot Asset back
+and forth with the Lightning Labs `litd`/LND/Taproot Assets stack in a bounded
+regtest setup. They are not enough for a production stablecoin wallet.
 
 ## Current Fork And Issue State
 
@@ -78,18 +94,20 @@ simple-taproot and Taproot Asset channel configuration, the typed Taproot
 Asset message and payment surfaces needed by the demo, and the fork-backed
 asset payment accounting used by the live `litd` checks.
 
-Issues #19 and #57 through #95 are closed. The first-demo regression gates are
-#81, #57, #58, #59, #60, #61, #71, and #19. The BTC simple-taproot production
-tracker is #95, closed after #94 added the full vector, unilateral spend, and
-restart metadata checks. The useful way to read the issue state is not "there
-is nothing left to do." The useful reading is that the first demo and the BTC
-simple-taproot base are no longer blocked by the issues that were created for
-them.
+Issues #19 and #57 through #95 are closed. The bounded proof-of-concept
+regression gates are #81, #57, #58, #59, #60, #61, #71, and #19. The BTC
+simple-taproot production tracker is #95, closed after #94 added the full
+vector, unilateral spend, and restart metadata checks. The useful way to read
+that closed issue state is not "there is nothing left to do." The useful
+reading is that the interop proof of concept and the BTC simple-taproot base
+are no longer blocked by the issues that were created for them. The next phase
+is now tracked separately in #96 through #106 for production proof replay and
+formal verification hardening.
 
 ## What Works Now
 
-The native wallet-to-wallet demo works for the bounded first-demo shape. It
-can issue a demo `OPENUSD` asset, store proof-backed balances, exchange proof
+The native wallet-to-wallet demo works for the bounded proof-of-concept shape.
+It can issue a demo `OPENUSD` asset, store proof-backed balances, exchange proof
 material locally, build a single-asset channel, bind an RFQ quote to the asset
 payment context, create and validate asset HTLC metadata, settle the payment,
 restart through important state boundaries, cooperatively close, and export
