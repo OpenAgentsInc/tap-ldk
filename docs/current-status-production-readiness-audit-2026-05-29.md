@@ -484,9 +484,9 @@ readiness.
 Proof replay is now connected to wallet balances, proof export, channel
 funding, commitment updates, cooperative close, bounded unilateral recovery,
 second-level HTLC recovery, final sweep recovery, and bounded anchor-state
-policy. The remaining implementation work in this phase is Rust-native
-verification harnesses and CI wiring. Live chain-watcher integration remains a
-production boundary above the current synthetic regtest policy. The
+policy. The remaining implementation work in this phase is CI wiring. Live
+chain-watcher integration remains a production boundary above the current
+synthetic regtest policy. The
 already-wired funding path proves that the asset input being locked into the
 channel is spendable, owned by the expected key, tied to the expected asset ID
 and genesis, and conserved into the channel allocation. The already-wired
@@ -537,18 +537,17 @@ that satisfy the configured policy. Reorged and stale anchors cannot be
 accepted, and pending anchors remain explicit rather than silently counted as
 spendable.
 
-The sixth implementation step is to make Rust-native verification a gate. The
-TLA+ models should describe the intended state space, but the parser,
-arithmetic, serialization, and validation code must be checked in Rust. Add
-`proptest` coverage for amount conservation, split sums, proof graph
-topology, quote/proof binding, and restart state transitions. Add fuzz targets
-for TLV parsing, `TAPF` proof files, virtual PSBT summaries, TapCommitment
-records, and imported Lightning Labs blobs. Add Kani targets for pure helpers
-that validate asset amount arithmetic, owner/asset matching, proof-state
-transitions, and no-overflow conservation. Miri can be used for unsafe or
-FFI-sensitive paths if those appear; loom should wait until proof or channel
-state uses shared concurrent mutation that actually needs interleaving
-coverage.
+The sixth implementation step, Rust-native verification, is now in place as
+an explicit harness layer. `proptest` coverage checks proof-history amount
+conservation, split inflation rejection, proof graph topology, anchor-policy
+acceptance, wallet restart and reorg-state behavior, and RFQ/invoice binding.
+The fuzz target set covers TLV parsing, `TAPF` proof files, virtual PSBT
+summaries, Taproot commitment leaf parsing, and imported Lightning Labs
+funding/HTLC/commitment blobs. Kani harnesses cover pure helpers for
+`AssetAmount` checked arithmetic, strict and pending anchor policy, and
+proof-state transition input rules. `Miri` remains unwired because the current
+proof-engine code does not use unsafe Rust, and `loom` remains unwired because
+the proof-engine state does not yet use shared concurrent mutation.
 
 The seventh implementation step is to wire the checks into normal developer
 and CI flow. `scripts/formal-check.sh` already discovers checked-in TLA+
@@ -558,8 +557,9 @@ the proof-validation model with the rest of the checked specs. A future CI job
 should run formatting, `cargo test --locked`, proof negative vectors, the
 native demo, the compatibility demo, the BOLT simple-taproot scripts, formal
 checks when TLC is available, property tests, fuzz smoke targets, and Kani
-targets. If a tool is optional locally, the skip behavior must be explicit and
-visible rather than silently ignored.
+targets. `scripts/rust-verification-check.sh` now provides the local
+property/fuzz/Kani wrapper with explicit skips for optional tools; #106 should
+wire the same behavior into normal CI.
 
 The eighth implementation step is documentation and issue hygiene. This work
 should be split into a new GitHub issue sequence rather than buried under the

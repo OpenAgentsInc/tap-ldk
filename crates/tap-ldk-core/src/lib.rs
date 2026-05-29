@@ -33,6 +33,9 @@ pub mod tlv;
 pub mod virtual_psbt;
 pub mod wallet;
 
+#[cfg(kani)]
+mod kani_verification;
+
 pub const PROJECT_NAME: &str = "tap-ldk";
 pub const PROJECT_SUMMARY: &str =
     "Experimental native Taproot Assets support for Rust Lightning/LDK.";

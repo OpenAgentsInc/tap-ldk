@@ -31,6 +31,11 @@ Do not weaken native runtime policy to make a formal model, interop test, or
 demo pass. A meaningful model counterexample must become either a Rust
 regression test or a documented model-boundary exception.
 
+Rust-native verification is part of that contract. Property tests, fuzz
+targets, and Kani harnesses should stay mapped to the formal invariants they
+cover, and optional tools must skip explicitly rather than silently removing a
+verification boundary from the developer flow.
+
 ## Current Demo Invariants
 
 - `tap-ldk` is the implementation home for native Rust/LDK Taproot Assets

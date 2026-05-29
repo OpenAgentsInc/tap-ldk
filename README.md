@@ -60,6 +60,7 @@ CARGO_NET_GIT_FETCH_WITH_CLI=true cargo test --locked
 ./scripts/check-btc-simple-taproot-conformance.sh
 ./scripts/check-simple-taproot-cooperative-close.sh
 ./scripts/check-simple-taproot-splice-policy.sh
+./scripts/rust-verification-check.sh
 ./scripts/path-a-native-demo.sh
 ./scripts/path-b-lightning-labs-demo.sh
 ```
@@ -87,3 +88,4 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [BOLT Simple-Taproot Production Compliance Audit](docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md)
 - [Current Status And Production Readiness Audit](docs/current-status-production-readiness-audit-2026-05-29.md)
 - [Negative Proof Vector Coverage](docs/negative-proof-vector-coverage.md)
+- [Rust-Native Verification](docs/rust-native-verification.md)

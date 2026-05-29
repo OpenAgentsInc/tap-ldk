@@ -1,30 +1,17 @@
-[workspace]
-members = [
-    "crates/tap-ldk-core",
-    "crates/tap-ldk-cli",
-]
-resolver = "3"
-
-[workspace.package]
+[package]
+name = "tap-ldk-fuzz"
+version = "0.0.0"
+publish = false
 edition = "2024"
-license = "UNLICENSED"
-rust-version = "1.85"
-version = "0.1.0"
 
-[workspace.metadata.tap-ldk.rust-lightning-fork]
-url = "https://github.com/OpenAgentsInc/rust-lightning"
-upstream = "https://github.com/lightningdevkit/rust-lightning"
-base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "3db3229733b724f45e7a356d923715213cb4f269"
-strategy = "Direct git dependency for fork touchpoints plus workspace patches so ldk-node and tap-ldk resolve the same OpenAgentsInc rust-lightning fork."
+[package.metadata]
+cargo-fuzz = true
 
-[workspace.metadata.tap-ldk.ldk-node-fork]
-url = "https://github.com/OpenAgentsInc/ldk-node.git"
-upstream = "https://github.com/lightningdevkit/ldk-node.git"
-base_version = "0.7.0"
-rev = "1e439b10c94a6e42442d245f95945a906dd6221e"
-tracking_issues = [77, 78, 79, 80, 81, 57, 58, 59, 91, 92, 93, 94, 95]
-strategy = "Fork ldk-node for the live demo runtime so it can use the OpenAgentsInc rust-lightning simple-taproot and Taproot Asset channel surfaces."
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tap-ldk-core = { path = "../crates/tap-ldk-core" }
 
 [patch."https://github.com/lightningdevkit/rust-lightning"]
 lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "3db3229733b724f45e7a356d923715213cb4f269" }
@@ -40,10 +27,32 @@ lightning-liquidity = { git = "https://github.com/OpenAgentsInc/rust-lightning",
 lightning-macros = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "3db3229733b724f45e7a356d923715213cb4f269" }
 lightning-dns-resolver = { git = "https://github.com/OpenAgentsInc/rust-lightning", rev = "3db3229733b724f45e7a356d923715213cb4f269" }
 
-[workspace.lints.rust]
-unsafe_code = "forbid"
-unexpected_cfgs = { level = "allow", check-cfg = ["cfg(kani)"] }
+[[bin]]
+name = "tlv_decode"
+path = "fuzz_targets/tlv_decode.rs"
+test = false
+doc = false
 
-[workspace.lints.clippy]
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
+[[bin]]
+name = "tapd_proof_file"
+path = "fuzz_targets/tapd_proof_file.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "virtual_psbt_summary"
+path = "fuzz_targets/virtual_psbt_summary.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "taproot_commitment_leaf"
+path = "fuzz_targets/taproot_commitment_leaf.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "lightning_labs_blobs"
+path = "fuzz_targets/lightning_labs_blobs.rs"
+test = false
+doc = false
