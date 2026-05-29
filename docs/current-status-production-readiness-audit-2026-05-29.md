@@ -416,6 +416,13 @@ hash, wrong root sum, and mismatched TapCommitment output root. The point is
 to keep every bad proof class tied to a state-advance boundary, not just a
 parser error.
 
+Issue #100 starts wiring the replay engine into wallet authority. Imported
+wallet proofs now carry deterministic proof-history metadata, and wallet
+balances plus proof exports must replay that metadata to an accepted balance
+explanation before returning state. This is still the bounded first-demo
+wallet path, not the full channel/close/sweep replay path; #101 through #103
+extend the same authority boundary across those later states.
+
 The first implementation step is to replace the current bounded proof-history
 surface with an explicit proof-chain replay engine. That engine should live
 around `proof.rs`, `tapd_proof.rs`, `mssmt.rs`, `taproot_commitment.rs`, and

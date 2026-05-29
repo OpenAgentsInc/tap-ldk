@@ -14,7 +14,11 @@ use crate::{
         AssetAmount, AssetError, AssetLeaf, AssetType, Bytes32, CompressedKey, Genesis,
         derive_hash_sum_root, validate_split_conservation,
     },
-    proof::{ProofError, ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
+    proof::{
+        AcceptedBalanceExplanation, ProofError, ProofFile, ProofHistoryEngine, ProofHistoryOutput,
+        ProofHistoryRecord, ProofHistoryReplayError, ProofHistoryState, ProofNetwork,
+        ProofTransitionKind, ProofValidationContext, VerificationScope,
+    },
     tapd_proof::{TapdProofError, TapdProofFileSummary, decode_tapd_proof_file},
 };
 
@@ -112,6 +116,7 @@ impl WalletState {
             .map_err(WalletError::Proof)?;
         let encoded = proof.encode().map_err(WalletError::Proof)?;
         let proof_id = proof_id(&proof);
+        let proof_history = accepted_wallet_proof_history(&proof_id, &proof)?;
         let proof_hex = encode_hex(&encoded);
         let tapd_raw_proof_file_hex = tapd_proof_file.as_deref().map(encode_hex);
         let tapd_raw_proof_file_digest = tapd_proof_file
@@ -121,6 +126,9 @@ impl WalletState {
         if let Some(existing) = self.proofs.get(&proof_id) {
             if existing.proof_tlv_hex != proof_hex {
                 return Err(WalletError::ConflictingProof(proof_id));
+            }
+            if !existing.matches_proof_history(&proof_history) {
+                return Err(WalletError::UnexplainedProofHistory(proof_id));
             }
 
             if let (Some(existing_tapd), Some(new_tapd)) = (
@@ -157,6 +165,7 @@ impl WalletState {
             anchor_outpoint: proof.anchor_outpoint.clone(),
             script_key: proof.script_key.to_hex(),
             amount: proof.amount.value(),
+            proof_history_output_id: proof_history.output_id.clone(),
             status: UtxoStatus::Spendable,
         };
 
@@ -168,6 +177,9 @@ impl WalletState {
                 verification_scope: proof.verification_scope.as_str().to_owned(),
                 tapd_raw_proof_file_hex,
                 tapd_raw_proof_file_digest,
+                proof_history_record_id: proof_history.record_id,
+                proof_history_output_id: proof_history.output_id,
+                proof_history_transition_id: proof_history.transition_id.to_hex(),
             },
         );
         self.spendable_utxos.insert(proof_id.clone(), utxo);
@@ -182,6 +194,7 @@ impl WalletState {
     }
 
     pub fn export_encoded_proof(&self, proof_id: &str) -> Result<Vec<u8>, WalletError> {
+        self.accepted_wallet_balance_explanation(proof_id)?;
         let stored = self
             .proofs
             .get(proof_id)
@@ -190,6 +203,7 @@ impl WalletState {
     }
 
     pub fn export_tapd_proof_file(&self, proof_id: &str) -> Result<Vec<u8>, WalletError> {
+        self.accepted_wallet_balance_explanation(proof_id)?;
         let stored = self
             .proofs
             .get(proof_id)
@@ -302,15 +316,16 @@ impl WalletState {
             if utxo.status != UtxoStatus::Spendable {
                 continue;
             }
+            let explanation = self.accepted_wallet_balance_explanation(&utxo.proof_id)?;
 
             let current = totals
-                .get(&utxo.asset_id)
+                .get(&explanation.asset_id.to_hex())
                 .copied()
                 .unwrap_or(AssetAmount::ZERO);
             let next = current
-                .checked_add(AssetAmount::new(utxo.amount))
+                .checked_add(explanation.amount)
                 .map_err(WalletError::Asset)?;
-            totals.insert(utxo.asset_id.clone(), next);
+            totals.insert(explanation.asset_id.to_hex(), next);
         }
 
         Ok(totals
@@ -401,11 +416,20 @@ impl WalletState {
                 || utxo.anchor_outpoint != proof.anchor_outpoint
                 || script_key != proof.script_key
                 || utxo.amount != proof.amount.value()
+                || utxo.proof_history_output_id != utxo.proof_id
             {
                 return Err(WalletError::StorageInvariant(format!(
                     "utxo {key} does not match verified proof {}",
                     utxo.proof_id
                 )));
+            }
+            let stored = self
+                .proofs
+                .get(&utxo.proof_id)
+                .ok_or_else(|| WalletError::UnknownProof(utxo.proof_id.clone()))?;
+            let explanation = validate_stored_proof_history(stored, proof)?;
+            if explanation.output_id != utxo.proof_history_output_id {
+                return Err(WalletError::UnexplainedProofHistory(utxo.proof_id.clone()));
             }
         }
 
@@ -415,6 +439,30 @@ impl WalletState {
     fn decode_proof(&self, proof_id: &str) -> Result<ProofFile, WalletError> {
         let encoded = self.export_encoded_proof(proof_id)?;
         ProofFile::decode(&encoded).map_err(WalletError::Proof)
+    }
+
+    fn accepted_wallet_balance_explanation(
+        &self,
+        proof_id: &str,
+    ) -> Result<AcceptedBalanceExplanation, WalletError> {
+        let stored = self
+            .proofs
+            .get(proof_id)
+            .ok_or_else(|| WalletError::UnknownProof(proof_id.to_owned()))?;
+        let utxo = self
+            .spendable_utxos
+            .get(proof_id)
+            .ok_or_else(|| WalletError::ObsoleteProofExport(proof_id.to_owned()))?;
+        if utxo.status != UtxoStatus::Spendable || utxo.proof_history_output_id != proof_id {
+            return Err(WalletError::UnexplainedProofHistory(proof_id.to_owned()));
+        }
+        let encoded = decode_hex(&stored.proof_tlv_hex)?;
+        let proof = ProofFile::decode(&encoded).map_err(WalletError::Proof)?;
+        let explanation = validate_stored_proof_history(stored, &proof)?;
+        if explanation.output_id != utxo.proof_history_output_id {
+            return Err(WalletError::UnexplainedProofHistory(proof_id.to_owned()));
+        }
+        Ok(explanation)
     }
 }
 
@@ -438,10 +486,21 @@ pub struct StoredProof {
     pub proof_id: String,
     pub proof_tlv_hex: String,
     pub verification_scope: String,
+    pub proof_history_record_id: String,
+    pub proof_history_output_id: String,
+    pub proof_history_transition_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tapd_raw_proof_file_hex: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tapd_raw_proof_file_digest: Option<Bytes32>,
+}
+
+impl StoredProof {
+    fn matches_proof_history(&self, proof_history: &WalletProofHistory) -> bool {
+        self.proof_history_record_id == proof_history.record_id
+            && self.proof_history_output_id == proof_history.output_id
+            && self.proof_history_transition_id == proof_history.transition_id.to_hex()
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -453,6 +512,7 @@ pub struct SpendableAssetUtxo {
     pub anchor_outpoint: String,
     pub script_key: String,
     pub amount: u64,
+    pub proof_history_output_id: String,
     pub status: UtxoStatus,
 }
 
@@ -649,6 +709,7 @@ pub enum WalletError {
     Io(std::io::Error),
     Json(serde_json::Error),
     Proof(ProofError),
+    ProofHistory(ProofHistoryReplayError),
     TapdProof(TapdProofError),
     Asset(AssetError),
     UnsupportedVersion(u32),
@@ -657,6 +718,8 @@ pub enum WalletError {
     ConflictingProof(String),
     UnknownProof(String),
     NoTapdProofFile(String),
+    UnexplainedProofHistory(String),
+    ObsoleteProofExport(String),
     ZeroIssuanceAmount,
     ZeroTransferAmount,
     InvalidTicker,
@@ -670,6 +733,7 @@ impl fmt::Display for WalletError {
             Self::Io(err) => write!(f, "wallet I/O error: {err}"),
             Self::Json(err) => write!(f, "wallet JSON error: {err}"),
             Self::Proof(err) => write!(f, "wallet proof error: {err}"),
+            Self::ProofHistory(err) => write!(f, "wallet proof-history error: {err}"),
             Self::TapdProof(err) => write!(f, "wallet tapd proof error: {err}"),
             Self::Asset(err) => write!(f, "wallet asset error: {err}"),
             Self::UnsupportedVersion(version) => {
@@ -683,6 +747,18 @@ impl fmt::Display for WalletError {
             Self::UnknownProof(proof_id) => write!(f, "unknown wallet proof: {proof_id}"),
             Self::NoTapdProofFile(proof_id) => {
                 write!(f, "wallet proof {proof_id} has no tapd proof file")
+            }
+            Self::UnexplainedProofHistory(proof_id) => {
+                write!(
+                    f,
+                    "wallet proof {proof_id} has no accepted proof-history explanation"
+                )
+            }
+            Self::ObsoleteProofExport(proof_id) => {
+                write!(
+                    f,
+                    "wallet proof {proof_id} is not a current spendable proof"
+                )
             }
             Self::ZeroIssuanceAmount => write!(f, "issuance amount must be greater than zero"),
             Self::ZeroTransferAmount => write!(f, "transfer amount must be greater than zero"),
@@ -705,6 +781,88 @@ impl Error for WalletError {}
 
 fn proof_id(proof: &ProofFile) -> String {
     format!("{}:{}", proof.asset_id.to_hex(), proof.anchor_outpoint)
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct WalletProofHistory {
+    record_id: String,
+    output_id: String,
+    transition_id: Bytes32,
+}
+
+fn accepted_wallet_proof_history(
+    proof_id: &str,
+    proof: &ProofFile,
+) -> Result<WalletProofHistory, WalletError> {
+    let metadata = wallet_proof_history_metadata(proof_id, proof)?;
+    let explanation = replay_wallet_proof_history(&metadata, proof)?;
+    if explanation.output_id != metadata.output_id
+        || explanation.asset_id != proof.asset_id
+        || explanation.amount != proof.amount
+        || explanation.script_key != proof.script_key
+        || explanation.anchor_outpoint != proof.anchor_outpoint
+        || explanation.tap_asset_root != proof.tap_asset_root
+        || explanation.resulting_state != ProofHistoryState::Accepted
+    {
+        return Err(WalletError::UnexplainedProofHistory(proof_id.to_owned()));
+    }
+    Ok(metadata)
+}
+
+fn validate_stored_proof_history(
+    stored: &StoredProof,
+    proof: &ProofFile,
+) -> Result<AcceptedBalanceExplanation, WalletError> {
+    let metadata = accepted_wallet_proof_history(&stored.proof_id, proof)?;
+    if !stored.matches_proof_history(&metadata) {
+        return Err(WalletError::UnexplainedProofHistory(
+            stored.proof_id.clone(),
+        ));
+    }
+    replay_wallet_proof_history(&metadata, proof)
+}
+
+fn replay_wallet_proof_history(
+    metadata: &WalletProofHistory,
+    proof: &ProofFile,
+) -> Result<AcceptedBalanceExplanation, WalletError> {
+    let record = ProofHistoryRecord {
+        record_id: metadata.record_id.clone(),
+        kind: ProofTransitionKind::Issuance,
+        virtual_transition_id: metadata.transition_id,
+        inputs: Vec::new(),
+        outputs: vec![ProofHistoryOutput {
+            output_id: metadata.output_id.clone(),
+            asset_id: proof.asset_id,
+            amount: proof.amount,
+            script_key: proof.script_key,
+            anchor_outpoint: proof.anchor_outpoint.clone(),
+            tap_asset_root: proof.tap_asset_root,
+            resulting_state: ProofHistoryState::Accepted,
+        }],
+    };
+    let replay = ProofHistoryEngine::replay(&[record]).map_err(WalletError::ProofHistory)?;
+    replay
+        .accepted_explanation(&metadata.output_id)
+        .cloned()
+        .ok_or_else(|| WalletError::UnexplainedProofHistory(metadata.output_id.clone()))
+}
+
+fn wallet_proof_history_metadata(
+    proof_id: &str,
+    proof: &ProofFile,
+) -> Result<WalletProofHistory, WalletError> {
+    let encoded = proof.encode().map_err(WalletError::Proof)?;
+    let mut payload = Vec::with_capacity(proof_id.len() + encoded.len());
+    payload.extend_from_slice(proof_id.as_bytes());
+    payload.extend_from_slice(&encoded);
+    let transition_id = tagged_hash(b"tap-ldk:wallet-proof-history-transition:v1", &payload);
+
+    Ok(WalletProofHistory {
+        record_id: format!("wallet-import:{proof_id}"),
+        output_id: proof_id.to_owned(),
+        transition_id,
+    })
 }
 
 fn transfer_output_proof(
@@ -899,6 +1057,44 @@ mod tests {
 
         assert_eq!(second.status(), "already_present");
         assert_eq!(wallet.balances().expect("balances"), expected_balances());
+    }
+
+    #[test]
+    fn wallet_balances_and_exports_require_replayed_history() {
+        let mut wallet = WalletState::default();
+        let outcome = wallet
+            .import_verified_proof(valid_proof())
+            .expect("proof imports");
+        let proof_id = outcome.proof_id().to_owned();
+        let stored = wallet.proofs.get(&proof_id).expect("proof stored");
+        assert_eq!(stored.proof_history_output_id, proof_id);
+        assert!(!stored.proof_history_record_id.is_empty());
+        assert!(!stored.proof_history_transition_id.is_empty());
+
+        wallet
+            .proofs
+            .get_mut(&proof_id)
+            .expect("proof stored")
+            .proof_history_output_id = "obsolete-output".to_owned();
+        assert!(matches!(
+            wallet.balances(),
+            Err(WalletError::UnexplainedProofHistory(id)) if id.as_str() == proof_id
+        ));
+        assert!(matches!(
+            wallet.export_encoded_proof(&proof_id),
+            Err(WalletError::UnexplainedProofHistory(id)) if id.as_str() == proof_id
+        ));
+
+        let mut wallet = WalletState::default();
+        let outcome = wallet
+            .import_verified_proof(valid_proof())
+            .expect("proof imports");
+        let proof_id = outcome.proof_id().to_owned();
+        wallet.spendable_utxos.remove(&proof_id);
+        assert!(matches!(
+            wallet.export_encoded_proof(&proof_id),
+            Err(WalletError::ObsoleteProofExport(id)) if id.as_str() == proof_id
+        ));
     }
 
     #[test]

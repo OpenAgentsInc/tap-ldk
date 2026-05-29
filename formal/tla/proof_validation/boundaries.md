@@ -31,6 +31,12 @@ The checked invariants are narrow:
 - invalid or reorg-sensitive paths cannot end in an accepted balance;
 - accepted amount cannot exceed the modeled issued supply.
 
+For #100, wallet proof export is treated as a terminal accepted-output claim:
+the export surface may only return bytes for a current spendable proof whose
+stored proof-history metadata replays to an accepted balance explanation. The
+model represents that as the same accepted-balance invariant rather than as a
+separate transport proof.
+
 The model does not prove Bitcoin transaction inclusion, script execution,
 Taproot control-block validity, MuSig2 correctness, real hash preimages,
 database crash consistency, peer networking, or full historical proof-chain

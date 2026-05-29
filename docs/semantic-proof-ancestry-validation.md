@@ -52,6 +52,17 @@ unresolved, pending, stale, spent, channel-locked, closed, and swept. The first
 regressions cover valid synthetic lifecycle replay plus missing input,
 contradictory amount, invalid output state, and mismatched root failures.
 
+Issue #100 wires that replay surface into wallet balance and proof export
+authority. A wallet-imported proof now records a deterministic proof-history
+record ID, output ID, and transition ID. `WalletState::balances`,
+`export_encoded_proof`, and `export_tapd_proof_file` require the stored proof
+and spendable UTXO to replay to an accepted balance explanation before they
+return user-visible balance or export bytes. The current implementation is
+still the bounded first-demo path: each imported proof is represented as a
+single accepted issuance-style output. Later channel, close, sweep, and
+recovery issues replace that bounded import record with full proof-chain
+history at the relevant state boundaries.
+
 ## Fail-Closed Cases
 
 Tests and fixtures cover malformed outpoints, unsupported scopes/networks,
