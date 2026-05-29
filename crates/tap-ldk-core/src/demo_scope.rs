@@ -12,17 +12,20 @@ pub struct DemoFeaturePolicy {
 }
 
 impl DemoFeaturePolicy {
-    pub fn validate_excluded(&self, expected_feature: &str) -> Result<(), DemoScopeError> {
+    pub fn validate_bolt_base_supported(
+        &self,
+        expected_feature: &str,
+    ) -> Result<(), DemoScopeError> {
         if self.feature != expected_feature {
             return Err(DemoScopeError::UnexpectedFeature {
                 expected: expected_feature.to_owned(),
                 actual: self.feature.clone(),
             });
         }
-        if self.policy != "excluded" {
+        if self.policy != "bolt-base-supported" {
             return Err(DemoScopeError::UnexpectedPolicy {
                 feature: self.feature.clone(),
-                expected: "excluded".to_owned(),
+                expected: "bolt-base-supported".to_owned(),
                 actual: self.policy.clone(),
             });
         }
@@ -54,7 +57,7 @@ impl FirstDemoProtocolScope {
             return Err(DemoScopeError::UnsupportedSchema(self.schema_version));
         }
         self.simple_taproot_splicing
-            .validate_excluded("simple-taproot concurrent splicing")
+            .validate_bolt_base_supported("simple-taproot splice nonce maps")
     }
 }
 
@@ -107,19 +110,18 @@ pub fn first_demo_protocol_scope() -> FirstDemoProtocolScope {
     FirstDemoProtocolScope {
         schema_version: 1,
         simple_taproot_splicing: DemoFeaturePolicy {
-            feature: "simple-taproot concurrent splicing".to_owned(),
-            policy: "excluded".to_owned(),
+            feature: "simple-taproot splice nonce maps".to_owned(),
+            policy: "bolt-base-supported".to_owned(),
             first_public_demo: false,
-            reason: "The first public demo uses a stable funding outpoint from open through payment, reestablish, cooperative close, and force-close. The OpenAgentsInc rust-lightning fork validates type-22 nonce maps for current and pending funding txids, but it does not yet have bounded simple-taproot splice vectors proving missing, stale, duplicate, or wrong-funding-txid nonce-map entries for concurrent splice candidates."
+            reason: "The OpenAgentsInc rust-lightning fork has bounded BOLT simple-taproot type-22 nonce-map coverage for current, pending splice, and RBF funding txids, including missing, empty, duplicate, unknown, scalar-with-multiple-funding, and nonce-reuse failures. The first public Taproot Assets demo still keeps one asset-channel funding outpoint, so asset-channel splice/RBF remains a separate hardening item."
                 .to_owned(),
-            covered_by_issue: "#90".to_owned(),
+            covered_by_issue: "#92".to_owned(),
             reopen_before: vec![
-                "#61 production/simple-taproot-complete claim".to_owned(),
-                "any public demo that splices a simple-taproot channel".to_owned(),
-                "any Taproot Asset channel claim using concurrent splice/RBF candidates"
-                    .to_owned(),
+                "any Taproot Asset channel claim using concurrent splice/RBF candidates".to_owned(),
+                "any production-complete simple-taproot claim before #93 and #94 close".to_owned(),
             ],
             verification: vec![
+                "cargo test -p lightning final_simple_taproot_uses_nonce_maps --features simple_taproot_musig2 -- --nocapture".to_owned(),
                 "cargo test -p lightning simple_taproot --features simple_taproot_musig2 -- --nocapture".to_owned(),
                 "cargo test -p lightning splic --features simple_taproot_musig2 -- --nocapture".to_owned(),
                 "cargo check -p lightning --features simple_taproot_musig2".to_owned(),
@@ -252,31 +254,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn first_demo_scope_excludes_concurrent_simple_taproot_splicing() {
+    fn first_demo_scope_reports_bolt_base_splice_nonce_map_support() {
         let scope = first_demo_protocol_scope();
 
         scope.validate().unwrap();
         assert_eq!(
             scope.simple_taproot_splicing.feature,
-            "simple-taproot concurrent splicing"
+            "simple-taproot splice nonce maps"
         );
-        assert_eq!(scope.simple_taproot_splicing.policy, "excluded");
+        assert_eq!(scope.simple_taproot_splicing.policy, "bolt-base-supported");
         assert!(!scope.simple_taproot_splicing.first_public_demo);
         assert!(scope.simple_taproot_splicing.reason.contains("type-22"));
-        assert_eq!(scope.simple_taproot_splicing.covered_by_issue, "#90");
+        assert_eq!(scope.simple_taproot_splicing.covered_by_issue, "#92");
         assert!(
             scope
                 .simple_taproot_splicing
                 .reopen_before
                 .iter()
-                .any(|boundary| boundary.contains("#61"))
+                .any(|boundary| boundary.contains("Taproot Asset channel"))
         );
         assert!(
             scope
                 .simple_taproot_splicing
                 .verification
                 .iter()
-                .any(|command| command.contains("splic"))
+                .any(|command| command.contains("final_simple_taproot_uses_nonce_maps"))
         );
     }
 

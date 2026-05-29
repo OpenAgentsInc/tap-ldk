@@ -33,9 +33,10 @@ from observed live balances and `path_b_complete=true` after semantic proof
 ancestry validation. #19 is closed for the first-demo Path B scope; future
 production hardening should be tracked separately.
 
-Concurrent simple-taproot splicing is not part of the first public demo. The
-demo keeps one funding outpoint from open through payment, restart, close, and
-force-close; production splice claims require separate nonce-map coverage.
+The first public Taproot Assets demo keeps one asset-channel funding outpoint
+from open through payment, restart, close, and force-close. BTC-level
+simple-taproot splice nonce maps are now covered in the fork; asset-channel
+splice/RBF still needs separate proof and state coverage before a demo claim.
 
 ## Prerequisites
 

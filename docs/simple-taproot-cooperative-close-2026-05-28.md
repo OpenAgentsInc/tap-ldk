@@ -6,7 +6,7 @@ Date: 2026-05-28
 
 Native BTC simple-taproot cooperative close is now covered in the
 OpenAgentsInc `rust-lightning` fork at
-`8a54739ac030ba3e439496eacb7e1c1216e11c6f`. The focused shutdown test opens a
+`1e7b435a015dafb5cc314c135e2eebab18cf460f`. The focused shutdown test opens a
 simple-taproot channel, exchanges `shutdown`, `closing_complete`, and
 `closing_sig`, checks that both peers broadcast the same final transaction, and
 asserts that the final transaction spends the P2TR funding output with exactly
@@ -64,6 +64,6 @@ cargo run -p tap-ldk-cli -- simple-taproot-asset-channel-smoke
 cargo run -p tap-ldk-cli -- lightning-labs-interop-check-smoke fixtures/lightning-labs/tapchannelmsg/testdata fixtures/lightning-labs/proof/testdata target/lightning-labs-interop-checks.json
 ```
 
-The BOLT simple-taproot tracker now resolves #90 with an explicit first-demo
-splice gate. Concurrent simple-taproot splicing stays out of scope until
-bounded splice nonce-map vectors replace that policy.
+The BOLT simple-taproot tracker now has #92 BTC-level splice nonce-map coverage.
+Asset-channel splice/RBF remains out of the first public demo until the asset
+state and proof transitions are covered.

@@ -53,10 +53,10 @@ regression test or a documented model-boundary exception.
   it must not perform native `tap-ldk` wallet duties.
 - The public demo must clearly label mocked pieces: issuer identity, price
   oracle, discovery, proof courier, UI, and any compatibility gaps.
-- The first public demo does not claim concurrent simple-taproot splicing.
-  A demo or production claim that splices a simple-taproot channel must first
-  add bounded coverage for every active splice/funding txid carrying its own
-  type-22 nonce-map entry.
+- The first public Taproot Assets demo still uses one asset-channel funding
+  outpoint. BTC-level BOLT simple-taproot splice nonce maps are covered in the
+  fork, but asset-channel splice/RBF claims need separate asset-state and proof
+  coverage before they are demoed.
 
 ## Native Asset Correctness
 
@@ -124,10 +124,12 @@ These are the contracts we definitely want around the rust-lightning work.
   `closing_complete` partials. Shutdown-advertised closee nonces and JIT
   closer nonces must stay domain-separated, and missing, reused, or mismatched
   close nonces/signatures must fail closed.
-- BTC-level simple-taproot splicing remains outside the first public demo.
-  Before splicing is claimed, tests must prove missing, stale, duplicate, and
-  wrong-funding-txid type-22 nonce-map entries fail closed for every active
-  current or splice funding candidate.
+- BTC-level BOLT simple-taproot splice nonce-map support covers current,
+  pending splice, and RBF funding txids, including fail-closed checks for
+  missing, empty, duplicate, unknown, scalar-with-multiple-funding, and
+  nonce-reuse cases. Asset-channel concurrent splice/RBF support remains
+  outside the first public demo until asset-state and proof-transition tests
+  cover the same funding-candidate set.
 - BTC-level simple-taproot funding outputs must use the same BIP86 P2TR script
   derived from the sorted aggregate funding key in event emission, funding
   transaction validation, and monitor/watch registration.

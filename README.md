@@ -27,9 +27,9 @@ Last updated: 2026-05-29
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
-- Final BOLT simple-taproot feature-bit mode is implemented in the forks and
-  exposed separately from the staging/`litd` interop path. Remaining BOLT
-  production work is #92 through #95: splice nonce maps, close RBF, full
+- Final BOLT simple-taproot mode is implemented separately from the
+  staging/`litd` interop path. Splice nonce-map coverage is now in the fork;
+  remaining BOLT production work is #93 through #95: close RBF, full
   vector/spend coverage, and the final tracker.
 
 Still not done:

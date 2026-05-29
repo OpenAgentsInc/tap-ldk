@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUST_LIGHTNING_DIR="${TAP_LDK_RUST_LIGHTNING_DIR:-$ROOT_DIR/../.worktrees/rust-lightning}"
-EXPECTED_RUST_LIGHTNING_REV="cac9764f5926b081034b88e4fa1c13cc691335c1"
+EXPECTED_RUST_LIGHTNING_REV="1e7b435a015dafb5cc314c135e2eebab18cf460f"
 
 if [ ! -d "$RUST_LIGHTNING_DIR/.git" ]; then
   echo "check-simple-taproot-splice-policy: missing rust-lightning checkout at $RUST_LIGHTNING_DIR" >&2
@@ -14,12 +14,13 @@ cd "$ROOT_DIR"
 scope_json="$(cargo run -q -p tap-ldk-cli -- first-demo-scope)"
 printf '%s\n' "$scope_json" | jq -e '
   .schema_version == 1
-  and .simple_taproot_splicing.feature == "simple-taproot concurrent splicing"
-  and .simple_taproot_splicing.policy == "excluded"
+  and .simple_taproot_splicing.feature == "simple-taproot splice nonce maps"
+  and .simple_taproot_splicing.policy == "bolt-base-supported"
   and .simple_taproot_splicing.first_public_demo == false
-  and .simple_taproot_splicing.covered_by_issue == "#90"
-  and (.simple_taproot_splicing.reason | contains("type-22 nonce maps"))
-  and (.simple_taproot_splicing.reopen_before | index("#61 production/simple-taproot-complete claim") != null)
+  and .simple_taproot_splicing.covered_by_issue == "#92"
+  and (.simple_taproot_splicing.reason | contains("nonce-map coverage"))
+  and (.simple_taproot_splicing.reopen_before | index("any Taproot Asset channel claim using concurrent splice/RBF candidates") != null)
+  and (.simple_taproot_splicing.verification | index("cargo test -p lightning final_simple_taproot_uses_nonce_maps --features simple_taproot_musig2 -- --nocapture") != null)
   and (.simple_taproot_splicing.verification | index("cargo test -p lightning splic --features simple_taproot_musig2 -- --nocapture") != null)
 ' >/dev/null
 
@@ -30,6 +31,7 @@ if [ "$actual_rev" != "$EXPECTED_RUST_LIGHTNING_REV" ]; then
   exit 1
 fi
 
+cargo test -p lightning --features simple_taproot_musig2 final_simple_taproot_uses_nonce_maps -- --nocapture
 cargo test -p lightning --features simple_taproot_musig2 simple_taproot -- --nocapture
 cargo test -p lightning --features simple_taproot_musig2 splic -- --nocapture
 cargo check -p lightning --features simple_taproot_musig2

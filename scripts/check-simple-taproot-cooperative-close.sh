@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-expected_rev="cac9764f5926b081034b88e4fa1c13cc691335c1"
+expected_rev="1e7b435a015dafb5cc314c135e2eebab18cf460f"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
 rust_lightning_dir="${OPENAGENTS_RUST_LIGHTNING_DIR:-$repo_root/../.worktrees/rust-lightning}"

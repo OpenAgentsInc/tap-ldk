@@ -1,30 +1,31 @@
-# Simple Taproot Splice Policy
+# Simple Taproot Splice Nonce-Map Policy
 
 Date: 2026-05-28
 
-Issue #90 is resolved by explicitly gating concurrent simple-taproot splicing
-out of the first public demo.
+Issue #90 recorded the original first-demo boundary. Issue #92 replaces that
+BTC-level gap with bounded BOLT simple-taproot splice nonce-map support.
 
-The first demo keeps one funding outpoint from open through payment,
-restart/reestablish, cooperative close, and force-close. It does not splice a
-simple-taproot channel and does not claim splice/RBF asset-channel support.
+The first Taproot Assets demo still keeps one asset-channel funding outpoint
+from open through payment, restart/reestablish, cooperative close, and
+force-close. It does not claim splice/RBF asset-channel support.
 
-## Why It Is Excluded
+## What Is Covered
 
 The BOLT simple-taproot draft requires every active funding txid, including
 concurrent splice candidates, to have its own type-22 nonce-map entry. The
-OpenAgentsInc `rust-lightning` fork validates nonce maps for current and
-pending funding txids, but the current test suite does not yet contain bounded
-simple-taproot splice vectors for:
+OpenAgentsInc `rust-lightning` fork now validates nonce maps for current,
+pending splice, and RBF funding txids, with bounded tests for:
 
 - missing nonce-map entries;
-- stale nonce-map entries;
+- empty nonce-map entries;
 - duplicate nonce-map entries;
-- wrong-funding-txid nonce-map entries;
-- multiple concurrent splice/RBF candidates for the same channel.
+- unknown funding txids;
+- scalar fallback while multiple funding txids are active;
+- reused public nonces across distinct funding txids.
 
-Until those tests exist, the first public demo treats concurrent splicing as
-out of scope instead of implying coverage.
+The fork also serializes/deserializes the pending splice candidate and
+counterparty nonce-map state so reestablish can continue from the same active
+funding set.
 
 ## Machine-Readable Policy
 
@@ -40,10 +41,10 @@ Expected policy:
 ```json
 {
   "simple_taproot_splicing": {
-    "feature": "simple-taproot concurrent splicing",
-    "policy": "excluded",
+    "feature": "simple-taproot splice nonce maps",
+    "policy": "bolt-base-supported",
     "first_public_demo": false,
-    "covered_by_issue": "#90"
+    "covered_by_issue": "#92"
   }
 }
 ```
@@ -58,20 +59,17 @@ It checks the machine-readable policy and runs the required Rust Lightning
 filters against the pinned fork:
 
 ```bash
+cargo test -p lightning final_simple_taproot_uses_nonce_maps --features simple_taproot_musig2 -- --nocapture
 cargo test -p lightning simple_taproot --features simple_taproot_musig2 -- --nocapture
 cargo test -p lightning splic --features simple_taproot_musig2 -- --nocapture
 cargo check -p lightning --features simple_taproot_musig2
 ```
 
-## Reopen Boundary
+## Remaining Boundary
 
-This exclusion must be reopened or replaced before:
+Do not treat this as a production-complete BOLT claim yet. The remaining BOLT
+work is #93 close-RBF nonce rotation and #94 full vector/unilateral spend-path
+replay.
 
-- #61 is described as production-complete simple-taproot support;
-- any public demo splices a simple-taproot channel;
-- any Taproot Asset channel claim depends on concurrent splice/RBF candidates.
-
-The follow-up implementation must prove that every active current or splice
-funding txid has exactly one valid type-22 nonce-map entry, and that missing,
-stale, duplicate, or wrong-funding-txid entries fail closed without weakening
-legacy BTC channel behavior.
+Any Taproot Asset channel claim that uses concurrent splice/RBF candidates must
+add asset-state and proof-transition coverage for every active funding txid.
