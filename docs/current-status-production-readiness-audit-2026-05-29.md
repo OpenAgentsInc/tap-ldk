@@ -2,12 +2,12 @@
 
 Date: 2026-05-29
 
-This document is written for someone new to the project. `tap-ldk` is an
-experimental Rust/LDK implementation of Taproot Assets over simple-taproot
-Lightning-style channels. The question it is testing is narrow and concrete:
-can an LDK-based wallet issue, verify, send, and receive a stablecoin-like
-Taproot Asset without embedding LND or `tapd` as its wallet runtime, while
-still interoperating with the existing Lightning Labs software stack?
+`tap-ldk` is an experimental Rust/LDK implementation of Taproot Assets over
+simple-taproot Lightning-style channels. The question it is testing is narrow
+and concrete: can an LDK-based wallet issue, verify, send, and receive a
+stablecoin-like Taproot Asset without embedding LND or `tapd` as its wallet
+runtime, while still interoperating with the existing Lightning Labs software
+stack?
 
 The current answer is yes for the bounded regtest proof of concept. The live
 interop demonstration has two independent sides. One side is the Lightning Labs
