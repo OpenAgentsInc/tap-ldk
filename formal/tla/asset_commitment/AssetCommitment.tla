@@ -3,9 +3,13 @@ EXTENDS Naturals, FiniteSets
 
 TotalAsset == 100
 
-VARIABLES commitment, localBalance, remoteBalance, usedNonce, latestRevoked, durable, signatureDomain
+VARIABLES commitment, localBalance, remoteBalance, usedNonce, latestRevoked,
+          durable, signatureDomain, proofReplay, persistedProofCommitment,
+          restartAccepted
 
-vars == <<commitment, localBalance, remoteBalance, usedNonce, latestRevoked, durable, signatureDomain>>
+vars == <<commitment, localBalance, remoteBalance, usedNonce, latestRevoked,
+          durable, signatureDomain, proofReplay, persistedProofCommitment,
+          restartAccepted>>
 
 Init ==
     /\ commitment = 0
@@ -15,11 +19,16 @@ Init ==
     /\ latestRevoked = {}
     /\ durable = TRUE
     /\ signatureDomain = "asset"
+    /\ proofReplay = 0
+    /\ persistedProofCommitment = 0
+    /\ restartAccepted = TRUE
 
 MoveLocalToRemote ==
     /\ commitment = 0
     /\ localBalance >= 10
     /\ signatureDomain = "asset"
+    /\ proofReplay = commitment
+    /\ persistedProofCommitment = commitment
     /\ 1 \notin usedNonce
     /\ commitment' = 1
     /\ localBalance' = localBalance - 10
@@ -27,12 +36,17 @@ MoveLocalToRemote ==
     /\ usedNonce' = usedNonce \cup {1}
     /\ latestRevoked' = latestRevoked \cup {commitment}
     /\ durable' = TRUE
+    /\ proofReplay' = 1
+    /\ persistedProofCommitment' = 1
+    /\ restartAccepted' = TRUE
     /\ UNCHANGED signatureDomain
 
 MoveRemoteToLocal ==
     /\ commitment = 0
     /\ remoteBalance >= 5
     /\ signatureDomain = "asset"
+    /\ proofReplay = commitment
+    /\ persistedProofCommitment = commitment
     /\ 2 \notin usedNonce
     /\ commitment' = 1
     /\ localBalance' = localBalance + 5
@@ -40,20 +54,41 @@ MoveRemoteToLocal ==
     /\ usedNonce' = usedNonce \cup {2}
     /\ latestRevoked' = latestRevoked \cup {commitment}
     /\ durable' = TRUE
+    /\ proofReplay' = 1
+    /\ persistedProofCommitment' = 1
+    /\ restartAccepted' = TRUE
     /\ UNCHANGED signatureDomain
 
 RejectBtcDomain ==
     /\ signatureDomain = "btc"
     /\ UNCHANGED vars
 
+RefuseRestartWithoutProofReplay ==
+    /\ commitment = 0
+    /\ proofReplay = 0
+    /\ persistedProofCommitment = 0
+    /\ 3 \notin usedNonce
+    /\ commitment' = 1
+    /\ localBalance' = localBalance - 10
+    /\ remoteBalance' = remoteBalance + 10
+    /\ usedNonce' = usedNonce \cup {3}
+    /\ latestRevoked' = latestRevoked \cup {commitment}
+    /\ durable' = FALSE
+    /\ proofReplay' = 0
+    /\ persistedProofCommitment' = 0
+    /\ restartAccepted' = FALSE
+    /\ UNCHANGED signatureDomain
+
 TerminalStutter ==
-    /\ commitment = 1
+    /\ \/ commitment = 1
+       \/ restartAccepted = FALSE
     /\ UNCHANGED vars
 
 Next ==
     \/ MoveLocalToRemote
     \/ MoveRemoteToLocal
     \/ RejectBtcDomain
+    \/ RefuseRestartWithoutProofReplay
     \/ TerminalStutter
 
 Spec == Init /\ [][Next]_vars
@@ -71,9 +106,15 @@ NonceUsedAtMostOnce ==
     Cardinality(usedNonce) <= commitment
 
 DurableLatestState ==
-    commitment = 1 => durable = TRUE
+    restartAccepted /\ commitment = 1 => durable = TRUE
 
 AssetDomainOnly ==
     signatureDomain = "asset"
+
+AcceptedRestartHasMatchingProofReplay ==
+    restartAccepted => proofReplay = commitment /\ persistedProofCommitment = commitment
+
+StaleProofRestartIsRefused ==
+    ~restartAccepted => durable = FALSE /\ persistedProofCommitment < commitment
 
 ====

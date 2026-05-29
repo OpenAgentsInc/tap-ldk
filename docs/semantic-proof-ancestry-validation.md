@@ -71,6 +71,14 @@ funding outpoint, and root. The durable channel record stores deterministic
 funding proof-history metadata and validation fails if that metadata no longer
 matches the channel.
 
+Issue #102 extends replay authority to asset commitment updates. The commitment
+store now treats the funding proof-history output as the initial channel-locked
+state, consumes that output for each commitment update, and records a new
+channel-locked proof-history output tied to the TapVM virtual transition. Store
+validation rebuilds that chain on restart, so a newer commitment number without
+matching proof-history metadata or monitor aux state is refused instead of
+being treated as recovered.
+
 ## Fail-Closed Cases
 
 Tests and fixtures cover malformed outpoints, unsupported scopes/networks,

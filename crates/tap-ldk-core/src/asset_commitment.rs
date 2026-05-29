@@ -20,15 +20,22 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{AssetError, Bytes32, CompressedKey},
+    asset::{
+        AssetAmount, AssetError, AssetLeaf, Bytes32, CompressedKey, RootHashSum,
+        derive_hash_sum_root,
+    },
     asset_channel_funding::{
         AssetChannelFundingError, StoredAssetChannel, StoredRootHashSum,
         run_asset_channel_funding_smoke,
     },
+    proof::{
+        ProofHistoryEngine, ProofHistoryInput, ProofHistoryOutput, ProofHistoryRecord,
+        ProofHistoryReplayError, ProofHistoryState, ProofTransitionKind,
+    },
     tap_vm::{AssetVirtualTransition, TapVmError, TapVmTransitionKind},
 };
 
-pub const ASSET_COMMITMENT_STORE_SCHEMA_VERSION: u32 = 1;
+pub const ASSET_COMMITMENT_STORE_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AssetCommitmentStore {
@@ -100,7 +107,9 @@ impl AssetCommitmentStore {
             .get(&request.channel_id)
             .cloned()
             .ok_or_else(|| AssetCommitmentError::UnknownChannel(request.channel_id.clone()))?;
+        current.validate()?;
         let next_snapshot = current.validate_update(&request)?;
+        let proof_history = validate_commitment_proof_history(&current, &request, &next_snapshot)?;
 
         let mut next_state = current;
         next_state.revoked_commitment_numbers.insert(
@@ -124,8 +133,15 @@ impl AssetCommitmentStore {
                 witness_digest: request.witness_digest,
                 asset_nonce: request.asset_nonce,
                 asset_signature: request.asset_signature,
+                prior_proof_history_output_id: proof_history.prior_output_id,
+                proof_history_record_id: proof_history.record_id.clone(),
+                proof_history_output_id: proof_history.output_id.clone(),
+                proof_history_transition_id: proof_history.transition_id,
             },
         );
+        next_state.latest_proof_history_record_id = proof_history.record_id;
+        next_state.latest_proof_history_output_id = proof_history.output_id;
+        next_state.latest_proof_history_transition_id = proof_history.transition_id;
         let funding_root = next_state.monitor_blob.funding_root();
         next_state.monitor_blob = AssetCommitmentMonitorBlob::new(
             &next_state.channel_id,
@@ -187,7 +203,7 @@ impl Default for AssetCommitmentStoreMetadata {
     fn default() -> Self {
         Self {
             implementation: "tap-ldk experimental asset commitment store".to_owned(),
-            schema: "bounded-regtest-asset-commitment-v1".to_owned(),
+            schema: "bounded-regtest-asset-commitment-v2".to_owned(),
         }
     }
 }
@@ -196,6 +212,7 @@ impl Default for AssetCommitmentStoreMetadata {
 pub struct AssetCommitmentChannelState {
     pub channel_id: String,
     pub asset_id: Bytes32,
+    pub funding_outpoint: String,
     pub total_amount: u64,
     pub latest_commitment_number: u64,
     pub local_balance: u64,
@@ -205,6 +222,12 @@ pub struct AssetCommitmentChannelState {
     pub used_asset_nonces: BTreeMap<Bytes32, u64>,
     pub asset_signing_key: CompressedKey,
     pub monitor_blob: AssetCommitmentMonitorBlob,
+    pub funding_proof_history_record_id: String,
+    pub funding_proof_history_output_id: String,
+    pub funding_proof_history_transition_id: Bytes32,
+    pub latest_proof_history_record_id: String,
+    pub latest_proof_history_output_id: String,
+    pub latest_proof_history_transition_id: Bytes32,
 }
 
 impl AssetCommitmentChannelState {
@@ -242,6 +265,7 @@ impl AssetCommitmentChannelState {
         Ok(Self {
             channel_id: channel.channel_id.clone(),
             asset_id: channel.asset_id,
+            funding_outpoint: channel.funding_outpoint.clone(),
             total_amount: channel.total_amount,
             latest_commitment_number: channel.monitor.commitment_number,
             local_balance: channel.local_balance,
@@ -251,6 +275,18 @@ impl AssetCommitmentChannelState {
             used_asset_nonces: BTreeMap::new(),
             asset_signing_key: channel.funding_script_key,
             monitor_blob,
+            funding_proof_history_record_id: channel.funding_proof_history_record_id.clone(),
+            funding_proof_history_output_id: channel.funding_proof_history_output_id.clone(),
+            funding_proof_history_transition_id: Bytes32::from_str(
+                &channel.funding_proof_history_transition_id,
+            )
+            .map_err(AssetCommitmentError::MalformedProofHistoryTransitionId)?,
+            latest_proof_history_record_id: channel.funding_proof_history_record_id.clone(),
+            latest_proof_history_output_id: channel.funding_proof_history_output_id.clone(),
+            latest_proof_history_transition_id: Bytes32::from_str(
+                &channel.funding_proof_history_transition_id,
+            )
+            .map_err(AssetCommitmentError::MalformedProofHistoryTransitionId)?,
         })
     }
 
@@ -475,7 +511,40 @@ impl AssetCommitmentChannelState {
                 )));
             }
         }
+        self.validate_proof_history_chain()?;
 
+        Ok(())
+    }
+
+    fn validate_proof_history_chain(&self) -> Result<(), AssetCommitmentError> {
+        let records = commitment_proof_history_records(self)?;
+        let replay =
+            ProofHistoryEngine::replay(&records).map_err(AssetCommitmentError::ProofHistory)?;
+        let latest = replay
+            .accepted_explanation(&self.latest_proof_history_output_id)
+            .ok_or_else(|| {
+                AssetCommitmentError::UnexplainedCommitmentHistory(self.channel_id.clone())
+            })?;
+        let expected_root = commitment_replay_root(self)?;
+        if latest.record_id != self.latest_proof_history_record_id
+            || latest.virtual_transition_id != self.latest_proof_history_transition_id
+            || latest.transition_kind
+                != if self.latest_commitment_number == 0 {
+                    ProofTransitionKind::ChannelFunding
+                } else {
+                    ProofTransitionKind::CommitmentUpdate
+                }
+            || latest.resulting_state != ProofHistoryState::ChannelLocked
+            || latest.asset_id != self.asset_id
+            || latest.amount != AssetAmount::new(self.total_amount)
+            || latest.script_key != self.asset_signing_key
+            || latest.anchor_outpoint.as_str() != self.funding_outpoint.as_str()
+            || latest.tap_asset_root != expected_root
+        {
+            return Err(AssetCommitmentError::UnexplainedCommitmentHistory(
+                self.channel_id.clone(),
+            ));
+        }
         Ok(())
     }
 
@@ -527,6 +596,10 @@ pub struct StoredAssetCommitment {
     pub witness_digest: Bytes32,
     pub asset_nonce: Bytes32,
     pub asset_signature: Bytes32,
+    pub prior_proof_history_output_id: String,
+    pub proof_history_record_id: String,
+    pub proof_history_output_id: String,
+    pub proof_history_transition_id: Bytes32,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -704,6 +777,14 @@ pub struct AssetCommitmentSmokeReport {
     pub ldk_monitor_aux_blob_persisted: bool,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct CommitmentProofHistory {
+    prior_output_id: String,
+    record_id: String,
+    output_id: String,
+    transition_id: Bytes32,
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum BalanceSide {
     Local,
@@ -854,10 +935,13 @@ pub enum AssetCommitmentError {
     Io(std::io::Error),
     Json(serde_json::Error),
     Funding(AssetChannelFundingError),
+    Asset(AssetError),
+    ProofHistory(ProofHistoryReplayError),
     TapVm(TapVmError),
     UnsupportedVersion(u32),
     DuplicateChannel(String),
     UnknownChannel(String),
+    MalformedProofHistoryTransitionId(AssetError),
     CommitmentNumberOverflow,
     StaleCommitmentNumber {
         expected: u64,
@@ -885,6 +969,7 @@ pub enum AssetCommitmentError {
     RevokedLatestCommitment(u64),
     MonitorNotPersisted(String),
     MonitorDigestMismatch(String),
+    UnexplainedCommitmentHistory(String),
     MalformedChannelId(AssetError),
     LdkMonitorAux(TaprootAssetMonitorAuxBlobError),
     StorageInvariant(String),
@@ -896,6 +981,10 @@ impl fmt::Display for AssetCommitmentError {
             Self::Io(err) => write!(f, "asset commitment I/O error: {err}"),
             Self::Json(err) => write!(f, "asset commitment JSON error: {err}"),
             Self::Funding(err) => write!(f, "asset commitment funding error: {err}"),
+            Self::Asset(err) => write!(f, "asset commitment asset error: {err}"),
+            Self::ProofHistory(err) => {
+                write!(f, "asset commitment proof-history error: {err}")
+            }
             Self::TapVm(err) => write!(f, "asset commitment TAP VM error: {err}"),
             Self::UnsupportedVersion(version) => {
                 write!(f, "unsupported asset commitment schema version {version}")
@@ -906,6 +995,10 @@ impl fmt::Display for AssetCommitmentError {
             Self::UnknownChannel(channel_id) => {
                 write!(f, "unknown asset commitment channel {channel_id}")
             }
+            Self::MalformedProofHistoryTransitionId(err) => write!(
+                f,
+                "asset commitment proof-history transition id is malformed: {err}"
+            ),
             Self::CommitmentNumberOverflow => write!(f, "asset commitment number overflowed"),
             Self::StaleCommitmentNumber { expected, actual } => write!(
                 f,
@@ -959,6 +1052,10 @@ impl fmt::Display for AssetCommitmentError {
                     "asset commitment monitor digest mismatch for {channel_id}"
                 )
             }
+            Self::UnexplainedCommitmentHistory(channel_id) => write!(
+                f,
+                "asset commitment proof history for {channel_id} does not replay to latest channel-locked state"
+            ),
             Self::MalformedChannelId(err) => {
                 write!(f, "asset commitment channel id could not map to LDK: {err}")
             }
@@ -1067,6 +1164,243 @@ fn expected_signature_with_domain(
     Bytes32(hasher.finalize().into())
 }
 
+fn validate_commitment_proof_history(
+    state: &AssetCommitmentChannelState,
+    request: &AssetCommitmentUpdateRequest,
+    snapshot: &AssetCommitmentSnapshot,
+) -> Result<CommitmentProofHistory, AssetCommitmentError> {
+    let proof_history = commitment_proof_history_metadata_from_parts(
+        state,
+        snapshot.commitment_number,
+        snapshot.local_balance,
+        snapshot.remote_balance,
+        snapshot.state_digest,
+        request.virtual_tx_id,
+        &state.latest_proof_history_output_id,
+    );
+    let mut records = commitment_proof_history_records(state)?;
+    records.push(commitment_proof_history_record(
+        state,
+        &proof_history,
+        snapshot.local_balance,
+        snapshot.remote_balance,
+    )?);
+    let replay =
+        ProofHistoryEngine::replay(&records).map_err(AssetCommitmentError::ProofHistory)?;
+    let explanation = replay
+        .accepted_explanation(&proof_history.output_id)
+        .ok_or_else(|| {
+            AssetCommitmentError::UnexplainedCommitmentHistory(state.channel_id.clone())
+        })?;
+    let expected_root = commitment_replay_root(state)?;
+    if explanation.transition_kind != ProofTransitionKind::CommitmentUpdate
+        || explanation.virtual_transition_id != request.virtual_tx_id
+        || explanation.resulting_state != ProofHistoryState::ChannelLocked
+        || explanation.asset_id != state.asset_id
+        || explanation.amount != AssetAmount::new(state.total_amount)
+        || explanation.script_key != state.asset_signing_key
+        || explanation.anchor_outpoint.as_str() != state.funding_outpoint.as_str()
+        || explanation.tap_asset_root != expected_root
+        || explanation.prior_states.len() != 1
+        || explanation.prior_states[0].output_id != state.latest_proof_history_output_id
+        || explanation.prior_states[0].state != ProofHistoryState::ChannelLocked
+    {
+        return Err(AssetCommitmentError::UnexplainedCommitmentHistory(
+            state.channel_id.clone(),
+        ));
+    }
+    Ok(proof_history)
+}
+
+fn commitment_proof_history_records(
+    state: &AssetCommitmentChannelState,
+) -> Result<Vec<ProofHistoryRecord>, AssetCommitmentError> {
+    let mut records = vec![
+        ProofHistoryRecord {
+            record_id: format!("asset-commitment-funding-input:{}", state.channel_id),
+            kind: ProofTransitionKind::Issuance,
+            virtual_transition_id: initial_commitment_proof_history_transition_id(state),
+            inputs: Vec::new(),
+            outputs: vec![ProofHistoryOutput {
+                output_id: format!("asset-commitment-funding-input:{}", state.channel_id),
+                asset_id: state.asset_id,
+                amount: AssetAmount::new(state.total_amount),
+                script_key: state.asset_signing_key,
+                anchor_outpoint: state.funding_outpoint.clone(),
+                tap_asset_root: commitment_replay_root(state)?,
+                resulting_state: ProofHistoryState::Accepted,
+            }],
+        },
+        ProofHistoryRecord {
+            record_id: state.funding_proof_history_record_id.clone(),
+            kind: ProofTransitionKind::ChannelFunding,
+            virtual_transition_id: state.funding_proof_history_transition_id,
+            inputs: vec![ProofHistoryInput::new(format!(
+                "asset-commitment-funding-input:{}",
+                state.channel_id
+            ))],
+            outputs: vec![ProofHistoryOutput {
+                output_id: state.funding_proof_history_output_id.clone(),
+                asset_id: state.asset_id,
+                amount: AssetAmount::new(state.total_amount),
+                script_key: state.asset_signing_key,
+                anchor_outpoint: state.funding_outpoint.clone(),
+                tap_asset_root: commitment_replay_root(state)?,
+                resulting_state: ProofHistoryState::ChannelLocked,
+            }],
+        },
+    ];
+
+    let mut prior_output_id = state.funding_proof_history_output_id.clone();
+    for commitment in state.commitments.values() {
+        let expected = commitment_proof_history_metadata_from_parts(
+            state,
+            commitment.commitment_number,
+            commitment.local_balance,
+            commitment.remote_balance,
+            commitment.state_digest,
+            commitment.virtual_tx_id,
+            &prior_output_id,
+        );
+        if commitment.prior_proof_history_output_id != expected.prior_output_id
+            || commitment.proof_history_record_id != expected.record_id
+            || commitment.proof_history_output_id != expected.output_id
+            || commitment.proof_history_transition_id != expected.transition_id
+        {
+            return Err(AssetCommitmentError::UnexplainedCommitmentHistory(
+                state.channel_id.clone(),
+            ));
+        }
+        records.push(commitment_proof_history_record(
+            state,
+            &expected,
+            commitment.local_balance,
+            commitment.remote_balance,
+        )?);
+        prior_output_id = commitment.proof_history_output_id.clone();
+    }
+
+    let expected_latest = if let Some((_, latest)) = state.commitments.last_key_value() {
+        CommitmentProofHistory {
+            prior_output_id: latest.prior_proof_history_output_id.clone(),
+            record_id: latest.proof_history_record_id.clone(),
+            output_id: latest.proof_history_output_id.clone(),
+            transition_id: latest.proof_history_transition_id,
+        }
+    } else {
+        CommitmentProofHistory {
+            prior_output_id: format!("asset-commitment-funding-input:{}", state.channel_id),
+            record_id: state.funding_proof_history_record_id.clone(),
+            output_id: state.funding_proof_history_output_id.clone(),
+            transition_id: state.funding_proof_history_transition_id,
+        }
+    };
+    if state.latest_proof_history_record_id != expected_latest.record_id
+        || state.latest_proof_history_output_id != expected_latest.output_id
+        || state.latest_proof_history_transition_id != expected_latest.transition_id
+    {
+        return Err(AssetCommitmentError::UnexplainedCommitmentHistory(
+            state.channel_id.clone(),
+        ));
+    }
+
+    Ok(records)
+}
+
+fn commitment_proof_history_record(
+    state: &AssetCommitmentChannelState,
+    proof_history: &CommitmentProofHistory,
+    local_balance: u64,
+    remote_balance: u64,
+) -> Result<ProofHistoryRecord, AssetCommitmentError> {
+    if local_balance
+        .checked_add(remote_balance)
+        .ok_or(AssetCommitmentError::BalanceOverflow)?
+        != state.total_amount
+    {
+        return Err(AssetCommitmentError::BalanceNotConserved {
+            local_balance,
+            remote_balance,
+            total_amount: state.total_amount,
+        });
+    }
+    Ok(ProofHistoryRecord {
+        record_id: proof_history.record_id.clone(),
+        kind: ProofTransitionKind::CommitmentUpdate,
+        virtual_transition_id: proof_history.transition_id,
+        inputs: vec![ProofHistoryInput::new(
+            proof_history.prior_output_id.clone(),
+        )],
+        outputs: vec![ProofHistoryOutput {
+            output_id: proof_history.output_id.clone(),
+            asset_id: state.asset_id,
+            amount: AssetAmount::new(state.total_amount),
+            script_key: state.asset_signing_key,
+            anchor_outpoint: state.funding_outpoint.clone(),
+            tap_asset_root: commitment_replay_root(state)?,
+            resulting_state: ProofHistoryState::ChannelLocked,
+        }],
+    })
+}
+
+fn commitment_proof_history_metadata_from_parts(
+    state: &AssetCommitmentChannelState,
+    commitment_number: u64,
+    local_balance: u64,
+    remote_balance: u64,
+    state_digest: Bytes32,
+    virtual_tx_id: Bytes32,
+    prior_output_id: &str,
+) -> CommitmentProofHistory {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:asset-commitment-proof-history:v1");
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(commitment_number.to_be_bytes());
+    hasher.update(local_balance.to_be_bytes());
+    hasher.update(remote_balance.to_be_bytes());
+    hasher.update(state_digest.0);
+    hasher.update(virtual_tx_id.0);
+    hasher.update((prior_output_id.len() as u64).to_be_bytes());
+    hasher.update(prior_output_id.as_bytes());
+    let digest = Bytes32(hasher.finalize().into());
+
+    CommitmentProofHistory {
+        prior_output_id: prior_output_id.to_owned(),
+        record_id: format!(
+            "asset-commitment-update:{}:{commitment_number}",
+            state.channel_id
+        ),
+        output_id: format!(
+            "asset-commitment-output:{}:{commitment_number}:{}",
+            state.channel_id,
+            digest.to_hex()
+        ),
+        transition_id: virtual_tx_id,
+    }
+}
+
+fn initial_commitment_proof_history_transition_id(state: &AssetCommitmentChannelState) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:asset-commitment-initial-proof-history:v1");
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.funding_outpoint.as_bytes());
+    hasher.update(state.total_amount.to_be_bytes());
+    Bytes32(hasher.finalize().into())
+}
+
+fn commitment_replay_root(
+    state: &AssetCommitmentChannelState,
+) -> Result<RootHashSum, AssetCommitmentError> {
+    derive_hash_sum_root(&[AssetLeaf {
+        asset_id: state.asset_id,
+        script_key: state.asset_signing_key,
+        amount: AssetAmount::new(state.total_amount),
+    }])
+    .map_err(AssetCommitmentError::Asset)
+}
+
 fn temp_path_for(path: &Path) -> PathBuf {
     let file_name = path
         .file_name()
@@ -1125,6 +1459,75 @@ mod tests {
         assert_eq!(loaded_state.remote_balance, 425);
         assert!(loaded_state.revoked_commitment_numbers.contains_key(&0));
         assert_ldk_monitor_aux_blob_matches(&loaded_state);
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn commitment_update_requires_replayed_channel_locked_history() {
+        let (mut store, state) = initialized_store();
+        assert_eq!(
+            state.latest_proof_history_output_id,
+            state.funding_proof_history_output_id
+        );
+        let update =
+            build_commitment_update(&state, 125, 0, Bytes32([8; 32])).expect("update builds");
+        let snapshot = store.apply_update(update).expect("update applies");
+        let updated = store
+            .channel_state(&snapshot.channel_id)
+            .expect("updated state exists");
+        let stored_commitment = updated
+            .commitments
+            .get(&snapshot.commitment_number)
+            .expect("commitment is stored");
+
+        assert_eq!(
+            stored_commitment.prior_proof_history_output_id,
+            state.funding_proof_history_output_id
+        );
+        assert_eq!(
+            updated.latest_proof_history_output_id,
+            stored_commitment.proof_history_output_id
+        );
+        assert_eq!(
+            updated.latest_proof_history_transition_id,
+            stored_commitment.virtual_tx_id
+        );
+
+        let mut tampered = store.clone();
+        tampered
+            .channels
+            .get_mut(&snapshot.channel_id)
+            .expect("channel exists")
+            .latest_proof_history_output_id = "obsolete-commitment-output".to_owned();
+        assert!(matches!(
+            tampered.validate(),
+            Err(AssetCommitmentError::UnexplainedCommitmentHistory(id))
+                if id == snapshot.channel_id
+        ));
+    }
+
+    #[test]
+    fn restart_rejects_commitment_without_matching_proof_history() {
+        let path = temp_store_path("proof-history-restart");
+        let (mut store, state) = initialized_store();
+        let update =
+            build_commitment_update(&state, 125, 0, Bytes32([18; 32])).expect("update builds");
+        let snapshot = store.apply_update(update).expect("update applies");
+        store.save_atomic(&path).expect("store saves");
+        let mut loaded = AssetCommitmentStore::load(&path).expect("store loads");
+        loaded
+            .channels
+            .get_mut(&snapshot.channel_id)
+            .expect("channel exists")
+            .commitments
+            .get_mut(&snapshot.commitment_number)
+            .expect("commitment exists")
+            .proof_history_transition_id = Bytes32([3; 32]);
+        assert!(matches!(
+            loaded.validate(),
+            Err(AssetCommitmentError::UnexplainedCommitmentHistory(id))
+                if id == snapshot.channel_id
+        ));
         fs::remove_file(path).ok();
     }
 

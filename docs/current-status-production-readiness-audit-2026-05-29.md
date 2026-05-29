@@ -429,74 +429,56 @@ channel-locked funding output before durable channel state is recorded. The
 stored channel also carries deterministic proof-history metadata so a tampered
 funding-history pointer fails validation.
 
-The first implementation step is to replace the current bounded proof-history
-surface with an explicit proof-chain replay engine. That engine should live
-around `proof.rs`, `tapd_proof.rs`, `mssmt.rs`, `taproot_commitment.rs`, and
-`tap_vm.rs`, with call sites in funding, commitment, close, recovery, wallet
-balance, and Lightning Labs interop paths. The replay engine should build a
-typed history graph from issuance, split, transfer, channel funding,
-commitment update, cooperative close, unilateral close, second-level HTLC,
-sweep, and proof-export records. Each accepted output should point to the
-exact virtual transition, TapCommitment root, owner script key, anchor
-outpoint, amount, asset ID, and prior state that justify it. If any link is
-missing or contradictory, the wallet should refuse to advance state instead
-of presenting a balance.
+Issue #102 extends replay authority through asset commitment updates. The
+commitment store now starts from the channel-locked funding proof-history
+output, consumes the previous channel-locked output on each commitment update,
+and records a new channel-locked proof-history output tied to the TapVM virtual
+transition. Restart validation rebuilds that chain alongside the monitor aux
+blob, so a newer commitment state without matching proof-history metadata is
+refused.
 
-The matching formal work should start by completing
-`formal/tla/proof_validation/`. That directory already has assumptions,
-boundaries, and invariants, but it does not yet have a checked `.tla` and
-`.cfg` pair. The model should represent a bounded asset universe with issued,
-pending, spendable, spent, channel-locked, closed, swept, stale, and rejected
-states. It should model valid and invalid proof transitions for issuance,
-split, transfer, funding, commitment update, close, and sweep. The main
-invariant should be explainability: every accepted wallet or channel balance
-must be reachable from a valid issuance path through valid transitions whose
-asset ID, owner, amount, anchor, and root all agree. The model should also
-prove that wrong genesis, wrong anchor, wrong owner script key, invalid split
-sum, missing STXO, malformed proof-file transport, stale proof, and
-reorg-sensitive history all terminate in rejected or unresolved states, never
-in accepted balance.
+The replay engine baseline is now in place. It builds a typed history graph
+from issuance, split, transfer, channel funding, commitment update,
+cooperative close, unilateral close, second-level HTLC, sweep, and
+proof-export records. Each accepted output points to the virtual transition,
+Taproot Asset root, owner script key, anchor outpoint, amount, asset ID, and
+prior state that justify it. If a required link is missing or contradictory,
+the wallet should refuse to advance state instead of presenting a balance.
 
-The second implementation step is to make negative proof vectors first-class.
-The repo should add fixtures for wrong genesis, wrong anchor, stale proof,
-malformed `TAPF` proof-file transport, invalid split sums, wrong owner script
-key, missing STXO, wrong asset type, wrong amount, wrong root hash, wrong root
-sum, mismatched TapCommitment output root, and reorg-sensitive history. These
-fixtures should exercise both native proof import and Lightning Labs proof-file
-interop. They should not be isolated parser tests only. At least one path must
-try to move each invalid proof into wallet balance state, channel funding
-state, commitment state, close state, or recovery state, and the state advance
-must fail closed.
+The matching `formal/tla/proof_validation/` work is also now checked in. It
+models a bounded asset universe with issued, pending, spendable, spent,
+channel-locked, closed, swept, stale, and rejected states. Its main invariant
+is explainability: every accepted wallet or channel balance must be reachable
+from a valid issuance path through transitions whose asset ID, owner, amount,
+anchor, and root all agree.
 
-The formal companion for those vectors should extend the proof-validation TLA+
-model with explicit invalid transitions, then map every meaningful TLC
-counterexample to a Rust regression test. If TLC finds a sequence where a
-malformed proof becomes accepted because the model failed to carry one field
-through a split or close transition, the Rust test should assert that the same
-field is checked in the real replay engine. If a behavior is intentionally
-outside the model, the exception should be written into
-`formal/tla/proof_validation/boundaries.md` before the code relies on it.
+Negative proof vectors are first-class now. The repo has fixtures for wrong
+genesis, wrong anchor, stale proof, malformed `TAPF` proof-file transport,
+invalid split sums, wrong owner script key, missing STXO, wrong asset type,
+wrong amount, wrong root hash, wrong root sum, mismatched TapCommitment output
+root, and reorg-sensitive history. The next useful expansion is to keep
+threading those vectors into close, sweep, recovery, and CI verification
+boundaries as those surfaces move from bounded demo behavior to production
+readiness.
 
-The third implementation step is to connect proof replay to channel funding
-and commitment updates. A Taproot Asset channel should not open from a latest
-leaf alone. The funding path should prove that the asset input being locked
-into the channel is spendable, owned by the expected key, tied to the expected
-asset ID and genesis, and conserved into the channel allocation. Each
-commitment update should then be able to derive the new local and remote asset
-allocation from the previous accepted channel state plus the HTLC or balance
-transition being applied. This belongs in `asset_channel_funding.rs`,
-`asset_commitment.rs`, `simple_taproot_asset_channel.rs`, and the
-OpenAgentsInc Rust Lightning asset-channel state hooks.
+Proof replay is now connected to wallet balances, proof export, channel
+funding, and commitment updates. The remaining implementation work in this
+phase is close, sweep, recovery, reorg policy, Rust-native verification
+harnesses, and CI wiring. The already-wired funding path proves that the asset
+input being locked into the channel is spendable, owned by the expected key,
+tied to the expected asset ID and genesis, and conserved into the channel
+allocation. The already-wired commitment path consumes the previous
+channel-locked proof-history output and records the new channel-locked output
+for the latest commitment.
 
 The matching models are `asset_channel`, `asset_commitment`, and
-`asset_conservation`. They should be tightened so proof replay is not an
-external assumption. Funding should require a verified input proof state.
-Commitment updates should require conservation from the prior durable state.
-A restart should not recover a newer Lightning commitment number unless the
-matching proof replay state and asset-channel blob are also present. These
-models do not need to know Bitcoin script semantics; they do need to prove
-that the wallet never creates or forgets asset balance through funding,
-commitment, rejection, or restart.
+`asset_conservation`. They now make proof replay part of the checked state
+rather than an external assumption. Funding requires accepted replay state,
+commitment updates preserve total channel balance from the prior durable
+state, and accepted restart requires matching proof replay and persisted
+asset-channel state. These models do not know Bitcoin script semantics; they
+prove the narrower wallet contract that funding, commitment, rejection, and
+restart do not create or forget asset balance.
 
 The fourth implementation step is close and sweep replay. Cooperative close
 should export proof material tied to the actual close outputs. Unilateral

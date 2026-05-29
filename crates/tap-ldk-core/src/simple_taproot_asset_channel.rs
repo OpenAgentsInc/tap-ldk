@@ -49,6 +49,7 @@ pub struct SimpleTaprootAssetChannelIntegrationReport {
     pub sender_balance_after: u64,
     pub receiver_balance_after: u64,
     pub latest_commitment_number: u64,
+    pub commitment_proof_history_replayed: bool,
     pub restart_reestablish_survived: bool,
     pub cooperative_close_exported: bool,
     pub cooperative_close_allocation_validated_by_ldk: bool,
@@ -145,6 +146,19 @@ pub fn run_simple_taproot_asset_channel_integration_smoke()
     let ldk_state_advanced_with_monitor_aux = ldk_state.local_balance == latest_state.local_balance
         && ldk_state.remote_balance == latest_state.remote_balance
         && ldk_state.latest_commitment_number == latest_state.latest_commitment_number;
+    let latest_commitment = latest_state
+        .commitments
+        .get(&latest_state.latest_commitment_number)
+        .ok_or_else(|| {
+            SimpleTaprootAssetChannelIntegrationError::Invariant(format!(
+                "missing asset commitment {}",
+                latest_state.latest_commitment_number
+            ))
+        })?;
+    let commitment_proof_history_replayed = latest_state.latest_proof_history_output_id
+        == latest_commitment.proof_history_output_id
+        && latest_state.latest_proof_history_transition_id
+            == latest_commitment.proof_history_transition_id;
 
     let close = cooperative_close(
         &commitment_store,
@@ -227,6 +241,7 @@ pub fn run_simple_taproot_asset_channel_integration_smoke()
         sender_balance_after: latest_state.local_balance,
         receiver_balance_after: latest_state.remote_balance,
         latest_commitment_number: latest_state.latest_commitment_number,
+        commitment_proof_history_replayed,
         restart_reestablish_survived,
         cooperative_close_exported: !close.local_proof_tlv_hex.is_empty()
             && !close.remote_proof_tlv_hex.is_empty(),
@@ -401,6 +416,7 @@ mod tests {
         assert!(report.missing_monitor_update_rejected);
         assert!(report.ldk_state_advanced_with_monitor_aux);
         assert!(report.payment_settled);
+        assert!(report.commitment_proof_history_replayed);
         assert!(report.restart_reestablish_survived);
         assert!(report.cooperative_close_exported);
         assert!(report.cooperative_close_allocation_validated_by_ldk);

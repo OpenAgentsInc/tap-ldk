@@ -7,6 +7,8 @@ single-asset channels. It tracks asset balances by Lightning commitment number,
 revokes the previous asset state on each valid update, persists a commitment
 monitor blob, builds a matching `rust-lightning` channel monitor aux blob, and
 keeps asset signing/nonces in a separate domain from BTC commitment signing.
+Each update also consumes the prior channel-locked proof-history output and
+records the new channel-locked proof-history output for the latest commitment.
 
 Smoke command:
 
@@ -28,11 +30,18 @@ cargo run -p tap-ldk-cli -- asset-commitment-state target/asset-commitments.json
 - Durable monitor blob validation on restart.
 - Rejection of missing or tampered LDK monitor aux blob digests before restart
   recovery is considered valid.
+- Proof-history replay from funded channel state through each commitment
+  update.
+- Rejection of stale or mismatched proof-history metadata before a restarted
+  commitment state is considered recovered.
 
 ## Boundaries
 
 This is a deterministic bounded signing model, not production MuSig2. It is
 intended to enforce the state-machine contracts that the
 `OpenAgentsInc/rust-lightning` monitor integration and Taproot Assets witness
-code must preserve. Full Taproot Assets witness construction, real MuSig2
-signing, HTLC custom records, and close/recovery remain separate issues.
+code must preserve. The proof-history replay here starts from the already
+validated channel-funding output; it is not a full historical proof-file replay
+back to every issuance and split proof. Full Taproot Assets witness
+construction, real MuSig2 signing, and close/recovery proof replay remain
+separate issues.
