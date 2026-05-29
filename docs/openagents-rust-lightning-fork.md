@@ -7,7 +7,7 @@ The required `rust-lightning` fork for Taproot Asset channel work lives at:
 - Fork: `https://github.com/OpenAgentsInc/rust-lightning`
 - Upstream: `https://github.com/lightningdevkit/rust-lightning`
 - Base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- Current `tap-ldk` revision: `8a54739ac030ba3e439496eacb7e1c1216e11c6f`
+- Current `tap-ldk` revision: `4a3cea6d859d172144e7010a38dc821db7fa5a5b`
 
 This fork was created for issue #25 after the extension-boundary issue (#24)
 identified hooks that must sit inside channel negotiation, funding,
@@ -27,7 +27,7 @@ Workspace metadata records the same fork in `Cargo.toml`:
 url = "https://github.com/OpenAgentsInc/rust-lightning.git"
 upstream = "https://github.com/lightningdevkit/rust-lightning.git"
 base_rev = "0c37f08a55c0f7738f2691dc3690166fd42f851d"
-rev = "8a54739ac030ba3e439496eacb7e1c1216e11c6f"
+rev = "4a3cea6d859d172144e7010a38dc821db7fa5a5b"
 ```
 
 Revision `99ddb8b7033b3b5d056005c00ba650e716ed37da` added the first forked
@@ -247,6 +247,12 @@ simple-taproot splicing is explicitly out of the first public demo until
 bounded nonce-map vectors exist.
 Partial split/change-output support remains future production work after the
 bounded live path settles.
+
+Current `tap-ldk` pins `OpenAgentsInc/rust-lightning@4a3cea6d859d172144e7010a38dc821db7fa5a5b`
+and `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`.
+The remaining production-complete BOLT simple-taproot work is tracked in #91
+through #95: final feature-bit mode, splice nonce maps, close RBF nonce
+rotation, and full vector/unilateral-spend coverage.
 
 Issue #61 is closed for the first-demo BOLT simple-taproot scope: #62 through
 #70 and #75 are implemented, the #82 tracker is closed, and #90 records the

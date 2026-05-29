@@ -27,6 +27,9 @@ Last updated: 2026-05-28
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
+- Full production BOLT simple-taproot compliance is now tracked in #91 through
+  #95: final feature-bit mode, splice nonce maps, close RBF, and full
+  vector/spend coverage.
 
 Still not done:
 
@@ -38,7 +41,8 @@ Still not done:
 - live force-close and sweep recovery;
 - live post-close proof and balance checks;
 - live `lnd`/`tapd`/`litd` RFQ signature checks;
-- concurrent splice/RBF asset-channel support.
+- concurrent splice/RBF asset-channel support;
+- any production claim that the simple-taproot BOLT is fully implemented.
 
 LND, `tapd`, and `litd` are test peers only. They are not sidecars inside the
 `tap-ldk` wallet.
@@ -76,3 +80,4 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [`lnd`/`tapd`/`litd` Compatibility Demo](docs/path-b-lightning-labs-demo.md)
 - [Taproot Assets LDK Issue 71 Closure Audit](docs/taproot-assets-ldk-issue-71-closure-audit-2026-05-28.md)
 - [`lnd`/`tapd`/`litd` Compatibility Closure Audit](docs/path-b-issue-19-closure-audit-2026-05-28.md)
+- [BOLT Simple-Taproot Production Compliance Audit](docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md)

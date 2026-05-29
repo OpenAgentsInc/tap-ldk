@@ -7,9 +7,13 @@ https://raw.githubusercontent.com/lightning/bolts/refs/heads/master/bolt-simple-
 
 Implementation audited:
 
-- `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`
-- `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`
+- `OpenAgentsInc/rust-lightning@4a3cea6d859d172144e7010a38dc821db7fa5a5b`
+- `OpenAgentsInc/ldk-node@eb61dde920493afe1037ec299888c10bc353e33a`
 - `tap-ldk` pinned to those forks
+
+Follow-up production audit: #91 through #95 now track the remaining work for a
+production-complete BOLT simple-taproot claim. See
+`docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md`.
 
 ## Summary
 
@@ -59,7 +63,7 @@ persists the aggregate holder commitment Schnorr signature needed for
 simple-taproot key-path force-close broadcast.
 `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4` pins those
 fixes for the live runtime.
-The same current fork line also enforces the draft private-channel rule:
+That first-demo fork line also enforces the draft private-channel rule:
 simple-taproot and Taproot Asset outbound opens do not set `announce_channel`,
 and inbound public opens for those channel types are rejected.
 It also enforces immediate type-4 nonce presence for simple-taproot and

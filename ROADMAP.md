@@ -62,11 +62,12 @@ Last updated: 2026-05-28
   `docs/bolt-simple-taproot-implementation-audit-2026-05-28.md`, remain the
   file-level map for the #81 regression gate, #57, and BOLT conformance work.
   Broader
-  BOLT simple-taproot conformance is split into the issue set described in
-  `docs/bolt-simple-taproot-spec-compliance-issues.md`.
+  BOLT simple-taproot production conformance is now tracked in #91 through
+  #95 and audited in
+  `docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md`.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `8a54739ac030ba3e439496eacb7e1c1216e11c6f` and the OpenAgentsInc
-  `ldk-node` fork at `0964b3d0cce5753a0ff42166ea4686702faf93b4`. BOLT
+  `4a3cea6d859d172144e7010a38dc821db7fa5a5b` and the OpenAgentsInc
+  `ldk-node` fork at `eb61dde920493afe1037ec299888c10bc353e33a`. BOLT
   simple-taproot issues #62 through #70 are implemented: negotiation, TLVs,
   MuSig2 primitives, P2TR
   funding, P2TR commitment outputs/control-block data, and commitment
@@ -115,6 +116,10 @@ Last updated: 2026-05-28
   tracked as #88; native/fixture cooperative-close coverage and the live
   `litd` close command are tracked as #89; first-demo splice exclusion is
   tracked as #90.
+- Production BOLT simple-taproot work is open again under #91 through #95:
+  final feature-bit mode, full splice nonce maps, close RBF nonce rotation,
+  full vector/unilateral-spend coverage, and the tracker tying those items to
+  the current BOLT draft.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.
