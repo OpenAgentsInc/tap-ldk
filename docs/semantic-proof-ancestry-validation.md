@@ -31,6 +31,27 @@ LDK Taproot Asset HTLC metadata; close validates final owner proofs through the
 same validator; recovery validates proof ownership handoff against the latest
 committed proof root and commitment number.
 
+## Proof-History Replay Surface
+
+Issue #97 adds the first typed proof-history replay engine in
+`tap-ldk-core::proof`. This is not yet wired into every wallet and channel
+state-advance boundary; #100 through #103 track that integration. It is the
+runtime vocabulary those later gates will use.
+
+The replay engine defines explicit transition records for issuance, split,
+transfer, channel funding, commitment update, cooperative close, unilateral
+close, second-level HTLC, sweep, and proof export. Each output carries the
+asset ID, amount, owner script key, anchor outpoint, Taproot Asset root,
+virtual transition ID, prior proof state, and resulting proof state needed to
+explain why the output can be treated as accepted, channel-locked, closed, or
+swept.
+
+The state names intentionally match the planned
+`formal/tla/proof_validation` model vocabulary: accepted, rejected,
+unresolved, pending, stale, spent, channel-locked, closed, and swept. The first
+regressions cover valid synthetic lifecycle replay plus missing input,
+contradictory amount, invalid output state, and mismatched root failures.
+
 ## Fail-Closed Cases
 
 Tests and fixtures cover malformed outpoints, unsupported scopes/networks,

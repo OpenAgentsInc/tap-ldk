@@ -38,23 +38,24 @@ complete Taproot Assets proof-history validation, live close and recovery
 behavior, asset-channel splice/RBF state, broader interop, network operations,
 and verification hardening.
 
-Against the BOLTs repository's `bolt-simple-taproot.md` Simple Taproot
-Channels document, the pinned OpenAgentsInc Rust Lightning fork implements the
-BTC simple-taproot channel base we need for this project. That means the fork
-covers final `option_simple_taproot` feature and channel-type negotiation,
-keeps the staging feature bits isolated for current Lightning Labs interop,
-requires private channels for this channel type, parses and serializes the
-new nonce and partial-signature TLVs, implements MuSig2 key aggregation,
-nonce handling, partial-signature verification, and final Schnorr aggregation,
-derives BIP86 P2TR funding outputs from sorted aggregate funding keys, handles
-simple-taproot funding and commitment signing, implements the to-local,
-to-remote, anchor, HTLC, and second-level HTLC output scripts, supports
-cooperative close with close nonce handling and RBF nonce rotation, carries
-type-22 nonce maps through final revoke-and-ack and reestablish flows, covers
-BTC-level splice nonce maps for current, pending splice, and RBF funding
-transaction IDs, and persists the tap tweaks, script roots, leaf scripts,
-control blocks, nonces, and signatures needed for unilateral spends and
-restart.
+The codebase now has a strong, but specific, implementation claim against the
+BOLTs repository's official `bolt-simple-taproot.md` Simple Taproot Channels
+spec. The pinned OpenAgentsInc Rust Lightning fork implements the BTC
+simple-taproot channel base described by that document. In practical terms,
+that means the fork covers final `option_simple_taproot` feature and
+channel-type negotiation, keeps the staging feature bits isolated for current
+Lightning Labs software interop, requires private channels for this channel
+type, parses and serializes the new nonce and partial-signature TLVs,
+implements MuSig2 key aggregation, nonce handling, partial-signature
+verification, and final Schnorr aggregation, derives BIP86 P2TR funding
+outputs from sorted aggregate funding keys, handles simple-taproot funding and
+commitment signing, implements the to-local, to-remote, anchor, HTLC, and
+second-level HTLC output scripts, supports cooperative close with close nonce
+handling and RBF nonce rotation, carries type-22 nonce maps through final
+revoke-and-ack and reestablish flows, covers BTC-level splice nonce maps for
+current, pending splice, and RBF funding transaction IDs, and persists the tap
+tweaks, script roots, leaf scripts, control blocks, nonces, and signatures
+needed for unilateral spends and restart.
 
 The implementation is not just a shape match. The fork replays the BOLTs
 simple-taproot transaction vectors for the no-HTLC, five-HTLC, trimmed-HTLC,
@@ -69,12 +70,16 @@ behavior explicit.
 That BOLT implementation claim is deliberately narrow. The BOLTs
 simple-taproot document specifies the BTC channel base: feature bits, TLVs,
 MuSig2 signing, P2TR funding, commitment outputs, close behavior, HTLC
-transactions, unilateral spend data, and vectors. It does not specify the
-production Taproot Assets proof engine, stablecoin issuance policy, proof
-courier, grouped-asset behavior, proof-history replay, asset-channel
-splice/RBF overlay, or live close/sweep proof recovery. Those are the next
+transactions, unilateral spend data, splice nonce maps, and vectors. Within
+that BTC channel-base scope, this project should be treated as implementing
+the spec through the pinned OpenAgentsInc Rust Lightning fork. What is not
+implemented by the BOLT, and therefore not completed merely by satisfying the
+BOLT, is the production Taproot Assets layer: proof-chain replay as the wallet
+balance authority, stablecoin issuance policy, proof courier behavior,
+grouped-asset behavior, asset-channel splice/RBF state, live close/sweep proof
+recovery, reorg handling, and full asset-history recovery. Those are the next
 production-hardening items for `tap-ldk`, tracked separately in #96 through
-#106. Also, this is a pinned OpenAgentsInc Rust Lightning fork implementation,
+#106. This is also a pinned OpenAgentsInc Rust Lightning fork implementation,
 not a claim that the work has already been upstreamed into LDK.
 
 The proof-of-concept issues are closed, and the current open work is the
@@ -386,6 +391,14 @@ chain and explain how that balance was created, moved, split, locked into a
 channel, updated through commitments, closed, swept, or rejected. The formal
 verification work should be added at the same time as the implementation work,
 because the model is the clearest way to keep the acceptance rule narrow.
+
+The first concrete step of that sequence is now in code. Issue #97 adds a
+typed proof-history replay engine in `tap-ldk-core::proof`, with runtime
+states aligned to the planned `formal/tla/proof_validation` vocabulary and
+tests for valid lifecycle replay plus missing or contradictory histories. The
+engine is a new authority surface, not yet the only wallet gate; #100 through
+#103 track wiring it into wallet balances, funding, commitments, close, sweep,
+and recovery.
 
 The first implementation step is to replace the current bounded proof-history
 surface with an explicit proof-chain replay engine. That engine should live

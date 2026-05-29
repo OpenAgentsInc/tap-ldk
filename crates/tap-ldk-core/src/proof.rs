@@ -461,6 +461,593 @@ pub struct ProofValidationReport {
     pub tapd_proof_file_digest: Option<Bytes32>,
 }
 
+/// Runtime proof-history states.
+///
+/// These names intentionally mirror the future `formal/tla/proof_validation`
+/// model states so counterexamples can be translated into Rust regressions
+/// without inventing another vocabulary.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ProofHistoryState {
+    Accepted,
+    Rejected,
+    Unresolved,
+    Pending,
+    Stale,
+    Spent,
+    ChannelLocked,
+    Closed,
+    Swept,
+}
+
+impl ProofHistoryState {
+    fn can_explain_balance(self) -> bool {
+        matches!(
+            self,
+            Self::Accepted | Self::ChannelLocked | Self::Closed | Self::Swept
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ProofTransitionKind {
+    Issuance,
+    Split,
+    Transfer,
+    ChannelFunding,
+    CommitmentUpdate,
+    CooperativeClose,
+    UnilateralClose,
+    SecondLevelHtlc,
+    Sweep,
+    ProofExport,
+}
+
+impl ProofTransitionKind {
+    fn consumes_inputs(self) -> bool {
+        self != Self::Issuance
+    }
+
+    fn allows_input_state(self, state: ProofHistoryState) -> bool {
+        match self {
+            Self::Issuance => false,
+            Self::Split | Self::Transfer | Self::ChannelFunding => {
+                state == ProofHistoryState::Accepted
+            }
+            Self::CommitmentUpdate => state == ProofHistoryState::ChannelLocked,
+            Self::CooperativeClose | Self::UnilateralClose => {
+                state == ProofHistoryState::ChannelLocked
+            }
+            Self::SecondLevelHtlc | Self::Sweep => state == ProofHistoryState::Closed,
+            Self::ProofExport => state.can_explain_balance(),
+        }
+    }
+
+    fn allows_output_state(self, state: ProofHistoryState) -> bool {
+        match self {
+            Self::Issuance | Self::Split | Self::Transfer | Self::ProofExport => {
+                state == ProofHistoryState::Accepted
+            }
+            Self::ChannelFunding | Self::CommitmentUpdate => {
+                state == ProofHistoryState::ChannelLocked
+            }
+            Self::CooperativeClose | Self::UnilateralClose | Self::SecondLevelHtlc => {
+                state == ProofHistoryState::Closed
+            }
+            Self::Sweep => state == ProofHistoryState::Swept,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProofHistoryInput {
+    pub output_id: String,
+}
+
+impl ProofHistoryInput {
+    pub fn new(output_id: impl Into<String>) -> Self {
+        Self {
+            output_id: output_id.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProofHistoryOutput {
+    pub output_id: String,
+    pub asset_id: Bytes32,
+    pub amount: AssetAmount,
+    pub script_key: CompressedKey,
+    pub anchor_outpoint: String,
+    pub tap_asset_root: RootHashSum,
+    pub resulting_state: ProofHistoryState,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProofHistoryRecord {
+    pub record_id: String,
+    pub kind: ProofTransitionKind,
+    pub virtual_transition_id: Bytes32,
+    pub inputs: Vec<ProofHistoryInput>,
+    pub outputs: Vec<ProofHistoryOutput>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProofHistoryPriorState {
+    pub output_id: String,
+    pub state: ProofHistoryState,
+    pub amount: AssetAmount,
+    pub anchor_outpoint: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct AcceptedBalanceExplanation {
+    pub output_id: String,
+    pub record_id: String,
+    pub transition_kind: ProofTransitionKind,
+    pub virtual_transition_id: Bytes32,
+    pub asset_id: Bytes32,
+    pub amount: AssetAmount,
+    pub script_key: CompressedKey,
+    pub anchor_outpoint: String,
+    pub tap_asset_root: RootHashSum,
+    pub prior_states: Vec<ProofHistoryPriorState>,
+    pub resulting_state: ProofHistoryState,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProofHistoryReplay {
+    explanations: BTreeMap<String, AcceptedBalanceExplanation>,
+    states: BTreeMap<String, ProofHistoryState>,
+}
+
+impl ProofHistoryReplay {
+    pub fn accepted_explanations(&self) -> impl Iterator<Item = &AcceptedBalanceExplanation> {
+        self.explanations.values()
+    }
+
+    pub fn accepted_explanation(&self, output_id: &str) -> Option<&AcceptedBalanceExplanation> {
+        self.explanations.get(output_id)
+    }
+
+    pub fn output_state(&self, output_id: &str) -> Option<ProofHistoryState> {
+        self.states.get(output_id).copied()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ProofHistoryEngine;
+
+impl ProofHistoryEngine {
+    pub fn replay(
+        records: &[ProofHistoryRecord],
+    ) -> Result<ProofHistoryReplay, ProofHistoryReplayError> {
+        let mut seen_records = BTreeMap::<String, ()>::new();
+        let mut outputs = BTreeMap::<String, AcceptedBalanceExplanation>::new();
+        let mut explanations = BTreeMap::<String, AcceptedBalanceExplanation>::new();
+        let mut states = BTreeMap::<String, ProofHistoryState>::new();
+
+        for record in records {
+            validate_record_identity(record, &mut seen_records)?;
+            let prior_states = validate_inputs(record, &outputs, &mut explanations, &mut states)?;
+            let output_total = validate_outputs(record)?;
+            let input_total = prior_states
+                .iter()
+                .try_fold(AssetAmount::ZERO, |total, prior| {
+                    total
+                        .checked_add(prior.amount)
+                        .map_err(ProofHistoryReplayError::Asset)
+                })?;
+
+            if record.kind != ProofTransitionKind::Issuance && input_total != output_total {
+                return Err(ProofHistoryReplayError::AmountNotConserved {
+                    record_id: record.record_id.clone(),
+                    input: input_total.value(),
+                    output: output_total.value(),
+                });
+            }
+
+            let expected_asset_id = prior_states.first().map(|prior| {
+                outputs
+                    .get(&prior.output_id)
+                    .expect("prior state came from outputs")
+                    .asset_id
+            });
+            if let Some(expected) = expected_asset_id {
+                for prior in &prior_states {
+                    let actual = outputs
+                        .get(&prior.output_id)
+                        .expect("prior state came from outputs")
+                        .asset_id;
+                    if actual != expected {
+                        return Err(ProofHistoryReplayError::AssetMismatch {
+                            record_id: record.record_id.clone(),
+                            expected,
+                            actual,
+                        });
+                    }
+                }
+            }
+            for output in &record.outputs {
+                if outputs.contains_key(&output.output_id) {
+                    return Err(ProofHistoryReplayError::DuplicateOutput {
+                        record_id: record.record_id.clone(),
+                        output_id: output.output_id.clone(),
+                    });
+                }
+                if let Some(asset_id) = expected_asset_id {
+                    if output.asset_id != asset_id {
+                        return Err(ProofHistoryReplayError::AssetMismatch {
+                            record_id: record.record_id.clone(),
+                            expected: asset_id,
+                            actual: output.asset_id,
+                        });
+                    }
+                }
+
+                let explanation = AcceptedBalanceExplanation {
+                    output_id: output.output_id.clone(),
+                    record_id: record.record_id.clone(),
+                    transition_kind: record.kind,
+                    virtual_transition_id: record.virtual_transition_id,
+                    asset_id: output.asset_id,
+                    amount: output.amount,
+                    script_key: output.script_key,
+                    anchor_outpoint: output.anchor_outpoint.clone(),
+                    tap_asset_root: output.tap_asset_root,
+                    prior_states: prior_states.clone(),
+                    resulting_state: output.resulting_state,
+                };
+                outputs.insert(output.output_id.clone(), explanation.clone());
+                states.insert(output.output_id.clone(), output.resulting_state);
+                if output.resulting_state.can_explain_balance() {
+                    explanations.insert(output.output_id.clone(), explanation);
+                }
+            }
+        }
+
+        Ok(ProofHistoryReplay {
+            explanations,
+            states,
+        })
+    }
+}
+
+fn validate_record_identity(
+    record: &ProofHistoryRecord,
+    seen_records: &mut BTreeMap<String, ()>,
+) -> Result<(), ProofHistoryReplayError> {
+    if record.record_id.is_empty() {
+        return Err(ProofHistoryReplayError::EmptyRecordId);
+    }
+    if seen_records.insert(record.record_id.clone(), ()).is_some() {
+        return Err(ProofHistoryReplayError::DuplicateRecord {
+            record_id: record.record_id.clone(),
+        });
+    }
+    if record.virtual_transition_id == Bytes32::ZERO {
+        return Err(ProofHistoryReplayError::ZeroTransitionId {
+            record_id: record.record_id.clone(),
+        });
+    }
+    if record.kind == ProofTransitionKind::Issuance {
+        if !record.inputs.is_empty() {
+            return Err(ProofHistoryReplayError::UnexpectedInputs {
+                record_id: record.record_id.clone(),
+                kind: record.kind,
+            });
+        }
+    } else if record.inputs.is_empty() {
+        return Err(ProofHistoryReplayError::MissingInputs {
+            record_id: record.record_id.clone(),
+            kind: record.kind,
+        });
+    }
+    if record.outputs.is_empty() {
+        return Err(ProofHistoryReplayError::MissingOutputs {
+            record_id: record.record_id.clone(),
+        });
+    }
+
+    Ok(())
+}
+
+fn validate_inputs(
+    record: &ProofHistoryRecord,
+    outputs: &BTreeMap<String, AcceptedBalanceExplanation>,
+    explanations: &mut BTreeMap<String, AcceptedBalanceExplanation>,
+    states: &mut BTreeMap<String, ProofHistoryState>,
+) -> Result<Vec<ProofHistoryPriorState>, ProofHistoryReplayError> {
+    let mut prior_states = Vec::with_capacity(record.inputs.len());
+    let mut seen_inputs = BTreeMap::<String, ()>::new();
+    for input in &record.inputs {
+        if seen_inputs.insert(input.output_id.clone(), ()).is_some() {
+            return Err(ProofHistoryReplayError::DuplicateInput {
+                record_id: record.record_id.clone(),
+                input_output_id: input.output_id.clone(),
+            });
+        }
+        let Some(existing) = outputs.get(&input.output_id) else {
+            return Err(ProofHistoryReplayError::MissingInput {
+                record_id: record.record_id.clone(),
+                input_output_id: input.output_id.clone(),
+            });
+        };
+        if !record.kind.allows_input_state(existing.resulting_state) {
+            return Err(ProofHistoryReplayError::InvalidInputState {
+                record_id: record.record_id.clone(),
+                input_output_id: input.output_id.clone(),
+                kind: record.kind,
+                state: existing.resulting_state,
+            });
+        }
+        prior_states.push(ProofHistoryPriorState {
+            output_id: existing.output_id.clone(),
+            state: existing.resulting_state,
+            amount: existing.amount,
+            anchor_outpoint: existing.anchor_outpoint.clone(),
+        });
+    }
+
+    if record.kind.consumes_inputs() {
+        for input in &record.inputs {
+            explanations.remove(&input.output_id);
+            states.insert(input.output_id.clone(), ProofHistoryState::Spent);
+        }
+    }
+
+    Ok(prior_states)
+}
+
+fn validate_outputs(record: &ProofHistoryRecord) -> Result<AssetAmount, ProofHistoryReplayError> {
+    let mut output_total = AssetAmount::ZERO;
+    let mut seen_outputs = BTreeMap::<String, ()>::new();
+    for output in &record.outputs {
+        if output.output_id.is_empty() {
+            return Err(ProofHistoryReplayError::EmptyOutputId {
+                record_id: record.record_id.clone(),
+            });
+        }
+        if seen_outputs.insert(output.output_id.clone(), ()).is_some() {
+            return Err(ProofHistoryReplayError::DuplicateOutput {
+                record_id: record.record_id.clone(),
+                output_id: output.output_id.clone(),
+            });
+        }
+        if !record.kind.allows_output_state(output.resulting_state) {
+            return Err(ProofHistoryReplayError::InvalidOutputState {
+                record_id: record.record_id.clone(),
+                output_id: output.output_id.clone(),
+                kind: record.kind,
+                state: output.resulting_state,
+            });
+        }
+        if output.amount == AssetAmount::ZERO {
+            return Err(ProofHistoryReplayError::ZeroOutputAmount {
+                record_id: record.record_id.clone(),
+                output_id: output.output_id.clone(),
+            });
+        }
+        parse_outpoint(&output.anchor_outpoint, "proof_history_output_anchor").map_err(|_| {
+            ProofHistoryReplayError::MalformedOutputAnchor {
+                record_id: record.record_id.clone(),
+                output_id: output.output_id.clone(),
+            }
+        })?;
+        let expected_root = derive_hash_sum_root(&[AssetLeaf {
+            asset_id: output.asset_id,
+            script_key: output.script_key,
+            amount: output.amount,
+        }])
+        .map_err(ProofHistoryReplayError::Asset)?;
+        if expected_root != output.tap_asset_root {
+            return Err(ProofHistoryReplayError::OutputRootMismatch {
+                record_id: record.record_id.clone(),
+                output_id: output.output_id.clone(),
+                expected_hash: expected_root.hash,
+                actual_hash: output.tap_asset_root.hash,
+                expected_sum: expected_root.sum.value(),
+                actual_sum: output.tap_asset_root.sum.value(),
+            });
+        }
+        output_total = output_total
+            .checked_add(output.amount)
+            .map_err(ProofHistoryReplayError::Asset)?;
+    }
+    Ok(output_total)
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ProofHistoryReplayError {
+    Asset(AssetError),
+    EmptyRecordId,
+    DuplicateRecord {
+        record_id: String,
+    },
+    ZeroTransitionId {
+        record_id: String,
+    },
+    UnexpectedInputs {
+        record_id: String,
+        kind: ProofTransitionKind,
+    },
+    MissingInputs {
+        record_id: String,
+        kind: ProofTransitionKind,
+    },
+    MissingOutputs {
+        record_id: String,
+    },
+    MissingInput {
+        record_id: String,
+        input_output_id: String,
+    },
+    DuplicateInput {
+        record_id: String,
+        input_output_id: String,
+    },
+    InvalidInputState {
+        record_id: String,
+        input_output_id: String,
+        kind: ProofTransitionKind,
+        state: ProofHistoryState,
+    },
+    EmptyOutputId {
+        record_id: String,
+    },
+    DuplicateOutput {
+        record_id: String,
+        output_id: String,
+    },
+    InvalidOutputState {
+        record_id: String,
+        output_id: String,
+        kind: ProofTransitionKind,
+        state: ProofHistoryState,
+    },
+    ZeroOutputAmount {
+        record_id: String,
+        output_id: String,
+    },
+    MalformedOutputAnchor {
+        record_id: String,
+        output_id: String,
+    },
+    OutputRootMismatch {
+        record_id: String,
+        output_id: String,
+        expected_hash: Bytes32,
+        actual_hash: Bytes32,
+        expected_sum: u64,
+        actual_sum: u64,
+    },
+    AmountNotConserved {
+        record_id: String,
+        input: u64,
+        output: u64,
+    },
+    AssetMismatch {
+        record_id: String,
+        expected: Bytes32,
+        actual: Bytes32,
+    },
+}
+
+impl fmt::Display for ProofHistoryReplayError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Asset(err) => write!(f, "proof history asset error: {err}"),
+            Self::EmptyRecordId => write!(f, "proof history record id cannot be empty"),
+            Self::DuplicateRecord { record_id } => {
+                write!(f, "duplicate proof history record: {record_id}")
+            }
+            Self::ZeroTransitionId { record_id } => {
+                write!(f, "proof history record {record_id} has zero transition id")
+            }
+            Self::UnexpectedInputs { record_id, kind } => write!(
+                f,
+                "proof history record {record_id} of kind {kind:?} must not have inputs"
+            ),
+            Self::MissingInputs { record_id, kind } => write!(
+                f,
+                "proof history record {record_id} of kind {kind:?} requires inputs"
+            ),
+            Self::MissingOutputs { record_id } => {
+                write!(f, "proof history record {record_id} requires outputs")
+            }
+            Self::MissingInput {
+                record_id,
+                input_output_id,
+            } => write!(
+                f,
+                "proof history record {record_id} references missing input {input_output_id}"
+            ),
+            Self::DuplicateInput {
+                record_id,
+                input_output_id,
+            } => write!(
+                f,
+                "proof history record {record_id} references duplicate input {input_output_id}"
+            ),
+            Self::InvalidInputState {
+                record_id,
+                input_output_id,
+                kind,
+                state,
+            } => write!(
+                f,
+                "proof history record {record_id} of kind {kind:?} cannot spend input {input_output_id} in state {state:?}"
+            ),
+            Self::EmptyOutputId { record_id } => write!(
+                f,
+                "proof history record {record_id} has an output with an empty id"
+            ),
+            Self::DuplicateOutput {
+                record_id,
+                output_id,
+            } => write!(
+                f,
+                "proof history record {record_id} has duplicate output {output_id}"
+            ),
+            Self::InvalidOutputState {
+                record_id,
+                output_id,
+                kind,
+                state,
+            } => write!(
+                f,
+                "proof history record {record_id} output {output_id} cannot end {kind:?} as {state:?}"
+            ),
+            Self::ZeroOutputAmount {
+                record_id,
+                output_id,
+            } => write!(
+                f,
+                "proof history record {record_id} output {output_id} has zero amount"
+            ),
+            Self::MalformedOutputAnchor {
+                record_id,
+                output_id,
+            } => write!(
+                f,
+                "proof history record {record_id} output {output_id} has malformed anchor"
+            ),
+            Self::OutputRootMismatch {
+                record_id,
+                output_id,
+                expected_hash,
+                actual_hash,
+                expected_sum,
+                actual_sum,
+            } => write!(
+                f,
+                "proof history record {record_id} output {output_id} root mismatch: expected {}:{expected_sum}, got {}:{actual_sum}",
+                expected_hash.to_hex(),
+                actual_hash.to_hex()
+            ),
+            Self::AmountNotConserved {
+                record_id,
+                input,
+                output,
+            } => write!(
+                f,
+                "proof history record {record_id} does not conserve amount: input {input}, output {output}"
+            ),
+            Self::AssetMismatch {
+                record_id,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "proof history record {record_id} asset mismatch: expected {}, got {}",
+                expected.to_hex(),
+                actual.to_hex()
+            ),
+        }
+    }
+}
+
+impl Error for ProofHistoryReplayError {}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ProofError {
     Tlv(TlvError),
@@ -877,5 +1464,493 @@ mod tests {
             ProofFile::decode(&encoded),
             Err(ProofError::UnsupportedNetwork("mainnet".to_owned()))
         );
+    }
+
+    #[test]
+    fn proof_history_replay_accepts_full_lifecycle_explanations() {
+        let asset_id = Bytes32([42; 32]);
+        let owner = key(2);
+        let receiver = key(3);
+        let close_owner = key(4);
+        let htlc_owner = key(5);
+        let export_owner = key(6);
+        let htlc_export_owner = key(7);
+
+        let records = vec![
+            record(
+                "issue",
+                ProofTransitionKind::Issuance,
+                1,
+                vec![],
+                vec![output(
+                    "issued",
+                    asset_id,
+                    1_000,
+                    owner,
+                    1,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "split",
+                ProofTransitionKind::Split,
+                2,
+                vec!["issued"],
+                vec![
+                    output(
+                        "receiver",
+                        asset_id,
+                        400,
+                        receiver,
+                        2,
+                        ProofHistoryState::Accepted,
+                    ),
+                    output(
+                        "change",
+                        asset_id,
+                        600,
+                        owner,
+                        3,
+                        ProofHistoryState::Accepted,
+                    ),
+                ],
+            ),
+            record(
+                "transfer",
+                ProofTransitionKind::Transfer,
+                3,
+                vec!["receiver"],
+                vec![output(
+                    "transferred",
+                    asset_id,
+                    400,
+                    htlc_owner,
+                    4,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "funding",
+                ProofTransitionKind::ChannelFunding,
+                4,
+                vec!["change"],
+                vec![output(
+                    "channel",
+                    asset_id,
+                    600,
+                    owner,
+                    5,
+                    ProofHistoryState::ChannelLocked,
+                )],
+            ),
+            record(
+                "commitment",
+                ProofTransitionKind::CommitmentUpdate,
+                5,
+                vec!["channel"],
+                vec![output(
+                    "channel-v2",
+                    asset_id,
+                    600,
+                    owner,
+                    6,
+                    ProofHistoryState::ChannelLocked,
+                )],
+            ),
+            record(
+                "cooperative-close",
+                ProofTransitionKind::CooperativeClose,
+                6,
+                vec!["channel-v2"],
+                vec![output(
+                    "closed",
+                    asset_id,
+                    600,
+                    close_owner,
+                    7,
+                    ProofHistoryState::Closed,
+                )],
+            ),
+            record(
+                "sweep",
+                ProofTransitionKind::Sweep,
+                7,
+                vec!["closed"],
+                vec![output(
+                    "swept",
+                    asset_id,
+                    600,
+                    close_owner,
+                    8,
+                    ProofHistoryState::Swept,
+                )],
+            ),
+            record(
+                "export",
+                ProofTransitionKind::ProofExport,
+                8,
+                vec!["swept"],
+                vec![output(
+                    "exported",
+                    asset_id,
+                    600,
+                    export_owner,
+                    9,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "funding-htlc",
+                ProofTransitionKind::ChannelFunding,
+                10,
+                vec!["transferred"],
+                vec![output(
+                    "htlc-channel",
+                    asset_id,
+                    400,
+                    htlc_owner,
+                    10,
+                    ProofHistoryState::ChannelLocked,
+                )],
+            ),
+            record(
+                "unilateral-close",
+                ProofTransitionKind::UnilateralClose,
+                11,
+                vec!["htlc-channel"],
+                vec![output(
+                    "unilateral-closed",
+                    asset_id,
+                    400,
+                    htlc_owner,
+                    11,
+                    ProofHistoryState::Closed,
+                )],
+            ),
+            record(
+                "second-level-htlc",
+                ProofTransitionKind::SecondLevelHtlc,
+                12,
+                vec!["unilateral-closed"],
+                vec![output(
+                    "second-level",
+                    asset_id,
+                    400,
+                    htlc_owner,
+                    12,
+                    ProofHistoryState::Closed,
+                )],
+            ),
+            record(
+                "sweep-htlc",
+                ProofTransitionKind::Sweep,
+                13,
+                vec!["second-level"],
+                vec![output(
+                    "swept-htlc",
+                    asset_id,
+                    400,
+                    htlc_owner,
+                    13,
+                    ProofHistoryState::Swept,
+                )],
+            ),
+            record(
+                "export-htlc",
+                ProofTransitionKind::ProofExport,
+                14,
+                vec!["swept-htlc"],
+                vec![output(
+                    "exported-htlc",
+                    asset_id,
+                    400,
+                    htlc_export_owner,
+                    14,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+        ];
+
+        let replay = ProofHistoryEngine::replay(&records).expect("history replays");
+        let accepted = replay
+            .accepted_explanations()
+            .map(|explanation| explanation.output_id.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(accepted, vec!["exported", "exported-htlc"]);
+        assert_eq!(
+            replay.output_state("issued"),
+            Some(ProofHistoryState::Spent)
+        );
+        assert_eq!(
+            replay.output_state("channel-v2"),
+            Some(ProofHistoryState::Spent)
+        );
+        let exported = replay
+            .accepted_explanation("exported")
+            .expect("exported explanation exists");
+        assert_eq!(exported.amount, AssetAmount::new(600));
+        assert_eq!(exported.resulting_state, ProofHistoryState::Accepted);
+        assert_eq!(exported.prior_states[0].state, ProofHistoryState::Swept);
+    }
+
+    #[test]
+    fn proof_history_replay_rejects_missing_inputs_without_balances() {
+        let records = vec![record(
+            "transfer",
+            ProofTransitionKind::Transfer,
+            1,
+            vec!["missing"],
+            vec![output(
+                "receiver",
+                Bytes32([42; 32]),
+                100,
+                key(3),
+                1,
+                ProofHistoryState::Accepted,
+            )],
+        )];
+
+        assert!(matches!(
+            ProofHistoryEngine::replay(&records),
+            Err(ProofHistoryReplayError::MissingInput {
+                record_id,
+                input_output_id,
+            }) if record_id == "transfer" && input_output_id == "missing"
+        ));
+    }
+
+    #[test]
+    fn proof_history_replay_rejects_contradictory_amounts() {
+        let asset_id = Bytes32([42; 32]);
+        let records = vec![
+            record(
+                "issue",
+                ProofTransitionKind::Issuance,
+                1,
+                vec![],
+                vec![output(
+                    "issued",
+                    asset_id,
+                    100,
+                    key(2),
+                    1,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "transfer",
+                ProofTransitionKind::Transfer,
+                2,
+                vec!["issued"],
+                vec![output(
+                    "receiver",
+                    asset_id,
+                    99,
+                    key(3),
+                    2,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+        ];
+
+        assert!(matches!(
+            ProofHistoryEngine::replay(&records),
+            Err(ProofHistoryReplayError::AmountNotConserved {
+                record_id,
+                input: 100,
+                output: 99,
+            }) if record_id == "transfer"
+        ));
+    }
+
+    #[test]
+    fn proof_history_replay_rejects_duplicate_and_mixed_asset_inputs() {
+        let asset_a = Bytes32([42; 32]);
+        let asset_b = Bytes32([43; 32]);
+        let duplicate_input_records = vec![
+            record(
+                "issue",
+                ProofTransitionKind::Issuance,
+                1,
+                vec![],
+                vec![output(
+                    "issued",
+                    asset_a,
+                    100,
+                    key(2),
+                    1,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "merge",
+                ProofTransitionKind::Transfer,
+                2,
+                vec!["issued", "issued"],
+                vec![output(
+                    "merged",
+                    asset_a,
+                    200,
+                    key(3),
+                    2,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+        ];
+        assert!(matches!(
+            ProofHistoryEngine::replay(&duplicate_input_records),
+            Err(ProofHistoryReplayError::DuplicateInput {
+                record_id,
+                input_output_id,
+            }) if record_id == "merge" && input_output_id == "issued"
+        ));
+
+        let mixed_asset_records = vec![
+            record(
+                "issue-a",
+                ProofTransitionKind::Issuance,
+                1,
+                vec![],
+                vec![output(
+                    "asset-a",
+                    asset_a,
+                    100,
+                    key(2),
+                    1,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "issue-b",
+                ProofTransitionKind::Issuance,
+                2,
+                vec![],
+                vec![output(
+                    "asset-b",
+                    asset_b,
+                    50,
+                    key(3),
+                    2,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "merge",
+                ProofTransitionKind::Transfer,
+                3,
+                vec!["asset-a", "asset-b"],
+                vec![output(
+                    "mixed",
+                    asset_a,
+                    150,
+                    key(4),
+                    3,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+        ];
+        assert!(matches!(
+            ProofHistoryEngine::replay(&mixed_asset_records),
+            Err(ProofHistoryReplayError::AssetMismatch {
+                record_id,
+                expected,
+                actual,
+            }) if record_id == "merge" && expected == asset_a && actual == asset_b
+        ));
+    }
+
+    #[test]
+    fn proof_history_replay_rejects_invalid_output_state_and_root() {
+        let asset_id = Bytes32([42; 32]);
+        let pending_issuance = vec![record(
+            "issue",
+            ProofTransitionKind::Issuance,
+            1,
+            vec![],
+            vec![output(
+                "issued",
+                asset_id,
+                100,
+                key(2),
+                1,
+                ProofHistoryState::Pending,
+            )],
+        )];
+        assert!(matches!(
+            ProofHistoryEngine::replay(&pending_issuance),
+            Err(ProofHistoryReplayError::InvalidOutputState { .. })
+        ));
+
+        let mut wrong_root = output(
+            "issued",
+            asset_id,
+            100,
+            key(2),
+            1,
+            ProofHistoryState::Accepted,
+        );
+        wrong_root.tap_asset_root = derive_hash_sum_root(&[AssetLeaf {
+            asset_id,
+            script_key: key(2),
+            amount: AssetAmount::new(99),
+        }])
+        .expect("wrong root derives");
+        let records = vec![record(
+            "issue",
+            ProofTransitionKind::Issuance,
+            1,
+            vec![],
+            vec![wrong_root],
+        )];
+        assert!(matches!(
+            ProofHistoryEngine::replay(&records),
+            Err(ProofHistoryReplayError::OutputRootMismatch { .. })
+        ));
+    }
+
+    fn record(
+        record_id: &str,
+        kind: ProofTransitionKind,
+        transition_seed: u8,
+        inputs: Vec<&str>,
+        outputs: Vec<ProofHistoryOutput>,
+    ) -> ProofHistoryRecord {
+        ProofHistoryRecord {
+            record_id: record_id.to_owned(),
+            kind,
+            virtual_transition_id: Bytes32([transition_seed; 32]),
+            inputs: inputs.into_iter().map(ProofHistoryInput::new).collect(),
+            outputs,
+        }
+    }
+
+    fn output(
+        output_id: &str,
+        asset_id: Bytes32,
+        amount: u64,
+        script_key: CompressedKey,
+        anchor_seed: u8,
+        resulting_state: ProofHistoryState,
+    ) -> ProofHistoryOutput {
+        let amount = AssetAmount::new(amount);
+        ProofHistoryOutput {
+            output_id: output_id.to_owned(),
+            asset_id,
+            amount,
+            script_key,
+            anchor_outpoint: format!("{}:0", Bytes32([anchor_seed; 32]).to_hex()),
+            tap_asset_root: derive_hash_sum_root(&[AssetLeaf {
+                asset_id,
+                script_key,
+                amount,
+            }])
+            .expect("root derives"),
+            resulting_state,
+        }
+    }
+
+    fn key(prefix: u8) -> CompressedKey {
+        CompressedKey([prefix; 33])
     }
 }
