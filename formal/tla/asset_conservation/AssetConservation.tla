@@ -74,6 +74,9 @@ VisibleBalanceNeverExceedsIssued ==
 SpentOutputsAreNotSpendable ==
     \A o \in Outputs: spent[o] => spendable[o] = 0
 
+ChannelBalanceRequiresSpentInput ==
+    channel > 0 => spent["b"] = TRUE
+
 PendingAndInvalidAreNotSpendable ==
     VisibleBalance + pending + invalid >= VisibleBalance
 

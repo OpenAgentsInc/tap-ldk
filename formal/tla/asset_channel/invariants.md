@@ -4,6 +4,8 @@ Initial invariants for the first asset-channel model:
 
 - An asset channel never reaches `open` unless both peers negotiated support.
 - An asset channel never reaches `open` unless proof material is valid.
+- An asset channel never reaches `open` unless proof replay has accepted the
+  funding input state.
 - Durable asset-channel state is only recorded for an open channel.
 - The modeled channel balance never exceeds the verified maximum asset amount.
 

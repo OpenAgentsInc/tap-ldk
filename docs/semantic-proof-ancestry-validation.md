@@ -63,6 +63,14 @@ single accepted issuance-style output. Later channel, close, sweep, and
 recovery issues replace that bounded import record with full proof-chain
 history at the relevant state boundaries.
 
+Issue #101 extends the same replay gate to asset-channel funding. Funding now
+constructs a replay history that accepts each input proof, consumes those
+inputs through a channel-funding transition, and requires the resulting output
+to be channel-locked with the expected asset ID, amount, funding script key,
+funding outpoint, and root. The durable channel record stores deterministic
+funding proof-history metadata and validation fails if that metadata no longer
+matches the channel.
+
 ## Fail-Closed Cases
 
 Tests and fixtures cover malformed outpoints, unsupported scopes/networks,

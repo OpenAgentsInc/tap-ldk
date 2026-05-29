@@ -28,8 +28,15 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{AssetAmount, AssetError, Bytes32, CompressedKey, RootHashSum},
-    proof::{ProofError, ProofFile, ProofValidationContext},
+    asset::{
+        AssetAmount, AssetError, AssetLeaf, Bytes32, CompressedKey, RootHashSum,
+        derive_hash_sum_root,
+    },
+    proof::{
+        ProofError, ProofFile, ProofHistoryEngine, ProofHistoryInput, ProofHistoryOutput,
+        ProofHistoryRecord, ProofHistoryReplayError, ProofHistoryState, ProofTransitionKind,
+        ProofValidationContext,
+    },
     tap_vm::{AssetVirtualTransition, TapVmError},
     taproot_commitment::{
         AssetVersion, TapAsset, TapCommitment, TapCommitmentVersion, TaprootCommitmentError,
@@ -181,6 +188,13 @@ impl AssetChannelStore {
             expected_output_commitment,
             output_commitment_override,
         )?;
+        let proof_history = validate_funding_proof_history(
+            &channel_id,
+            &request,
+            &local_inputs,
+            &remote_inputs,
+            total_amount,
+        )?;
 
         let monitor = AssetChannelMonitorBlob::new(
             &channel_id,
@@ -209,6 +223,9 @@ impl AssetChannelStore {
                 .iter()
                 .map(|input| input.proof_id.clone())
                 .collect(),
+            funding_proof_history_record_id: proof_history.record_id,
+            funding_proof_history_output_id: proof_history.output_id,
+            funding_proof_history_transition_id: proof_history.transition_id.to_hex(),
             status: AssetChannelFundingStatus::Funded,
             monitor,
         };
@@ -337,6 +354,9 @@ pub struct StoredAssetChannel {
     pub total_amount: u64,
     pub local_input_proof_ids: Vec<String>,
     pub remote_input_proof_ids: Vec<String>,
+    pub funding_proof_history_record_id: String,
+    pub funding_proof_history_output_id: String,
+    pub funding_proof_history_transition_id: String,
     pub status: AssetChannelFundingStatus,
     pub monitor: AssetChannelMonitorBlob,
 }
@@ -403,6 +423,28 @@ impl StoredAssetChannel {
         }
         if self.local_input_proof_ids.is_empty() && self.remote_input_proof_ids.is_empty() {
             return Err(AssetChannelFundingError::MissingFundingProofs);
+        }
+        let expected_history = funding_proof_history_metadata_from_parts(
+            &self.channel_id,
+            self.asset_id,
+            &self.funding_outpoint,
+            self.funding_script_key,
+            self.local_balance,
+            self.remote_balance,
+            &self
+                .local_input_proof_ids
+                .iter()
+                .chain(self.remote_input_proof_ids.iter())
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        if self.funding_proof_history_record_id != expected_history.record_id
+            || self.funding_proof_history_output_id != expected_history.output_id
+            || self.funding_proof_history_transition_id != expected_history.transition_id.to_hex()
+        {
+            return Err(AssetChannelFundingError::UnexplainedFundingHistory(
+                self.channel_id.clone(),
+            ));
         }
         Ok(())
     }
@@ -638,6 +680,13 @@ struct ValidatedFundingInput {
     proof: ProofFile,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct FundingProofHistory {
+    record_id: String,
+    output_id: String,
+    transition_id: Bytes32,
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum ChannelSide {
     Local,
@@ -650,6 +699,7 @@ pub enum AssetChannelFundingError {
     Json(serde_json::Error),
     Wallet(WalletError),
     Proof(ProofError),
+    ProofHistory(ProofHistoryReplayError),
     Asset(AssetError),
     Commitment(TaprootCommitmentError),
     TapVm(TapVmError),
@@ -686,6 +736,7 @@ pub enum AssetChannelFundingError {
     LdkFundingHook(TaprootAssetFundingError),
     LdkChannelState(TaprootAssetChannelStateError),
     MonitorNotPersisted(String),
+    UnexplainedFundingHistory(String),
     StorageInvariant(String),
 }
 
@@ -696,6 +747,9 @@ impl fmt::Display for AssetChannelFundingError {
             Self::Json(err) => write!(f, "asset-channel funding JSON error: {err}"),
             Self::Wallet(err) => write!(f, "asset-channel funding wallet error: {err}"),
             Self::Proof(err) => write!(f, "asset-channel funding proof error: {err}"),
+            Self::ProofHistory(err) => {
+                write!(f, "asset-channel funding proof-history error: {err}")
+            }
             Self::Asset(err) => write!(f, "asset-channel funding asset error: {err}"),
             Self::Commitment(err) => {
                 write!(f, "asset-channel funding commitment error: {err}")
@@ -765,6 +819,10 @@ impl fmt::Display for AssetChannelFundingError {
             Self::MonitorNotPersisted(channel_id) => {
                 write!(f, "asset-channel monitor for {channel_id} is not persisted")
             }
+            Self::UnexplainedFundingHistory(channel_id) => write!(
+                f,
+                "asset-channel funding history for {channel_id} does not replay to channel-locked state"
+            ),
             Self::StorageInvariant(message) => {
                 write!(f, "asset-channel storage invariant failed: {message}")
             }
@@ -927,6 +985,146 @@ fn sum_inputs(inputs: &[ValidatedFundingInput]) -> Result<AssetAmount, AssetChan
             .map_err(AssetChannelFundingError::Asset)?;
     }
     Ok(amount)
+}
+
+fn validate_funding_proof_history(
+    channel_id: &str,
+    request: &AssetChannelFundingRequest,
+    local_inputs: &[ValidatedFundingInput],
+    remote_inputs: &[ValidatedFundingInput],
+    total_amount: AssetAmount,
+) -> Result<FundingProofHistory, AssetChannelFundingError> {
+    let funding_replay_root = derive_hash_sum_root(&[AssetLeaf {
+        asset_id: request.asset_id,
+        script_key: request.funding_script_key,
+        amount: total_amount,
+    }])
+    .map_err(AssetChannelFundingError::Asset)?;
+    let input_ids = local_inputs
+        .iter()
+        .chain(remote_inputs.iter())
+        .map(|input| input.proof_id.clone())
+        .collect::<Vec<_>>();
+    let metadata = funding_proof_history_metadata_from_parts(
+        channel_id,
+        request.asset_id,
+        &request.funding_outpoint,
+        request.funding_script_key,
+        local_inputs
+            .iter()
+            .try_fold(AssetAmount::ZERO, |amount, input| {
+                amount.checked_add(input.proof.amount)
+            })
+            .map_err(AssetChannelFundingError::Asset)?
+            .value(),
+        remote_inputs
+            .iter()
+            .try_fold(AssetAmount::ZERO, |amount, input| {
+                amount.checked_add(input.proof.amount)
+            })
+            .map_err(AssetChannelFundingError::Asset)?
+            .value(),
+        &input_ids,
+    );
+
+    let mut records = Vec::with_capacity(input_ids.len() + 1);
+    for input in local_inputs.iter().chain(remote_inputs.iter()) {
+        records.push(ProofHistoryRecord {
+            record_id: format!("asset-channel-funding-input:{}", input.proof_id),
+            kind: ProofTransitionKind::Issuance,
+            virtual_transition_id: funding_input_transition_id(&input.proof_id, &input.proof)?,
+            inputs: Vec::new(),
+            outputs: vec![ProofHistoryOutput {
+                output_id: input.proof_id.clone(),
+                asset_id: input.proof.asset_id,
+                amount: input.proof.amount,
+                script_key: input.proof.script_key,
+                anchor_outpoint: input.proof.anchor_outpoint.clone(),
+                tap_asset_root: input.proof.tap_asset_root,
+                resulting_state: ProofHistoryState::Accepted,
+            }],
+        });
+    }
+    records.push(ProofHistoryRecord {
+        record_id: metadata.record_id.clone(),
+        kind: ProofTransitionKind::ChannelFunding,
+        virtual_transition_id: metadata.transition_id,
+        inputs: input_ids.into_iter().map(ProofHistoryInput::new).collect(),
+        outputs: vec![ProofHistoryOutput {
+            output_id: metadata.output_id.clone(),
+            asset_id: request.asset_id,
+            amount: total_amount,
+            script_key: request.funding_script_key,
+            anchor_outpoint: request.funding_outpoint.clone(),
+            tap_asset_root: funding_replay_root,
+            resulting_state: ProofHistoryState::ChannelLocked,
+        }],
+    });
+
+    let replay =
+        ProofHistoryEngine::replay(&records).map_err(AssetChannelFundingError::ProofHistory)?;
+    let explanation = replay
+        .accepted_explanation(&metadata.output_id)
+        .ok_or_else(|| {
+            AssetChannelFundingError::UnexplainedFundingHistory(channel_id.to_owned())
+        })?;
+    if explanation.resulting_state != ProofHistoryState::ChannelLocked
+        || explanation.asset_id != request.asset_id
+        || explanation.amount != total_amount
+        || explanation.script_key != request.funding_script_key
+        || explanation.anchor_outpoint != request.funding_outpoint
+        || explanation.tap_asset_root != funding_replay_root
+    {
+        return Err(AssetChannelFundingError::UnexplainedFundingHistory(
+            channel_id.to_owned(),
+        ));
+    }
+
+    Ok(metadata)
+}
+
+fn funding_proof_history_metadata_from_parts(
+    channel_id: &str,
+    asset_id: Bytes32,
+    funding_outpoint: &str,
+    funding_script_key: CompressedKey,
+    local_balance: u64,
+    remote_balance: u64,
+    input_proof_ids: &[String],
+) -> FundingProofHistory {
+    let mut input_ids = input_proof_ids.to_vec();
+    input_ids.sort();
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:asset-channel-funding-proof-history:v1");
+    hasher.update(channel_id.as_bytes());
+    hasher.update(asset_id.0);
+    hasher.update(funding_outpoint.as_bytes());
+    hasher.update(funding_script_key.0);
+    hasher.update(local_balance.to_be_bytes());
+    hasher.update(remote_balance.to_be_bytes());
+    for proof_id in input_ids {
+        hasher.update((proof_id.len() as u64).to_be_bytes());
+        hasher.update(proof_id.as_bytes());
+    }
+    let transition_id = Bytes32(hasher.finalize().into());
+
+    FundingProofHistory {
+        record_id: format!("asset-channel-funding:{channel_id}"),
+        output_id: format!("asset-channel-funding-output:{channel_id}"),
+        transition_id,
+    }
+}
+
+fn funding_input_transition_id(
+    proof_id: &str,
+    proof: &ProofFile,
+) -> Result<Bytes32, AssetChannelFundingError> {
+    let encoded = proof.encode().map_err(AssetChannelFundingError::Proof)?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:asset-channel-funding-input-history:v1");
+    hasher.update(proof_id.as_bytes());
+    hasher.update(encoded);
+    Ok(Bytes32(hasher.finalize().into()))
 }
 
 fn issue_openusd_proof(
@@ -1247,6 +1445,27 @@ mod tests {
         assert!(matches!(
             store.validate(),
             Err(AssetChannelFundingError::FundingRootMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn tampered_funding_proof_history_fails_validation() {
+        let local = issue_openusd_proof(700, local_script_key()).expect("local proof");
+        let remote = issue_openusd_proof(300, remote_script_key()).expect("remote proof");
+        let mut store = AssetChannelStore::default();
+        let channel = store
+            .fund_channel(request(vec![local], vec![remote]))
+            .expect("channel funds");
+        store
+            .channels
+            .get_mut(&channel.channel_id)
+            .expect("channel exists")
+            .funding_proof_history_output_id = "obsolete-funding-output".to_owned();
+
+        assert!(matches!(
+            store.validate(),
+            Err(AssetChannelFundingError::UnexplainedFundingHistory(channel_id))
+                if channel_id.as_str() == channel.channel_id
         ));
     }
 

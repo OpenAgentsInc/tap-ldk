@@ -423,6 +423,12 @@ explanation before returning state. This is still the bounded first-demo
 wallet path, not the full channel/close/sweep replay path; #101 through #103
 extend the same authority boundary across those later states.
 
+Issue #101 extends replay authority to asset-channel funding. The funding path
+now builds a proof-history replay from accepted input proofs into a
+channel-locked funding output before durable channel state is recorded. The
+stored channel also carries deterministic proof-history metadata so a tampered
+funding-history pointer fails validation.
+
 The first implementation step is to replace the current bounded proof-history
 surface with an explicit proof-chain replay engine. That engine should live
 around `proof.rs`, `tapd_proof.rs`, `mssmt.rs`, `taproot_commitment.rs`, and
