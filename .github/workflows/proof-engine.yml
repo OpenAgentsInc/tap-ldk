@@ -1,0 +1,53 @@
+name: Proof Engine
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run BOLT and compatibility demo checks
+        required: false
+        default: "false"
+
+jobs:
+  proof-engine-fast:
+    name: Fast proof-engine checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: rustfmt
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Fast suite
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: ./scripts/proof-engine-check.sh
+
+  proof-engine-extended:
+    name: Extended proof-engine checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.extended == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: rustfmt
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Checkout pinned rust-lightning fork
+        uses: actions/checkout@v4
+        with:
+          repository: OpenAgentsInc/rust-lightning
+          ref: 3db3229733b724f45e7a356d923715213cb4f269
+          path: .worktrees/rust-lightning
+      - name: Extended suite
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+          OPENAGENTS_RUST_LIGHTNING_DIR: ${{ github.workspace }}/.worktrees/rust-lightning
+          TAP_LDK_EXTENDED_CHECKS: "1"
+        run: ./scripts/proof-engine-check.sh

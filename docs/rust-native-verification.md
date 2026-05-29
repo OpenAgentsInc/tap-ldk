@@ -36,6 +36,9 @@ Run the default Rust-native verification wrapper with:
 That command always runs the property tests. It runs one-iteration fuzz smoke
 targets when `cargo-fuzz` is installed and skips them explicitly otherwise. It
 runs Kani when `cargo kani` is available and skips it explicitly otherwise.
+The broader proof-engine gate is `./scripts/proof-engine-check.sh`, which
+combines this wrapper with formatting, locked tests, formal checks, and demo
+smokes.
 
 Useful direct commands:
 

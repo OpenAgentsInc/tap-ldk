@@ -11,6 +11,14 @@ This is demo software. It is not production-ready wallet infrastructure.
 
 Last updated: 2026-05-29
 
+- Official BOLT Simple Taproot status: the pinned OpenAgentsInc
+  `rust-lightning` fork implements the Bitcoin channel base from
+  `bolt-simple-taproot.md`. That means final feature negotiation, required
+  nonce/signature messages, MuSig2 signing and verification, P2TR funding and
+  commitment outputs, cooperative close with RBF, reconnect nonce maps, BTC
+  splice nonce maps, HTLC and second-level outputs, unilateral spend metadata,
+  and BOLT vector replay are covered. This is not an upstream LDK release
+  claim, and the BOLT does not cover the Taproot Assets proof layer below.
 - The native wallet-to-wallet demo works: issue demo `OPENUSD`, exchange
   proofs, open one asset channel, pay, restart, close, export proofs, and
   recover the recorded asset state.
@@ -29,11 +37,6 @@ Last updated: 2026-05-29
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
-- Final BOLT simple-taproot mode is implemented separately from the
-  staging/`litd` interop path. The fork now covers feature negotiation, splice
-  nonce maps, cooperative-close RBF nonce rotation, BOLT vector replay,
-  unilateral spends, and restart-safe spend metadata for the BTC
-  simple-taproot base. The Taproot Assets overlay remains experimental.
 
 Still not done:
 
@@ -55,6 +58,7 @@ LND, `tapd`, and `litd` are test peers only. They are not sidecars inside the
 Run the main checks from the repo root:
 
 ```bash
+./scripts/proof-engine-check.sh
 cargo fmt --check
 CARGO_NET_GIT_FETCH_WITH_CLI=true cargo test --locked
 ./scripts/check-btc-simple-taproot-conformance.sh
@@ -89,3 +93,4 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [Current Status And Production Readiness Audit](docs/current-status-production-readiness-audit-2026-05-29.md)
 - [Negative Proof Vector Coverage](docs/negative-proof-vector-coverage.md)
 - [Rust-Native Verification](docs/rust-native-verification.md)
+- [Proof Engine CI](docs/proof-engine-ci.md)

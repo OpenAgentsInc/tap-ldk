@@ -2,6 +2,21 @@
 
 Date: 2026-05-29
 
+## Official BOLT Simple Taproot Status
+
+Against the official BOLTs repository's `bolt-simple-taproot.md` specification,
+the current project should be read this way: the Bitcoin channel base is
+implemented in the pinned OpenAgentsInc `rust-lightning` fork, while the
+Taproot Assets stablecoin layer remains experimental production-hardening work.
+The BOLT base claim covers final `option_simple_taproot` negotiation, required
+nonce and partial-signature messages, MuSig2 key/signature handling, BIP86 P2TR
+funding, simple-taproot commitment outputs, cooperative close and close RBF,
+reconnect nonce maps, BTC-level splice nonce maps, HTLC and second-level
+outputs, unilateral spend metadata, restart reconstruction, and the BOLT vector
+replay suite. It does not claim that upstream LDK has merged the work, and it
+does not by itself make the Taproot Assets wallet proof engine production
+ready.
+
 `tap-ldk` is an experimental Rust/LDK implementation of Taproot Assets over
 simple-taproot Lightning-style channels. The question it is testing is narrow
 and concrete: can an LDK-based wallet issue, verify, send, and receive a
@@ -38,50 +53,18 @@ complete Taproot Assets proof-history validation, live close and recovery
 behavior, asset-channel splice/RBF state, broader interop, network operations,
 live chain-watcher policy, and verification hardening.
 
-The codebase now has a strong, but specific, implementation claim against the
-BOLTs repository's official `bolt-simple-taproot.md` Simple Taproot Channels
-spec. The pinned OpenAgentsInc Rust Lightning fork implements the BTC
-simple-taproot channel base described by that document. In practical terms,
-that means the fork covers final `option_simple_taproot` feature and
-channel-type negotiation, keeps the staging feature bits isolated for current
-Lightning Labs software interop, requires private channels for this channel
-type, parses and serializes the new nonce and partial-signature TLVs,
-implements MuSig2 key aggregation, nonce handling, partial-signature
-verification, and final Schnorr aggregation, derives BIP86 P2TR funding
-outputs from sorted aggregate funding keys, handles simple-taproot funding and
-commitment signing, implements the to-local, to-remote, anchor, HTLC, and
-second-level HTLC output scripts, supports cooperative close with close nonce
-handling and RBF nonce rotation, carries type-22 nonce maps through final
-revoke-and-ack and reestablish flows, covers BTC-level splice nonce maps for
-current, pending splice, and RBF funding transaction IDs, and persists the tap
-tweaks, script roots, leaf scripts, control blocks, nonces, and signatures
-needed for unilateral spends and restart.
+The remaining caveat inside the BOLTs document is a known accepted-HTLC draft
+inconsistency: the JSON script fields disagree with the prose and executable
+transaction vectors. The fork follows the prose and transaction vectors for
+final BOLT mode and keeps the Lightning Labs staging behavior explicit.
 
-The implementation is not just a shape match. The fork replays the BOLTs
-simple-taproot transaction vectors for the no-HTLC, five-HTLC, trimmed-HTLC,
-and HTLC-resolution cases; checks deterministic BIP340 HTLC signatures and
-witness stacks; and consensus-verifies to-local, to-remote, anchor, HTLC, and
-second-level spend paths. The remaining caveat inside the BOLTs document is a
-known accepted-HTLC draft inconsistency: the JSON script fields disagree with
-the prose and executable transaction vectors. The fork follows the prose and
-transaction vectors for final BOLT mode and keeps the Lightning Labs staging
-behavior explicit.
-
-That BOLT implementation claim is deliberately narrow. The BOLTs
-simple-taproot document specifies the BTC channel base: feature bits, TLVs,
-MuSig2 signing, P2TR funding, commitment outputs, close behavior, HTLC
-transactions, unilateral spend data, splice nonce maps, and vectors. Within
-that BTC channel-base scope, this project should be treated as implementing
-the spec through the pinned OpenAgentsInc Rust Lightning fork. What is not
-implemented by the BOLT, and therefore not completed merely by satisfying the
-BOLT, is the production Taproot Assets layer: proof-chain replay as the wallet
-balance authority, stablecoin issuance policy, proof courier behavior,
-grouped-asset behavior, asset-channel splice/RBF state, live close/sweep proof
-recovery, live reorg-watcher integration, and full asset-history recovery.
-Those are the next production-hardening items for `tap-ldk`, tracked
-separately in #96 through #106. This is also a pinned OpenAgentsInc Rust
-Lightning fork implementation, not a claim that the work has already been
-upstreamed into LDK.
+What is not implemented by the BOLT, and therefore not completed merely by
+satisfying the BOLT, is the production Taproot Assets layer: proof-chain replay
+as the wallet balance authority, stablecoin issuance policy, proof courier
+behavior, grouped-asset behavior, asset-channel splice/RBF state, live
+close/sweep proof recovery, live reorg-watcher integration, and full
+asset-history recovery. Those are the next production-hardening items for
+`tap-ldk`, tracked separately in #96 through #106.
 
 The proof-of-concept issues are closed, and the current open work is the
 production-hardening sequence for proof replay and formal verification. That
@@ -484,8 +467,8 @@ readiness.
 Proof replay is now connected to wallet balances, proof export, channel
 funding, commitment updates, cooperative close, bounded unilateral recovery,
 second-level HTLC recovery, final sweep recovery, and bounded anchor-state
-policy. The remaining implementation work in this phase is CI wiring. Live
-chain-watcher integration remains a production boundary above the current
+policy. The #96 proof-engine hardening sequence now has local and CI wiring;
+live chain-watcher integration remains a production boundary above the current
 synthetic regtest policy. The
 already-wired funding path proves that the asset input being locked into the
 channel is spendable, owned by the expected key, tied to the expected asset ID
@@ -549,26 +532,26 @@ proof-state transition input rules. `Miri` remains unwired because the current
 proof-engine code does not use unsafe Rust, and `loom` remains unwired because
 the proof-engine state does not yet use shared concurrent mutation.
 
-The seventh implementation step is to wire the checks into normal developer
-and CI flow. `scripts/formal-check.sh` already discovers checked-in TLA+
-configs and skips cleanly when no checker is installed. Once
-`ProofValidation.tla` and `ProofValidation.cfg` exist, that script should run
-the proof-validation model with the rest of the checked specs. A future CI job
-should run formatting, `cargo test --locked`, proof negative vectors, the
-native demo, the compatibility demo, the BOLT simple-taproot scripts, formal
-checks when TLC is available, property tests, fuzz smoke targets, and Kani
-targets. `scripts/rust-verification-check.sh` now provides the local
-property/fuzz/Kani wrapper with explicit skips for optional tools; #106 should
-wire the same behavior into normal CI.
+The seventh implementation step, developer and CI wiring, is now in place.
+`scripts/formal-check.sh` discovers checked-in TLA+ configs and skips cleanly
+when no checker is installed. `scripts/rust-verification-check.sh` runs the
+property tests and visibly skips optional fuzz or Kani checks when those tools
+are not installed. `scripts/proof-engine-check.sh` is the local umbrella
+command: it runs formatting, `cargo test --locked`, formal checks,
+Rust-native verification, and the native demo by default, and it runs the BOLT
+simple-taproot scripts plus the compatibility demo when
+`TAP_LDK_EXTENDED_CHECKS=1` is set. `.github/workflows/proof-engine.yml` wires
+the same normal suite into GitHub Actions for pushes and pull requests, with a
+manual extended workflow for the heavier BOLT and compatibility checks.
 
-The eighth implementation step is documentation and issue hygiene. This work
-should be split into a new GitHub issue sequence rather than buried under the
-closed first-demo issues. The sequence should track the proof replay engine,
-negative vectors, proof-validation TLA+ model, channel-funding proof replay,
-commitment proof replay, close/sweep proof replay, reorg-sensitive policy,
-property/fuzz/Kani harnesses, CI integration, and compatibility-matrix updates.
-Each issue should state the implementation files, the model files, the
-negative vectors, and the verification command that closes it.
+The eighth implementation step is documentation and issue hygiene. That work
+is now represented by the #96 through #106 sequence rather than being buried
+under the closed first-demo issues. The sequence tracks the proof replay
+engine, negative vectors, proof-validation TLA+ model, channel-funding proof
+replay, commitment proof replay, close/sweep proof replay, reorg-sensitive
+policy, property/fuzz/Kani harnesses, CI integration, and compatibility-matrix
+updates. The remaining open production items should be filed as new issues
+rather than reopening the first-demo closure scope.
 
 The exit bar for this roadmap is precise. A production proof-engine claim can
 be made only when every accepted wallet balance, channel balance, close output,

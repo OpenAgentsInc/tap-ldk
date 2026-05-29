@@ -8,8 +8,17 @@ that an LDK wallet. The point is to make the asset proof, asset-channel,
 quote, HTLC, payment, persistence, and recovery logic live in Rust/LDK code.
 
 This document explains what exists now, how the pieces fit together, what has
-been wired against `rust-lightning`, and what still has to be built before the
-`lnd`/`tapd`/`litd` interop demo is real.
+been wired against `rust-lightning`, and what still has to be built before this
+could become production wallet infrastructure.
+
+The official BOLT Simple Taproot scope is the Bitcoin channel base described in
+`bolt-simple-taproot.md`. The pinned OpenAgentsInc `rust-lightning` fork now
+implements that base: final feature negotiation, required nonce/signature
+messages, MuSig2 signing, P2TR funding and commitments, close/RBF close,
+reconnect and BTC splice nonce maps, HTLC and second-level outputs, unilateral
+spend metadata, restart reconstruction, and BOLT vector replay. The Taproot
+Assets stablecoin proof layer is built on top of that and remains the
+experimental part that still needs production hardening.
 
 ## Current State
 

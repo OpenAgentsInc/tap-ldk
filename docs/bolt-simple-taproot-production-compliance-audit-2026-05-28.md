@@ -15,6 +15,15 @@ Current local line audited:
 
 ## Audit Result
 
+The current code implements the official `bolt-simple-taproot.md` Bitcoin
+channel base through the pinned OpenAgentsInc `rust-lightning` fork. That
+means the spec's final simple-taproot feature negotiation, nonce and
+partial-signature messages, MuSig2 signing path, P2TR funding, commitment
+outputs, cooperative close and close RBF, reconnect nonce maps, BTC splice
+nonce maps, HTLC and second-level transactions, unilateral spend metadata, and
+published vector surfaces are covered. It does not mean the work is upstream
+in LDK, and it does not make the Taproot Assets proof engine production-ready.
+
 #81 is correctly closed as a live `litd` to native LDK settlement regression.
 It is separate from the production-complete BTC simple-taproot BOLT claim.
 The remaining BOLT base work was tracked and closed in:

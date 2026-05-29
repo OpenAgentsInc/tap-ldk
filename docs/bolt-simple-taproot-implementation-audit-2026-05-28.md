@@ -17,17 +17,25 @@ the BOLT simple-taproot claim. See
 
 ## Summary
 
-The fork implements a large part of the draft BOLT simple-taproot base: feature
-and channel-type bits, fixed-width MuSig2 TLVs, nonce parsing, MuSig2 signing
-helpers, BIP86 funding outputs, simple-taproot commitment output construction,
-HTLC script helpers, second-level HTLC signing, reestablish/RAA nonce fields, and
-cooperative-close message types.
+The current pinned fork line implements the Bitcoin channel base from the
+official BOLTs `bolt-simple-taproot.md` draft. That claim is intentionally
+specific: it covers the BTC simple-taproot channel rules in the OpenAgentsInc
+`rust-lightning` fork, not an upstream LDK release and not the full Taproot
+Assets stablecoin proof layer.
 
-It does not fully implement the current spec yet. Follow-up work through #87
-fixes the force-close funding-input failure that produced
-`Invalid Taproot control block size`, the private-channel rule for
-simple-taproot and Taproot Asset opens, immediate open/accept nonce validation,
-and the RAA/reestablish nonce field path:
+The implemented BOLT base includes feature and channel-type bits, fixed-width
+MuSig2 TLVs, nonce parsing, MuSig2 signing and verification, BIP86 funding
+outputs, simple-taproot commitment output construction, HTLC script helpers,
+second-level HTLC signing, reestablish/RAA nonce fields, cooperative-close
+message types, close RBF nonce rotation, BTC splice nonce maps, BOLT vector
+replay, unilateral spend checks, and restart metadata reconstruction.
+
+Follow-up work through #95 fixed the original audit gaps: the force-close
+funding-input failure that produced `Invalid Taproot control block size`, the
+private-channel rule for simple-taproot and Taproot Asset opens, immediate
+open/accept nonce validation, the RAA/reestablish nonce field path, final
+`option_simple_taproot` negotiation, BTC splice nonce-map compliance,
+cooperative-close RBF, and the full vector/unilateral-spend replay:
 
 - local unilateral fallback now persists the aggregate holder MuSig2
   commitment signature and spends the simple-taproot funding output with a
@@ -49,12 +57,12 @@ and the RAA/reestablish nonce field path:
   signed close transactions until confirmation, and fails closed on missing or
   reused close state.
 
-The audit result is therefore: **first-demo scoped, not production BOLT
-complete**. The #81 live settlement blocker is now cleared; keep the #81, #57,
-#58, #59, #60, and #61 live/proof/reporting/simple-taproot gates green as
-regressions for the completed Path B first-demo work. The
-rest of the BOLT
-conformance work is split into the issue set in
+The audit result is therefore: **BTC simple-taproot BOLT base implemented in
+the pinned fork; Taproot Assets overlay still experimental**. The #81 live
+settlement blocker is now cleared; keep the #81, #57, #58, #59, #60, and #61
+live/proof/reporting/simple-taproot gates green as regressions for the
+completed first-demo work. The BOLT conformance work that was split out of #81
+is closed in the issue set recorded in
 `docs/bolt-simple-taproot-spec-compliance-issues.md`.
 
 Follow-up update: `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f`

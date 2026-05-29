@@ -21,6 +21,14 @@ settlement, and recovery are handled by Rust/LDK code rather than delegated to
 
 Last updated: 2026-05-29
 
+- Official BOLT Simple Taproot status: the pinned OpenAgentsInc
+  `rust-lightning` fork implements the Bitcoin channel base from
+  `bolt-simple-taproot.md`. That covers final negotiation, nonce/signature
+  TLVs, MuSig2 signing, P2TR funding and commitments, close/RBF close,
+  reconnect and BTC splice nonce maps, HTLC and second-level outputs,
+  unilateral spend metadata, restart reconstruction, and BOLT vector replay.
+  Taproot Assets proof history and asset-channel hardening are separate from
+  that BOLT base and remain the experimental production-hardening track.
 - Path A has the bounded native `tap-ldk` to `tap-ldk` demo path.
 - Path B has fixture/RFQ/payment checks, `tapd` proof binding, local peer
   smokes, an integrated `litd` harness, a fork-backed `ldk-node` runtime pinned
@@ -134,11 +142,12 @@ Last updated: 2026-05-29
   pinned fork line. Asset-channel splice/RBF, grouped assets, and production
   proof-history/reorg hardening remain outside that BOLT base claim.
 - Proof-engine hardening is now in progress after the first demo. Issues #97
-  through #105 add typed proof-history replay, the proof-validation formal
+  through #106 add typed proof-history replay, the proof-validation formal
   model, negative proof vectors, wallet/funding/commitment/close/recovery
   replay gates, a bounded anchor-state policy for confirmed, pending, stale,
-  and reorged anchors, and Rust-native property/fuzz/Kani harnesses. Live
-  chain watcher integration and CI wiring remain in #106.
+  and reorged anchors, Rust-native property/fuzz/Kani harnesses, a local
+  proof-engine check wrapper, and GitHub Actions workflow coverage. Live
+  chain watcher integration remains future production work.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.
