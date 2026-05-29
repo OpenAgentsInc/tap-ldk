@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    asset::{AssetError, Bytes32},
+    asset::{AssetAmount, AssetError, AssetLeaf, Bytes32, CompressedKey, derive_hash_sum_root},
     asset_channel_funding::{AssetChannelFundingError, run_asset_channel_funding_smoke},
     asset_commitment::{
         AssetCommitmentChannelState, AssetCommitmentError, AssetCommitmentStore,
@@ -34,6 +34,10 @@ use crate::{
     },
     asset_peer_message::AssetPeerMessage,
     ldk_baseline::BaselineBtcSmokeState,
+    proof::{
+        ProofHistoryEngine, ProofHistoryInput, ProofHistoryOutput, ProofHistoryRecord,
+        ProofHistoryReplayError, ProofHistoryState, ProofTransitionKind,
+    },
     rfq_invoice::{
         NativeRfqPolicy, QuoteBoundInvoice, QuoteBoundInvoiceRequest, RfqInvoiceError,
         bind_quote_to_invoice, pay_quote_bound_invoice, receive_native_rfq_request,
@@ -276,6 +280,11 @@ pub struct NativeAssetProofRecoveryReport {
     pub asset_proof_recovered: bool,
     pub proof_root_hash: Bytes32,
     pub proof_root_sum: u64,
+    pub proof_history_record_id: String,
+    pub proof_history_output_id: String,
+    pub proof_history_transition_id: Bytes32,
+    pub proof_history_output_state: String,
+    pub proof_history_replayed: bool,
     pub proof_handoff_digest: Bytes32,
     pub sweep_output_digest: Bytes32,
     pub ldk_proof_ownership_digest: Bytes32,
@@ -293,6 +302,14 @@ pub struct NativeAssetRecoveryMatrixReport {
     pub stale_proof_ownership_refused: bool,
     pub btc_sweep_without_asset_proof_refused: bool,
     pub btc_sweep_without_asset_proof_status: NativeAssetProofRecoveryStatus,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct RecoveryProofHistory {
+    record_id: String,
+    output_id: String,
+    transition_id: Bytes32,
+    output_state: ProofHistoryState,
 }
 
 pub fn recover_native_asset_checkpoint(
@@ -630,6 +647,7 @@ fn recover_asset_proof_ownership(
         ldk_state,
     )
     .map_err(NativeAssetRecoveryError::LdkProofOwnership)?;
+    let proof_history = validate_recovery_proof_history(state, spend_kind, &prepared)?;
 
     Ok(NativeAssetProofRecoveryReport {
         spend_kind,
@@ -641,10 +659,227 @@ fn recover_asset_proof_ownership(
         asset_proof_recovered: prepared.asset_proof_recovered,
         proof_root_hash: state.monitor_blob.proof_root_hash,
         proof_root_sum: state.monitor_blob.proof_root_sum,
+        proof_history_record_id: proof_history.record_id,
+        proof_history_output_id: proof_history.output_id,
+        proof_history_transition_id: proof_history.transition_id,
+        proof_history_output_state: proof_history_state_name(proof_history.output_state).to_owned(),
+        proof_history_replayed: true,
         proof_handoff_digest: Bytes32(prepared.proof_handoff_digest),
         sweep_output_digest: Bytes32(prepared.sweep_output_digest),
         ldk_proof_ownership_digest: Bytes32(prepared.ownership_digest),
     })
+}
+
+fn validate_recovery_proof_history(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+    prepared: &TaprootAssetProofOwnershipState,
+) -> Result<RecoveryProofHistory, NativeAssetRecoveryError> {
+    let records = recovery_proof_history_records(state, spend_kind, prepared)?;
+    let replay =
+        ProofHistoryEngine::replay(&records).map_err(NativeAssetRecoveryError::ProofHistory)?;
+    let proof_history = recovery_proof_history_metadata(state, spend_kind, prepared);
+    let explanation = replay
+        .accepted_explanation(&proof_history.output_id)
+        .ok_or_else(|| NativeAssetRecoveryError::ProofHistoryDoesNotMatchRecovery(spend_kind))?;
+    if explanation.transition_kind != recovery_terminal_transition_kind(spend_kind)
+        || explanation.virtual_transition_id != proof_history.transition_id
+        || explanation.resulting_state != proof_history.output_state
+        || explanation.asset_id != state.asset_id
+        || explanation.amount != AssetAmount::new(state.total_amount)
+        || explanation.script_key != recovery_script_key(spend_kind)?
+        || explanation.anchor_outpoint.as_str()
+            != recovery_anchor_outpoint(state, spend_kind).as_str()
+        || explanation.tap_asset_root != recovery_root(state, spend_kind)?
+    {
+        return Err(NativeAssetRecoveryError::ProofHistoryDoesNotMatchRecovery(
+            spend_kind,
+        ));
+    }
+    Ok(proof_history)
+}
+
+fn recovery_proof_history_records(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+    prepared: &TaprootAssetProofOwnershipState,
+) -> Result<Vec<ProofHistoryRecord>, NativeAssetRecoveryError> {
+    let prior_input_id = format!(
+        "native-asset-recovery-prior-input:{}:{}",
+        state.channel_id,
+        spend_kind.as_str()
+    );
+    let unilateral_output_id = format!(
+        "native-asset-recovery-unilateral-output:{}:{}",
+        state.channel_id,
+        spend_kind.as_str()
+    );
+    let prior_root = derive_hash_sum_root(&[AssetLeaf {
+        asset_id: state.asset_id,
+        script_key: state.asset_signing_key,
+        amount: AssetAmount::new(state.total_amount),
+    }])?;
+    let recovery_root = recovery_root(state, spend_kind)?;
+    let mut records = vec![
+        ProofHistoryRecord {
+            record_id: prior_input_id.clone(),
+            kind: ProofTransitionKind::Issuance,
+            virtual_transition_id: recovery_prior_input_transition_id(state, spend_kind),
+            inputs: Vec::new(),
+            outputs: vec![ProofHistoryOutput {
+                output_id: prior_input_id.clone(),
+                asset_id: state.asset_id,
+                amount: AssetAmount::new(state.total_amount),
+                script_key: state.asset_signing_key,
+                anchor_outpoint: state.funding_outpoint.clone(),
+                tap_asset_root: prior_root,
+                resulting_state: ProofHistoryState::Accepted,
+            }],
+        },
+        ProofHistoryRecord {
+            record_id: format!(
+                "native-asset-recovery-prior-channel:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            kind: ProofTransitionKind::ChannelFunding,
+            virtual_transition_id: state.latest_proof_history_transition_id,
+            inputs: vec![ProofHistoryInput::new(prior_input_id)],
+            outputs: vec![ProofHistoryOutput {
+                output_id: state.latest_proof_history_output_id.clone(),
+                asset_id: state.asset_id,
+                amount: AssetAmount::new(state.total_amount),
+                script_key: state.asset_signing_key,
+                anchor_outpoint: state.funding_outpoint.clone(),
+                tap_asset_root: prior_root,
+                resulting_state: ProofHistoryState::ChannelLocked,
+            }],
+        },
+        ProofHistoryRecord {
+            record_id: format!(
+                "native-asset-recovery-unilateral-close:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            kind: ProofTransitionKind::UnilateralClose,
+            virtual_transition_id: recovery_unilateral_transition_id(state, spend_kind, prepared),
+            inputs: vec![ProofHistoryInput::new(
+                state.latest_proof_history_output_id.clone(),
+            )],
+            outputs: vec![ProofHistoryOutput {
+                output_id: unilateral_output_id.clone(),
+                asset_id: state.asset_id,
+                amount: AssetAmount::new(state.total_amount),
+                script_key: recovery_script_key(spend_kind)?,
+                anchor_outpoint: recovery_anchor_outpoint(state, spend_kind),
+                tap_asset_root: recovery_root,
+                resulting_state: ProofHistoryState::Closed,
+            }],
+        },
+    ];
+
+    match spend_kind {
+        NativeAssetProofRecoverySpendKind::Commitment => {}
+        NativeAssetProofRecoverySpendKind::SecondLevelHtlc => {
+            let proof_history = recovery_proof_history_metadata(state, spend_kind, prepared);
+            records.push(ProofHistoryRecord {
+                record_id: proof_history.record_id.clone(),
+                kind: ProofTransitionKind::SecondLevelHtlc,
+                virtual_transition_id: proof_history.transition_id,
+                inputs: vec![ProofHistoryInput::new(unilateral_output_id)],
+                outputs: vec![ProofHistoryOutput {
+                    output_id: proof_history.output_id,
+                    asset_id: state.asset_id,
+                    amount: AssetAmount::new(state.total_amount),
+                    script_key: recovery_script_key(spend_kind)?,
+                    anchor_outpoint: recovery_anchor_outpoint(state, spend_kind),
+                    tap_asset_root: recovery_root,
+                    resulting_state: ProofHistoryState::Closed,
+                }],
+            });
+        }
+        NativeAssetProofRecoverySpendKind::FinalSweep => {
+            let proof_history = recovery_proof_history_metadata(state, spend_kind, prepared);
+            records.push(ProofHistoryRecord {
+                record_id: proof_history.record_id.clone(),
+                kind: ProofTransitionKind::Sweep,
+                virtual_transition_id: proof_history.transition_id,
+                inputs: vec![ProofHistoryInput::new(unilateral_output_id)],
+                outputs: vec![ProofHistoryOutput {
+                    output_id: proof_history.output_id,
+                    asset_id: state.asset_id,
+                    amount: AssetAmount::new(state.total_amount),
+                    script_key: recovery_script_key(spend_kind)?,
+                    anchor_outpoint: recovery_anchor_outpoint(state, spend_kind),
+                    tap_asset_root: recovery_root,
+                    resulting_state: ProofHistoryState::Swept,
+                }],
+            });
+        }
+    }
+
+    Ok(records)
+}
+
+fn recovery_proof_history_metadata(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+    prepared: &TaprootAssetProofOwnershipState,
+) -> RecoveryProofHistory {
+    match spend_kind {
+        NativeAssetProofRecoverySpendKind::Commitment => RecoveryProofHistory {
+            record_id: format!(
+                "native-asset-recovery-unilateral-close:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            output_id: format!(
+                "native-asset-recovery-unilateral-output:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            transition_id: recovery_unilateral_transition_id(state, spend_kind, prepared),
+            output_state: ProofHistoryState::Closed,
+        },
+        NativeAssetProofRecoverySpendKind::SecondLevelHtlc => RecoveryProofHistory {
+            record_id: format!(
+                "native-asset-recovery-second-level:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            output_id: format!(
+                "native-asset-recovery-second-level-output:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            transition_id: recovery_terminal_transition_id(state, spend_kind, prepared),
+            output_state: ProofHistoryState::Closed,
+        },
+        NativeAssetProofRecoverySpendKind::FinalSweep => RecoveryProofHistory {
+            record_id: format!(
+                "native-asset-recovery-sweep:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            output_id: format!(
+                "native-asset-recovery-sweep-output:{}:{}",
+                state.channel_id,
+                spend_kind.as_str()
+            ),
+            transition_id: recovery_terminal_transition_id(state, spend_kind, prepared),
+            output_state: ProofHistoryState::Swept,
+        },
+    }
+}
+
+fn recovery_terminal_transition_kind(
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> ProofTransitionKind {
+    match spend_kind {
+        NativeAssetProofRecoverySpendKind::Commitment => ProofTransitionKind::UnilateralClose,
+        NativeAssetProofRecoverySpendKind::SecondLevelHtlc => ProofTransitionKind::SecondLevelHtlc,
+        NativeAssetProofRecoverySpendKind::FinalSweep => ProofTransitionKind::Sweep,
+    }
 }
 
 fn missing_proof_ownership_refused(
@@ -776,6 +1011,107 @@ fn recovery_sweep_output_digest(
     hasher.update(state.local_balance.to_be_bytes());
     hasher.update(state.remote_balance.to_be_bytes());
     Bytes32(hasher.finalize().into())
+}
+
+fn recovery_prior_input_transition_id(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-recovery-prior-input:v1");
+    hasher.update(spend_kind.as_str().as_bytes());
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.total_amount.to_be_bytes());
+    Bytes32(hasher.finalize().into())
+}
+
+fn recovery_unilateral_transition_id(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+    prepared: &TaprootAssetProofOwnershipState,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-recovery-unilateral-close:v1");
+    hasher.update(spend_kind.as_str().as_bytes());
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.latest_commitment_number.to_be_bytes());
+    hasher.update(prepared.proof_handoff_digest);
+    hasher.update(prepared.sweep_output_digest);
+    Bytes32(hasher.finalize().into())
+}
+
+fn recovery_terminal_transition_id(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+    prepared: &TaprootAssetProofOwnershipState,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-recovery-terminal:v1");
+    hasher.update(spend_kind.as_str().as_bytes());
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.latest_commitment_number.to_be_bytes());
+    hasher.update(prepared.ownership_digest);
+    Bytes32(hasher.finalize().into())
+}
+
+fn recovery_script_key(
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Result<CompressedKey, NativeAssetRecoveryError> {
+    let seed = match spend_kind {
+        NativeAssetProofRecoverySpendKind::Commitment => 41,
+        NativeAssetProofRecoverySpendKind::SecondLevelHtlc => 42,
+        NativeAssetProofRecoverySpendKind::FinalSweep => 43,
+    };
+    let prefix = if seed % 2 == 0 { "02" } else { "03" };
+    format!("{prefix}{:064}", seed)
+        .parse::<CompressedKey>()
+        .map_err(NativeAssetRecoveryError::Asset)
+}
+
+fn recovery_anchor_outpoint(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-recovery-anchor:v1");
+    hasher.update(spend_kind.as_str().as_bytes());
+    hasher.update(state.channel_id.as_bytes());
+    hasher.update(state.asset_id.0);
+    hasher.update(state.latest_commitment_number.to_be_bytes());
+    format!(
+        "{}:{}",
+        Bytes32(hasher.finalize().into()).to_hex(),
+        spend_kind as u8
+    )
+}
+
+fn recovery_root(
+    state: &AssetCommitmentChannelState,
+    spend_kind: NativeAssetProofRecoverySpendKind,
+) -> Result<crate::asset::RootHashSum, NativeAssetRecoveryError> {
+    derive_hash_sum_root(&[AssetLeaf {
+        asset_id: state.asset_id,
+        script_key: recovery_script_key(spend_kind)?,
+        amount: AssetAmount::new(state.total_amount),
+    }])
+    .map_err(NativeAssetRecoveryError::Asset)
+}
+
+fn proof_history_state_name(state: ProofHistoryState) -> &'static str {
+    match state {
+        ProofHistoryState::Accepted => "accepted",
+        ProofHistoryState::Rejected => "rejected",
+        ProofHistoryState::Unresolved => "unresolved",
+        ProofHistoryState::Pending => "pending",
+        ProofHistoryState::Stale => "stale",
+        ProofHistoryState::Spent => "spent",
+        ProofHistoryState::ChannelLocked => "channel_locked",
+        ProofHistoryState::Closed => "closed",
+        ProofHistoryState::Swept => "swept",
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -928,6 +1264,7 @@ fn hash_optional_string(hasher: &mut Sha256, value: Option<&str>) {
 pub enum NativeAssetRecoveryError {
     Json(serde_json::Error),
     Asset(AssetError),
+    ProofHistory(ProofHistoryReplayError),
     Funding(AssetChannelFundingError),
     Commitment(AssetCommitmentError),
     LdkProofOwnership(TaprootAssetProofOwnershipError),
@@ -942,6 +1279,7 @@ pub enum NativeAssetRecoveryError {
     MissingPaymentStore,
     MissingAssetHtlc,
     MissingClosePreparation,
+    ProofHistoryDoesNotMatchRecovery(NativeAssetProofRecoverySpendKind),
     StaleCheckpoint {
         expected: u64,
         actual: u64,
@@ -961,6 +1299,9 @@ impl fmt::Display for NativeAssetRecoveryError {
         match self {
             Self::Json(err) => write!(f, "native asset recovery JSON error: {err}"),
             Self::Asset(err) => write!(f, "native asset recovery asset error: {err}"),
+            Self::ProofHistory(err) => {
+                write!(f, "native asset recovery proof-history error: {err}")
+            }
             Self::Funding(err) => write!(f, "native asset recovery funding error: {err}"),
             Self::Commitment(err) => write!(f, "native asset recovery commitment error: {err}"),
             Self::LdkProofOwnership(err) => {
@@ -987,6 +1328,11 @@ impl fmt::Display for NativeAssetRecoveryError {
             Self::MissingClosePreparation => {
                 write!(f, "native asset recovery missing close preparation marker")
             }
+            Self::ProofHistoryDoesNotMatchRecovery(spend_kind) => write!(
+                f,
+                "native asset recovery proof history does not match {:?} spend",
+                spend_kind
+            ),
             Self::StaleCheckpoint { expected, actual } => write!(
                 f,
                 "native asset recovery stale checkpoint: expected commitment {expected}, got {actual}"
@@ -1100,6 +1446,21 @@ mod tests {
         );
         assert!(report.force_close_recovery.btc_recovered);
         assert!(report.force_close_recovery.asset_proof_recovered);
+        assert!(report.force_close_recovery.proof_history_replayed);
+        assert!(report.second_level_htlc_recovery.proof_history_replayed);
+        assert!(report.final_sweep_recovery.proof_history_replayed);
+        assert_eq!(
+            report.force_close_recovery.proof_history_output_state,
+            "closed"
+        );
+        assert_eq!(
+            report.second_level_htlc_recovery.proof_history_output_state,
+            "closed"
+        );
+        assert_eq!(
+            report.final_sweep_recovery.proof_history_output_state,
+            "swept"
+        );
         assert!(report.missing_proof_ownership_refused);
         assert!(report.stale_proof_ownership_refused);
         assert!(report.btc_sweep_without_asset_proof_refused);

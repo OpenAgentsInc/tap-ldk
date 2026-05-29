@@ -8,7 +8,10 @@ remote asset allocation, exports owner proofs tied to final close anchors, and
 verifies those proofs by importing them into fresh wallets. The close path now
 also validates the final allocation through the OpenAgentsInc rust-lightning
 cooperative-close hook, exports the resulting allocation digest, and reports
-that the latest allocation survives close-store restart unchanged.
+that the latest allocation survives close-store restart unchanged. Close proof
+history is replayed from the latest channel-locked commitment state into local
+and remote closed outputs, then through proof-export records for the exact
+proofs that wallets import and export.
 
 Smoke command:
 
@@ -19,7 +22,8 @@ cargo run -p tap-ldk-cli -- asset-close-smoke
 The smoke pays `125` `OPENUSD` from Alice to Bob, cooperatively closes the
 channel at `alice=575` and `bob=425`, exports both proofs, imports them into
 wallets, and round-trips the close store to model restart after close. It also
-rejects an obsolete proof from the prior commitment view.
+exports the wallet proofs back out and validates them against the actual close
+outputs, and rejects an obsolete proof from the prior commitment view.
 
 `./scripts/path-a-native-demo.sh` captures the close evidence as standalone
 artifacts:

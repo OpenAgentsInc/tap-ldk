@@ -26,13 +26,17 @@ use crate::{
         NativeAssetPaymentError, NativeAssetPaymentRequest, NativeAssetPaymentStore,
         send_native_asset_payment,
     },
-    proof::{ProofError, ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
+    proof::{
+        ProofError, ProofFile, ProofHistoryEngine, ProofHistoryInput, ProofHistoryOutput,
+        ProofHistoryRecord, ProofHistoryReplayError, ProofHistoryState, ProofNetwork,
+        ProofTransitionKind, ProofValidationContext, VerificationScope,
+    },
     rfq_invoice::RfqInvoiceError,
     rfq_quote_store::RfqQuoteStore,
     wallet::{ImportOutcome, WalletError, WalletState},
 };
 
-pub const NATIVE_ASSET_CLOSE_STORE_SCHEMA_VERSION: u32 = 1;
+pub const NATIVE_ASSET_CLOSE_STORE_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -135,6 +139,20 @@ pub struct NativeAssetClose {
     pub total_amount: u64,
     pub proof_root_hash: Bytes32,
     pub proof_root_sum: u64,
+    pub prior_script_key: CompressedKey,
+    pub prior_anchor_outpoint: String,
+    pub prior_proof_history_output_id: String,
+    pub prior_proof_history_transition_id: Bytes32,
+    pub close_proof_history_record_id: String,
+    pub close_proof_history_transition_id: Bytes32,
+    pub local_closed_proof_history_output_id: String,
+    pub remote_closed_proof_history_output_id: String,
+    pub local_export_proof_history_record_id: String,
+    pub local_export_proof_history_output_id: String,
+    pub local_export_proof_history_transition_id: Bytes32,
+    pub remote_export_proof_history_record_id: String,
+    pub remote_export_proof_history_output_id: String,
+    pub remote_export_proof_history_transition_id: Bytes32,
     pub local_script_key: CompressedKey,
     pub remote_script_key: CompressedKey,
     pub local_proof_tlv_hex: String,
@@ -184,7 +202,22 @@ impl NativeAssetClose {
         let remote_proof = self.remote_proof()?;
         validate_close_proof(self, CloseOwnerSide::Local, &local_proof)?;
         validate_close_proof(self, CloseOwnerSide::Remote, &remote_proof)?;
+        validate_close_proof_history(self, &local_proof, &remote_proof)?;
         validate_ldk_close_allocation(self, self.commitment_number)?;
+        if self.close_id
+            != close_id_from_parts(
+                &self.channel_id,
+                self.asset_id,
+                self.commitment_number,
+                self.local_amount,
+                self.remote_amount,
+                &self.prior_proof_history_output_id,
+            )
+        {
+            return Err(NativeAssetCloseError::StorageInvariant(
+                "cooperative close id mismatch".to_owned(),
+            ));
+        }
         if self.close_digest
             != close_digest(
                 &self.channel_id,
@@ -195,6 +228,9 @@ impl NativeAssetClose {
                 &self.local_proof_tlv_hex,
                 &self.remote_proof_tlv_hex,
                 self.ldk_close_allocation_digest,
+                &self.prior_proof_history_output_id,
+                &self.local_export_proof_history_output_id,
+                &self.remote_export_proof_history_output_id,
             )
         {
             return Err(NativeAssetCloseError::StorageInvariant(
@@ -221,10 +257,30 @@ pub struct NativeAssetCloseSmokeReport {
     pub remote_proof_tlv_hex: String,
     pub local_wallet_balance: u64,
     pub remote_wallet_balance: u64,
+    pub close_proof_history_replayed: bool,
+    pub proof_export_history_replayed: bool,
+    pub local_wallet_export_matches_close_output: bool,
+    pub remote_wallet_export_matches_close_output: bool,
     pub restart_after_close_matches: bool,
     pub obsolete_proof_rejected: bool,
     pub force_close_status: NativeForceCloseStatus,
     pub failed_sweep_not_reported_recovered: bool,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct CloseProofHistory {
+    prior_output_id: String,
+    prior_transition_id: Bytes32,
+    close_record_id: String,
+    close_transition_id: Bytes32,
+    local_closed_output_id: String,
+    remote_closed_output_id: String,
+    local_export_record_id: String,
+    local_export_output_id: String,
+    local_export_transition_id: Bytes32,
+    remote_export_record_id: String,
+    remote_export_output_id: String,
+    remote_export_transition_id: Bytes32,
 }
 
 pub fn cooperative_close(
@@ -268,6 +324,22 @@ pub fn run_native_asset_close_smoke() -> Result<NativeAssetCloseSmokeReport, Nat
     let remote_wallet = roundtrip(&remote_wallet)?;
     let local_wallet_balance = wallet_balance(&local_wallet, close.asset_id)?;
     let remote_wallet_balance = wallet_balance(&remote_wallet, close.asset_id)?;
+    let local_wallet_export =
+        ProofFile::decode(&local_wallet.export_encoded_proof(local_import.proof_id())?)?;
+    let remote_wallet_export =
+        ProofFile::decode(&remote_wallet.export_encoded_proof(remote_import.proof_id())?)?;
+    let local_wallet_export_matches_close_output = validate_close_proof(
+        &recovered_close,
+        CloseOwnerSide::Local,
+        &local_wallet_export,
+    )
+    .is_ok();
+    let remote_wallet_export_matches_close_output = validate_close_proof(
+        &recovered_close,
+        CloseOwnerSide::Remote,
+        &remote_wallet_export,
+    )
+    .is_ok();
 
     let stale_state = stale_commitment_view(&state)?;
     let stale_local_proof = build_close_proof(
@@ -283,6 +355,18 @@ pub fn run_native_asset_close_smoke() -> Result<NativeAssetCloseSmokeReport, Nat
         !matches!(failed_sweep_gate(), NativeSweepRecoveryStatus::Recovered);
 
     commitment_store.validate()?;
+    let local_close_proof = recovered_close.local_proof()?;
+    let remote_close_proof = recovered_close.remote_proof()?;
+    let close_proof_history_replayed =
+        validate_close_proof_history(&recovered_close, &local_close_proof, &remote_close_proof)
+            .is_ok();
+    let proof_export_history_replayed = close_proof_history_replayed
+        && !recovered_close
+            .local_export_proof_history_output_id
+            .is_empty()
+        && !recovered_close
+            .remote_export_proof_history_output_id
+            .is_empty();
     let restart_after_close_matches = recovered_close == close
         && local_wallet_balance == close.local_amount
         && remote_wallet_balance == close.remote_amount;
@@ -302,6 +386,10 @@ pub fn run_native_asset_close_smoke() -> Result<NativeAssetCloseSmokeReport, Nat
         remote_proof_tlv_hex: close.remote_proof_tlv_hex,
         local_wallet_balance,
         remote_wallet_balance,
+        close_proof_history_replayed,
+        proof_export_history_replayed,
+        local_wallet_export_matches_close_output,
+        remote_wallet_export_matches_close_output,
         restart_after_close_matches,
         obsolete_proof_rejected,
         force_close_status: close.force_close_status,
@@ -344,6 +432,8 @@ fn close_from_state(
     )
     .map_err(NativeAssetCloseError::LdkCloseAllocation)?;
     let close_id = close_id(state);
+    let proof_history =
+        close_proof_history_metadata(&close_id, state, local_proof_digest, remote_proof_digest);
     let close_digest = close_digest(
         &state.channel_id,
         state.asset_id,
@@ -353,6 +443,9 @@ fn close_from_state(
         &local_proof_tlv_hex,
         &remote_proof_tlv_hex,
         Bytes32(ldk_allocation.allocation_digest),
+        &proof_history.prior_output_id,
+        &proof_history.local_export_output_id,
+        &proof_history.remote_export_output_id,
     );
 
     let close = NativeAssetClose {
@@ -365,6 +458,20 @@ fn close_from_state(
         total_amount: state.total_amount,
         proof_root_hash: state.monitor_blob.proof_root_hash,
         proof_root_sum: state.monitor_blob.proof_root_sum,
+        prior_script_key: state.asset_signing_key,
+        prior_anchor_outpoint: state.funding_outpoint.clone(),
+        prior_proof_history_output_id: proof_history.prior_output_id,
+        prior_proof_history_transition_id: proof_history.prior_transition_id,
+        close_proof_history_record_id: proof_history.close_record_id,
+        close_proof_history_transition_id: proof_history.close_transition_id,
+        local_closed_proof_history_output_id: proof_history.local_closed_output_id,
+        remote_closed_proof_history_output_id: proof_history.remote_closed_output_id,
+        local_export_proof_history_record_id: proof_history.local_export_record_id,
+        local_export_proof_history_output_id: proof_history.local_export_output_id,
+        local_export_proof_history_transition_id: proof_history.local_export_transition_id,
+        remote_export_proof_history_record_id: proof_history.remote_export_record_id,
+        remote_export_proof_history_output_id: proof_history.remote_export_output_id,
+        remote_export_proof_history_transition_id: proof_history.remote_export_transition_id,
         local_script_key,
         remote_script_key,
         local_proof_tlv_hex,
@@ -451,6 +558,276 @@ fn validate_close_proof(
         return Err(NativeAssetCloseError::ProofDoesNotMatchClose(owner));
     }
     Ok(())
+}
+
+fn validate_close_proof_history(
+    close: &NativeAssetClose,
+    local_proof: &ProofFile,
+    remote_proof: &ProofFile,
+) -> Result<(), NativeAssetCloseError> {
+    let expected = close_proof_history_metadata_from_close(close);
+    if close.prior_proof_history_output_id != expected.prior_output_id
+        || close.prior_proof_history_transition_id != expected.prior_transition_id
+        || close.close_proof_history_record_id != expected.close_record_id
+        || close.close_proof_history_transition_id != expected.close_transition_id
+        || close.local_closed_proof_history_output_id != expected.local_closed_output_id
+        || close.remote_closed_proof_history_output_id != expected.remote_closed_output_id
+        || close.local_export_proof_history_record_id != expected.local_export_record_id
+        || close.local_export_proof_history_output_id != expected.local_export_output_id
+        || close.local_export_proof_history_transition_id != expected.local_export_transition_id
+        || close.remote_export_proof_history_record_id != expected.remote_export_record_id
+        || close.remote_export_proof_history_output_id != expected.remote_export_output_id
+        || close.remote_export_proof_history_transition_id != expected.remote_export_transition_id
+    {
+        return Err(NativeAssetCloseError::ProofHistoryDoesNotMatchClose(
+            CloseOwnerSide::Local,
+        ));
+    }
+
+    let records = close_proof_history_records(close, &expected, local_proof, remote_proof)?;
+    let replay =
+        ProofHistoryEngine::replay(&records).map_err(NativeAssetCloseError::ProofHistory)?;
+    validate_exported_close_explanation(
+        close,
+        CloseOwnerSide::Local,
+        local_proof,
+        &expected.local_closed_output_id,
+        &expected.local_export_output_id,
+        &replay,
+    )?;
+    validate_exported_close_explanation(
+        close,
+        CloseOwnerSide::Remote,
+        remote_proof,
+        &expected.remote_closed_output_id,
+        &expected.remote_export_output_id,
+        &replay,
+    )?;
+    Ok(())
+}
+
+fn validate_exported_close_explanation(
+    close: &NativeAssetClose,
+    owner: CloseOwnerSide,
+    proof: &ProofFile,
+    closed_output_id: &str,
+    export_output_id: &str,
+    replay: &crate::proof::ProofHistoryReplay,
+) -> Result<(), NativeAssetCloseError> {
+    let explanation = replay
+        .accepted_explanation(export_output_id)
+        .ok_or(NativeAssetCloseError::ProofHistoryDoesNotMatchClose(owner))?;
+    if explanation.transition_kind != ProofTransitionKind::ProofExport
+        || explanation.resulting_state != ProofHistoryState::Accepted
+        || explanation.asset_id != close.asset_id
+        || explanation.amount != proof.amount
+        || explanation.script_key != proof.script_key
+        || explanation.anchor_outpoint.as_str() != proof.anchor_outpoint.as_str()
+        || explanation.tap_asset_root != proof.tap_asset_root
+        || explanation.prior_states.len() != 1
+        || explanation.prior_states[0].output_id != closed_output_id
+        || explanation.prior_states[0].state != ProofHistoryState::Closed
+    {
+        return Err(NativeAssetCloseError::ProofHistoryDoesNotMatchClose(owner));
+    }
+    Ok(())
+}
+
+fn close_proof_history_records(
+    close: &NativeAssetClose,
+    proof_history: &CloseProofHistory,
+    local_proof: &ProofFile,
+    remote_proof: &ProofFile,
+) -> Result<Vec<ProofHistoryRecord>, NativeAssetCloseError> {
+    let prior_input_id = format!("native-asset-close-prior-input:{}", close.close_id);
+    let prior_root = derive_hash_sum_root(&[AssetLeaf {
+        asset_id: close.asset_id,
+        script_key: close.prior_script_key,
+        amount: AssetAmount::new(close.total_amount),
+    }])?;
+    Ok(vec![
+        ProofHistoryRecord {
+            record_id: prior_input_id.clone(),
+            kind: ProofTransitionKind::Issuance,
+            virtual_transition_id: close_prior_input_transition_id(close),
+            inputs: Vec::new(),
+            outputs: vec![ProofHistoryOutput {
+                output_id: prior_input_id.clone(),
+                asset_id: close.asset_id,
+                amount: AssetAmount::new(close.total_amount),
+                script_key: close.prior_script_key,
+                anchor_outpoint: close.prior_anchor_outpoint.clone(),
+                tap_asset_root: prior_root,
+                resulting_state: ProofHistoryState::Accepted,
+            }],
+        },
+        ProofHistoryRecord {
+            record_id: format!("native-asset-close-prior-channel:{}", close.close_id),
+            kind: ProofTransitionKind::ChannelFunding,
+            virtual_transition_id: proof_history.prior_transition_id,
+            inputs: vec![ProofHistoryInput::new(prior_input_id)],
+            outputs: vec![ProofHistoryOutput {
+                output_id: proof_history.prior_output_id.clone(),
+                asset_id: close.asset_id,
+                amount: AssetAmount::new(close.total_amount),
+                script_key: close.prior_script_key,
+                anchor_outpoint: close.prior_anchor_outpoint.clone(),
+                tap_asset_root: prior_root,
+                resulting_state: ProofHistoryState::ChannelLocked,
+            }],
+        },
+        ProofHistoryRecord {
+            record_id: proof_history.close_record_id.clone(),
+            kind: ProofTransitionKind::CooperativeClose,
+            virtual_transition_id: proof_history.close_transition_id,
+            inputs: vec![ProofHistoryInput::new(
+                proof_history.prior_output_id.clone(),
+            )],
+            outputs: vec![
+                close_history_output(
+                    &proof_history.local_closed_output_id,
+                    local_proof,
+                    ProofHistoryState::Closed,
+                ),
+                close_history_output(
+                    &proof_history.remote_closed_output_id,
+                    remote_proof,
+                    ProofHistoryState::Closed,
+                ),
+            ],
+        },
+        ProofHistoryRecord {
+            record_id: proof_history.local_export_record_id.clone(),
+            kind: ProofTransitionKind::ProofExport,
+            virtual_transition_id: proof_history.local_export_transition_id,
+            inputs: vec![ProofHistoryInput::new(
+                proof_history.local_closed_output_id.clone(),
+            )],
+            outputs: vec![close_history_output(
+                &proof_history.local_export_output_id,
+                local_proof,
+                ProofHistoryState::Accepted,
+            )],
+        },
+        ProofHistoryRecord {
+            record_id: proof_history.remote_export_record_id.clone(),
+            kind: ProofTransitionKind::ProofExport,
+            virtual_transition_id: proof_history.remote_export_transition_id,
+            inputs: vec![ProofHistoryInput::new(
+                proof_history.remote_closed_output_id.clone(),
+            )],
+            outputs: vec![close_history_output(
+                &proof_history.remote_export_output_id,
+                remote_proof,
+                ProofHistoryState::Accepted,
+            )],
+        },
+    ])
+}
+
+fn close_history_output(
+    output_id: &str,
+    proof: &ProofFile,
+    resulting_state: ProofHistoryState,
+) -> ProofHistoryOutput {
+    ProofHistoryOutput {
+        output_id: output_id.to_owned(),
+        asset_id: proof.asset_id,
+        amount: proof.amount,
+        script_key: proof.script_key,
+        anchor_outpoint: proof.anchor_outpoint.clone(),
+        tap_asset_root: proof.tap_asset_root,
+        resulting_state,
+    }
+}
+
+fn close_proof_history_metadata(
+    close_id: &str,
+    state: &AssetCommitmentChannelState,
+    local_proof_digest: Bytes32,
+    remote_proof_digest: Bytes32,
+) -> CloseProofHistory {
+    close_proof_history_metadata_from_parts(
+        close_id,
+        state.asset_id,
+        state.latest_commitment_number,
+        state.local_balance,
+        state.remote_balance,
+        &state.latest_proof_history_output_id,
+        state.latest_proof_history_transition_id,
+        local_proof_digest,
+        remote_proof_digest,
+    )
+}
+
+fn close_proof_history_metadata_from_close(close: &NativeAssetClose) -> CloseProofHistory {
+    close_proof_history_metadata_from_parts(
+        &close.close_id,
+        close.asset_id,
+        close.commitment_number,
+        close.local_amount,
+        close.remote_amount,
+        &close.prior_proof_history_output_id,
+        close.prior_proof_history_transition_id,
+        close.local_proof_digest,
+        close.remote_proof_digest,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn close_proof_history_metadata_from_parts(
+    close_id: &str,
+    asset_id: Bytes32,
+    commitment_number: u64,
+    local_amount: u64,
+    remote_amount: u64,
+    prior_output_id: &str,
+    prior_transition_id: Bytes32,
+    local_proof_digest: Bytes32,
+    remote_proof_digest: Bytes32,
+) -> CloseProofHistory {
+    let close_transition_id = close_transition_id(
+        close_id,
+        asset_id,
+        commitment_number,
+        local_amount,
+        remote_amount,
+        prior_output_id,
+        local_proof_digest,
+        remote_proof_digest,
+    );
+    let local_closed_output_id = format!("native-asset-close-output:{close_id}:local");
+    let remote_closed_output_id = format!("native-asset-close-output:{close_id}:remote");
+    CloseProofHistory {
+        prior_output_id: prior_output_id.to_owned(),
+        prior_transition_id,
+        close_record_id: format!("native-asset-close:{close_id}"),
+        close_transition_id,
+        local_closed_output_id: local_closed_output_id.clone(),
+        remote_closed_output_id: remote_closed_output_id.clone(),
+        local_export_record_id: format!("native-asset-close-proof-export:{close_id}:local"),
+        local_export_output_id: format!(
+            "native-asset-close-proof-export-output:{close_id}:local:{}",
+            local_proof_digest.to_hex()
+        ),
+        local_export_transition_id: close_export_transition_id(
+            close_id,
+            CloseOwnerSide::Local,
+            &local_closed_output_id,
+            local_proof_digest,
+        ),
+        remote_export_record_id: format!("native-asset-close-proof-export:{close_id}:remote"),
+        remote_export_output_id: format!(
+            "native-asset-close-proof-export-output:{close_id}:remote:{}",
+            remote_proof_digest.to_hex()
+        ),
+        remote_export_transition_id: close_export_transition_id(
+            close_id,
+            CloseOwnerSide::Remote,
+            &remote_closed_output_id,
+            remote_proof_digest,
+        ),
+    }
 }
 
 fn validate_ldk_close_allocation(
@@ -595,14 +972,34 @@ fn decode_close_proof(hex: &str) -> Result<ProofFile, NativeAssetCloseError> {
 }
 
 fn close_id(state: &AssetCommitmentChannelState) -> String {
+    close_id_from_parts(
+        &state.channel_id,
+        state.asset_id,
+        state.latest_commitment_number,
+        state.local_balance,
+        state.remote_balance,
+        &state.latest_proof_history_output_id,
+    )
+}
+
+fn close_id_from_parts(
+    channel_id: &str,
+    asset_id: Bytes32,
+    commitment_number: u64,
+    local_amount: u64,
+    remote_amount: u64,
+    prior_proof_history_output_id: &str,
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"tap-ldk:native-asset-close-id:v1");
-    hasher.update((state.channel_id.len() as u64).to_be_bytes());
-    hasher.update(state.channel_id.as_bytes());
-    hasher.update(state.asset_id.0);
-    hasher.update(state.latest_commitment_number.to_be_bytes());
-    hasher.update(state.local_balance.to_be_bytes());
-    hasher.update(state.remote_balance.to_be_bytes());
+    hasher.update((channel_id.len() as u64).to_be_bytes());
+    hasher.update(channel_id.as_bytes());
+    hasher.update(asset_id.0);
+    hasher.update(commitment_number.to_be_bytes());
+    hasher.update(local_amount.to_be_bytes());
+    hasher.update(remote_amount.to_be_bytes());
+    hasher.update((prior_proof_history_output_id.len() as u64).to_be_bytes());
+    hasher.update(prior_proof_history_output_id.as_bytes());
     Bytes32(hasher.finalize().into()).to_hex()
 }
 
@@ -615,6 +1012,9 @@ fn close_digest(
     local_proof_tlv_hex: &str,
     remote_proof_tlv_hex: &str,
     ldk_close_allocation_digest: Bytes32,
+    prior_proof_history_output_id: &str,
+    local_export_proof_history_output_id: &str,
+    remote_export_proof_history_output_id: &str,
 ) -> Bytes32 {
     let mut hasher = Sha256::new();
     hasher.update(b"tap-ldk:native-asset-close-digest:v1");
@@ -629,7 +1029,64 @@ fn close_digest(
     hasher.update(local_proof_tlv_hex.as_bytes());
     hasher.update((remote_proof_tlv_hex.len() as u64).to_be_bytes());
     hasher.update(remote_proof_tlv_hex.as_bytes());
+    hash_string(&mut hasher, prior_proof_history_output_id);
+    hash_string(&mut hasher, local_export_proof_history_output_id);
+    hash_string(&mut hasher, remote_export_proof_history_output_id);
     Bytes32(hasher.finalize().into())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn close_transition_id(
+    close_id: &str,
+    asset_id: Bytes32,
+    commitment_number: u64,
+    local_amount: u64,
+    remote_amount: u64,
+    prior_output_id: &str,
+    local_proof_digest: Bytes32,
+    remote_proof_digest: Bytes32,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-asset-close-proof-history:v1");
+    hash_string(&mut hasher, close_id);
+    hasher.update(asset_id.0);
+    hasher.update(commitment_number.to_be_bytes());
+    hasher.update(local_amount.to_be_bytes());
+    hasher.update(remote_amount.to_be_bytes());
+    hash_string(&mut hasher, prior_output_id);
+    hasher.update(local_proof_digest.0);
+    hasher.update(remote_proof_digest.0);
+    Bytes32(hasher.finalize().into())
+}
+
+fn close_export_transition_id(
+    close_id: &str,
+    owner: CloseOwnerSide,
+    closed_output_id: &str,
+    proof_digest: Bytes32,
+) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-asset-close-proof-export:v1");
+    hash_string(&mut hasher, close_id);
+    hasher.update(owner.as_str().as_bytes());
+    hash_string(&mut hasher, closed_output_id);
+    hasher.update(proof_digest.0);
+    Bytes32(hasher.finalize().into())
+}
+
+fn close_prior_input_transition_id(close: &NativeAssetClose) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:native-asset-close-prior-input:v1");
+    hash_string(&mut hasher, &close.close_id);
+    hasher.update(close.asset_id.0);
+    hasher.update(close.total_amount.to_be_bytes());
+    hash_string(&mut hasher, &close.prior_anchor_outpoint);
+    Bytes32(hasher.finalize().into())
+}
+
+fn hash_string(hasher: &mut Sha256, value: &str) {
+    hasher.update((value.len() as u64).to_be_bytes());
+    hasher.update(value.as_bytes());
 }
 
 fn proof_handoff_digest(owner: CloseOwnerSide, proof_tlv_hex: &str) -> Bytes32 {
@@ -723,6 +1180,7 @@ pub enum NativeAssetCloseError {
     Json(serde_json::Error),
     Asset(AssetError),
     Proof(ProofError),
+    ProofHistory(ProofHistoryReplayError),
     Wallet(WalletError),
     Funding(AssetChannelFundingError),
     Commitment(AssetCommitmentError),
@@ -736,6 +1194,7 @@ pub enum NativeAssetCloseError {
     MissingStaleCommitment,
     ZeroCloseAmount(CloseOwnerSide),
     ProofDoesNotMatchClose(CloseOwnerSide),
+    ProofHistoryDoesNotMatchClose(CloseOwnerSide),
     FailedSweepReportedRecovered,
     InvalidHexLength,
     InvalidHexByte(String),
@@ -754,6 +1213,9 @@ impl fmt::Display for NativeAssetCloseError {
             Self::Json(err) => write!(f, "native asset close JSON error: {err}"),
             Self::Asset(err) => write!(f, "native asset close asset error: {err}"),
             Self::Proof(err) => write!(f, "native asset close proof error: {err}"),
+            Self::ProofHistory(err) => {
+                write!(f, "native asset close proof-history error: {err}")
+            }
             Self::Wallet(err) => write!(f, "native asset close wallet error: {err}"),
             Self::Funding(err) => write!(f, "native asset close funding error: {err}"),
             Self::Commitment(err) => write!(f, "native asset close commitment error: {err}"),
@@ -774,6 +1236,12 @@ impl fmt::Display for NativeAssetCloseError {
             }
             Self::ProofDoesNotMatchClose(owner) => {
                 write!(f, "native asset close proof does not match {owner:?} owner")
+            }
+            Self::ProofHistoryDoesNotMatchClose(owner) => {
+                write!(
+                    f,
+                    "native asset close proof history does not match {owner:?} owner"
+                )
             }
             Self::FailedSweepReportedRecovered => {
                 write!(f, "native asset close failed sweep reported as recovered")
@@ -868,6 +1336,10 @@ mod tests {
         assert_eq!(report.remote_wallet_balance, 425);
         assert_eq!(report.local_proof_import_status, "imported");
         assert_eq!(report.remote_proof_import_status, "imported");
+        assert!(report.close_proof_history_replayed);
+        assert!(report.proof_export_history_replayed);
+        assert!(report.local_wallet_export_matches_close_output);
+        assert!(report.remote_wallet_export_matches_close_output);
         assert_ne!(report.ldk_close_allocation_digest, Bytes32([0; 32]));
         assert!(report.restart_after_close_matches);
         assert!(report.obsolete_proof_rejected);
@@ -940,6 +1412,26 @@ mod tests {
             close.validate(),
             Err(NativeAssetCloseError::LdkCloseAllocation(
                 TaprootAssetCloseAllocationError::AllocationDigestMismatch
+            ))
+        ));
+    }
+
+    #[test]
+    fn tampered_close_proof_history_fails_validation() {
+        let (commitment_store, state) =
+            initialized_settled_commitment_store().expect("settled state");
+        let mut close = cooperative_close(
+            &commitment_store,
+            &state.channel_id,
+            close_script_key(2).expect("local key"),
+            close_script_key(3).expect("remote key"),
+        )
+        .expect("close succeeds");
+        close.local_export_proof_history_output_id = "obsolete-close-export".to_owned();
+        assert!(matches!(
+            close.validate(),
+            Err(NativeAssetCloseError::ProofHistoryDoesNotMatchClose(
+                CloseOwnerSide::Local
             ))
         ));
     }

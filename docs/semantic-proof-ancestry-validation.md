@@ -79,6 +79,14 @@ validation rebuilds that chain on restart, so a newer commitment number without
 matching proof-history metadata or monitor aux state is refused instead of
 being treated as recovered.
 
+Issue #103 extends replay authority through close, recovery, and close-proof
+export. Cooperative close now consumes the latest channel-locked proof-history
+output, creates closed local and remote outputs, and then records proof-export
+transitions for the exact wallet-importable close proofs. The recovery matrix
+also records replayed proof-history output metadata for unilateral commitment,
+second-level HTLC, and final sweep spend kinds, ending in closed or swept
+state as appropriate.
+
 ## Fail-Closed Cases
 
 Tests and fixtures cover malformed outpoints, unsupported scopes/networks,

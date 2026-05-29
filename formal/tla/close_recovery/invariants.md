@@ -6,6 +6,10 @@
 - Refused recovery is not reported as recovered.
 - The latest durable commitment number is preserved through close/recovery
   transitions.
+- Second-level HTLC output state requires a closed parent output.
+- Successful sweep requires a closed output and current proof state.
+- Proof export must reference either the cooperative close output or the final
+  sweep output, not an obsolete commitment view.
 
 ## Implementation Mapping
 
@@ -16,6 +20,9 @@
   state and does not report those refusals as recovered.
 - `crates/tap-ldk-core/src/asset_close.rs` maps cooperative close to the latest
   durable asset commitment and refuses proof material from obsolete commitment
-  views.
-- Force-close and sweep recovery remain a deferred gate; failed sweep state is
-  not reported as recovered.
+  views. Close proof export now carries replayed proof-history metadata for
+  the actual local and remote close outputs.
+- Force-close, second-level HTLC, and sweep recovery remain bounded recovery
+  reports, but each recovered report now carries replayed proof-history
+  metadata for the closed or swept output. Failed sweep state is not reported
+  as recovered.

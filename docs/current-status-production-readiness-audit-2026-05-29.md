@@ -437,6 +437,15 @@ transition. Restart validation rebuilds that chain alongside the monitor aux
 blob, so a newer commitment state without matching proof-history metadata is
 refused.
 
+Issue #103 extends replay authority through close, recovery, and close-proof
+export. Cooperative close now consumes the latest channel-locked
+proof-history output, produces closed local and remote outputs, and then
+records proof-export transitions for the exact final proofs imported and
+exported by the wallet. The recovery matrix also records replayed
+proof-history output metadata for unilateral commitment, second-level HTLC,
+and final sweep spend kinds; those reports end in closed or swept state rather
+than a generic recovered flag.
+
 The replay engine baseline is now in place. It builds a typed history graph
 from issuance, split, transfer, channel funding, commitment update,
 cooperative close, unilateral close, second-level HTLC, sweep, and
@@ -462,14 +471,17 @@ boundaries as those surfaces move from bounded demo behavior to production
 readiness.
 
 Proof replay is now connected to wallet balances, proof export, channel
-funding, and commitment updates. The remaining implementation work in this
-phase is close, sweep, recovery, reorg policy, Rust-native verification
+funding, commitment updates, cooperative close, bounded unilateral recovery,
+second-level HTLC recovery, and final sweep recovery. The remaining
+implementation work in this phase is reorg policy, Rust-native verification
 harnesses, and CI wiring. The already-wired funding path proves that the asset
 input being locked into the channel is spendable, owned by the expected key,
 tied to the expected asset ID and genesis, and conserved into the channel
 allocation. The already-wired commitment path consumes the previous
 channel-locked proof-history output and records the new channel-locked output
-for the latest commitment.
+for the latest commitment. The close/recovery path now ties exported close
+proofs and recovered unilateral outputs to replayed closed or swept proof
+states.
 
 The matching models are `asset_channel`, `asset_commitment`, and
 `asset_conservation`. They now make proof replay part of the checked state
@@ -480,22 +492,20 @@ asset-channel state. These models do not know Bitcoin script semantics; they
 prove the narrower wallet contract that funding, commitment, rejection, and
 restart do not create or forget asset balance.
 
-The fourth implementation step is close and sweep replay. Cooperative close
-should export proof material tied to the actual close outputs. Unilateral
-close should preserve proof ownership for every spendable output, including
-second-level HTLC success and timeout paths. Sweep should either produce an
-accepted proof state for the final spendable output or a clear unrecovered
-state. A failed sweep must not be reported as recovered. This work belongs in
-`asset_close.rs`, `asset_recovery.rs`, `wallet.rs`, the Rust Lightning proof
-ownership recovery hooks, and the live regtest close/sweep scripts.
+The fourth implementation step, close and sweep replay, is now covered for the
+bounded demo surfaces. Cooperative close exports proof material tied to actual
+local and remote close outputs. Unilateral commitment recovery, second-level
+HTLC recovery, and final sweep recovery preserve proof-history output metadata
+for the recovered spend kind. A failed sweep is not reported as recovered.
+The live remaining work is wiring the same records through real
+channel-manager, resolver, and sweeper call sites.
 
-The formal companion is `close_recovery`. That model should stop treating
-proof recovery as a simple terminal state and instead model close output,
+The formal companion is `close_recovery`. It now models close output,
 second-level output, sweep attempt, sweep success, sweep failure, proof export,
-and restart. Its key invariant should be that close and sweep do not create,
-destroy, or reassign assets outside the modeled penalty or timeout path. A
-recovered balance must correspond to the latest accepted proof state for the
-actual spendable output.
+and restart. Its key invariant is that close and sweep do not create, destroy,
+or reassign assets outside the modeled recovery path, and that proof export
+references either the cooperative close output or final sweep output rather
+than an obsolete commitment view.
 
 The fifth implementation step is reorg-sensitive history. Production proof
 acceptance needs a chain-state boundary. The wallet should distinguish a proof
