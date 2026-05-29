@@ -123,7 +123,9 @@ These are the contracts we definitely want around the rust-lightning work.
   indexes, counterparty closee nonces, consumed close nonce uses, and sent
   `closing_complete` partials. Shutdown-advertised closee nonces and JIT
   closer nonces must stay domain-separated, and missing, reused, or mismatched
-  close nonces/signatures must fail closed.
+  close nonces/signatures must fail closed. The #93 fork line covers both
+  opener-as-closer and accepter-as-closer RBF rounds, reload after sent
+  `closing_complete`, and signed close retention until confirmation.
 - BTC-level BOLT simple-taproot splice nonce-map support covers current,
   pending splice, and RBF funding txids, including fail-closed checks for
   missing, empty, duplicate, unknown, scalar-with-multiple-funding, and

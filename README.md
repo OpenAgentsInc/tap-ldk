@@ -28,9 +28,9 @@ Last updated: 2026-05-29
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
 - Final BOLT simple-taproot mode is implemented separately from the
-  staging/`litd` interop path. Splice nonce-map coverage is now in the fork;
-  remaining BOLT production work is #93 through #95: close RBF, full
-  vector/spend coverage, and the final tracker.
+  staging/`litd` interop path. The fork now covers splice nonce maps and
+  cooperative-close RBF nonce rotation. Remaining BOLT production work is #94
+  plus the #95 tracker: full vector and unilateral spend coverage.
 
 Still not done:
 

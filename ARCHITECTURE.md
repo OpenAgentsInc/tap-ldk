@@ -407,12 +407,12 @@ The workspace points at:
 - fork: `https://github.com/OpenAgentsInc/rust-lightning.git`
 - upstream: `https://github.com/lightningdevkit/rust-lightning.git`
 - base revision: `0c37f08a55c0f7738f2691dc3690166fd42f851d`
-- current revision: `1e7b435a015dafb5cc314c135e2eebab18cf460f`
+- current revision: `90f2e34fac15b18011bee7d939cd9c80141f4b8e`
 
 `crates/tap-ldk-core/Cargo.toml` has a direct dependency:
 
 ```toml
-lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "1e7b435a015dafb5cc314c135e2eebab18cf460f", package = "lightning", features = ["simple_taproot_musig2"] }
+lightning = { git = "https://github.com/OpenAgentsInc/rust-lightning.git", rev = "90f2e34fac15b18011bee7d939cd9c80141f4b8e", package = "lightning", features = ["simple_taproot_musig2"] }
 ```
 
 `ldk_fork.rs` checks that the fork is reachable and that important
@@ -517,7 +517,7 @@ a real live demo:
   `90054d8fc512eb9506955f27806b496e33d2b346`. Final `option_simple_taproot`
   bits `80/81` are now exposed separately through
   `negotiate_final_simple_taproot_channels` in
-  `1e7b435a015dafb5cc314c135e2eebab18cf460f`; that path requires
+  `90f2e34fac15b18011bee7d939cd9c80141f4b8e`; that path requires
   `option_channel_type` and `option_simple_close`, stays private, and uses
   type-22 nonce maps for final RAA/reestablish.
 - BOLT simple taproot wire messages: native lifecycle messages must carry the
@@ -563,7 +563,11 @@ a real live demo:
   must fail closed. First support landed in
   `26346a56af75eadf60763eb1e32a740656d4e384`; #69 unignored the functional
   close harness after fixing simple-taproot anchor/output accounting during
-  channel open. Vector replay landed in #70.
+  channel open. Vector replay landed in #70. The current pin adds #93 close
+  RBF nonce rotation: a post-signature close-with-feerate request uses the
+  latest peer closee nonce, generates a fresh closer nonce, persists sent and
+  received close state across reload, retains signed close transactions until
+  confirmation, and fails closed on missing or reused close state.
 - BOLT simple taproot HTLC outputs and second-level spends: simple-taproot
   commitments must emit BOLT-vector-matching offered/accepted HTLC P2TR
   outputs, construct P2TR second-level HTLC outputs, use sequence `1` for
@@ -1295,7 +1299,7 @@ cargo run -p tap-ldk-cli -- first-demo-scope
 Before any Taproot Asset channel path with concurrent splice/RBF candidates,
 the asset layer needs tests that cover each active funding txid's corresponding
 asset-channel state and proof transition. Before a production-complete
-simple-taproot BOLT claim, #93 and #94 still need to close.
+simple-taproot BOLT claim, #94 still needs to close.
 
 ## What Works End To End
 

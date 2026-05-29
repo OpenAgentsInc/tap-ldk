@@ -68,8 +68,7 @@ cargo check -p lightning --features simple_taproot_musig2
 ## Remaining Boundary
 
 Do not treat this as a production-complete BOLT claim yet. The remaining BOLT
-work is #93 close-RBF nonce rotation and #94 full vector/unilateral spend-path
-replay.
+work is #94 full vector/unilateral spend-path replay.
 
 Any Taproot Asset channel claim that uses concurrent splice/RBF candidates must
 add asset-state and proof-transition coverage for every active funding txid.

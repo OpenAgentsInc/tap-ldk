@@ -30,8 +30,8 @@ This preflight is no longer the whole #57 story by itself; it is the live node
 state source used by the #57 regression gate. It proves connectivity, fork
 provenance, opt-in asset-channel negotiation config, remote feature
 observation, and the #80 typed API surface. With
-`OpenAgentsInc/rust-lightning@1e7b435a015dafb5cc314c135e2eebab18cf460f` and
-`OpenAgentsInc/ldk-node@f803a5e3d0815bedf9250f22ff1045cea974135f`, the
+`OpenAgentsInc/rust-lightning@90f2e34fac15b18011bee7d939cd9c80141f4b8e` and
+`OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`, the
 integrated `litd` peer now advertises both simple-taproot and
 Taproot Asset channel support, and the native peer advertises the
 taproot-assets no-op HTLC aux feature without advertising unimplemented STXO
@@ -43,5 +43,7 @@ native-to-`litd` asset send. The current pin adds post-claim balance-output
 aux-leaf placement for claimed full-amount asset HTLCs, clears the live
 zero-HTLC post-claim partial-signature failure, carries the #84 force-close
 funding-input key-path witness fix, and uses canonical Lightning Labs HTLC blob
-encoding plus a dust-covering BTC amount for the reverse leg. The latest live
-run reports `issue_57_acceptance_met=true`.
+encoding plus a dust-covering BTC amount for the reverse leg. It also carries
+#93 cooperative-close RBF nonce rotation in the fork line, though live
+post-close proof/balance observation remains a separate documented boundary.
+The latest live run reports `issue_57_acceptance_met=true`.

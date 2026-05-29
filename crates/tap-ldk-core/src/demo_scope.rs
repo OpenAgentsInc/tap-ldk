@@ -118,7 +118,7 @@ pub fn first_demo_protocol_scope() -> FirstDemoProtocolScope {
             covered_by_issue: "#92".to_owned(),
             reopen_before: vec![
                 "any Taproot Asset channel claim using concurrent splice/RBF candidates".to_owned(),
-                "any production-complete simple-taproot claim before #93 and #94 close".to_owned(),
+                "any production-complete simple-taproot claim before #94 closes".to_owned(),
             ],
             verification: vec![
                 "cargo test -p lightning final_simple_taproot_uses_nonce_maps --features simple_taproot_musig2 -- --nocapture".to_owned(),

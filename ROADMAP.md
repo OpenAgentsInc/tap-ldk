@@ -49,13 +49,17 @@ Last updated: 2026-05-29
   transaction's Taproot key-path witness and Taproot Asset allocation restart
   behavior, and now covers BOLT simple-taproot splice nonce maps for current,
   pending splice, and RBF funding txids with fail-closed checks for malformed
-  or reused nonce state. It fixes the BOLT simple-taproot audit's legacy
+  or reused nonce state. It also covers cooperative-close RBF nonce rotation
+  for both opener-as-closer and accepter-as-closer, retains signed close
+  transactions until confirmation, persists close state across reload, and
+  fails closed on missing or reused close nonce/signature state. It fixes the
+  BOLT simple-taproot audit's legacy
   signature-field zeroing/rejection gap for
   funding and commitment messages. The current pin also implements explicit
   final `option_simple_taproot` negotiation behind a separate config flag with
   `option_channel_type`/`option_simple_close` dependency checks, private-channel
   behavior, and type-22 RAA/reestablish nonce-map coverage. The fork is still
-  not spec complete for production close-RBF and full vector/spend-path claims.
+  not spec complete for full vector/spend-path claims.
   The live Lightning Labs cooperative-close path
   is exposed through the `litd` harness, but native post-close proof and
   balance observation is still recorded as a documented live boundary rather
@@ -66,12 +70,12 @@ Last updated: 2026-05-29
   `docs/bolt-simple-taproot-implementation-audit-2026-05-28.md`, remain the
   file-level map for the #81 regression gate, #57, and BOLT conformance work.
   Broader
-  BOLT simple-taproot production conformance is now tracked in #93 through
-  #95 and audited in
+  BOLT simple-taproot production conformance is now tracked in #94 and #95 and
+  audited in
   `docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md`.
 - `tap-ldk` is pinned to the OpenAgentsInc `rust-lightning` fork at
-  `1e7b435a015dafb5cc314c135e2eebab18cf460f` and the OpenAgentsInc
-  `ldk-node` fork at `f803a5e3d0815bedf9250f22ff1045cea974135f`. BOLT
+  `90f2e34fac15b18011bee7d939cd9c80141f4b8e` and the OpenAgentsInc
+  `ldk-node` fork at `971b9b8a36cfeb56b23e814e8ddeb95db91af86f`. BOLT
   simple-taproot issues #62 through #70 are implemented: negotiation, TLVs,
   MuSig2 primitives, P2TR
   funding, P2TR commitment outputs/control-block data, and commitment
@@ -121,10 +125,11 @@ Last updated: 2026-05-29
   tracked as #88; native/fixture cooperative-close coverage and the live
   `litd` close command are tracked as #89; the historical first-demo splice
   boundary is tracked as #90; final feature-bit negotiation is tracked as #91;
-  and BTC-level splice nonce-map support is tracked as #92.
-- Production BOLT simple-taproot work remains open under #93 through #95:
-  close RBF nonce rotation, full vector/unilateral-spend coverage, and the
-  tracker tying those items to the current BOLT draft.
+  BTC-level splice nonce-map support is tracked as #92; and cooperative-close
+  RBF nonce rotation is tracked as #93.
+- Production BOLT simple-taproot work remains open under #94 and #95: full
+  vector/unilateral-spend coverage and the tracker tying that work to the
+  current BOLT draft.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.
@@ -380,15 +385,16 @@ closure path and the remaining future hardening boundaries.
 | Done | #88 | BTC-only simple-taproot conformance gate | Implemented in `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f` and carried through `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`: the gate opens a BTC-only simple-taproot channel, verifies P2TR funding, pays in both directions across reconnect/reestablish, covers functional cooperative close, force-closes with a one-element key-path funding witness, and proves legacy P2WSH channels remain unaffected. Run `./scripts/check-btc-simple-taproot-conformance.sh`. | Closed. |
 | Done | #89 | Live-prove simple-taproot cooperative close | Implemented in `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c6f` and carried through `OpenAgentsInc/ldk-node@0964b3d0cce5753a0ff42166ea4686702faf93b4`: native cooperative close now asserts the final P2TR funding spend has a single 64-byte key-path witness, Taproot Asset close checks preserve the latest allocation across restart, and `tap-ldk` exposes `./scripts/check-simple-taproot-cooperative-close.sh` plus `lightning-labs-litd-counterparty.sh close-asset-channel`. Live post-close proof/balance observation remains a documented Path B boundary, not a claimed success. | Closed. |
 | Done | #90 | Cover simple-taproot splice nonce maps or gate splicing out of the first demo | Closed the original first-demo ambiguity by making the early demo boundary machine-readable. #92 supersedes the BTC-level nonce-map gap with bounded splice nonce-map coverage; asset-channel splice/RBF remains separate hardening. | Closed. |
-| Done | #91 | Enable final `option_simple_taproot` production negotiation | Implemented in `OpenAgentsInc/rust-lightning@1e7b435a015dafb5cc314c135e2eebab18cf460f` and carried through `OpenAgentsInc/ldk-node@f803a5e3d0815bedf9250f22ff1045cea974135f`: final bits 80/81 are behind `negotiate_final_simple_taproot_channels`, require `option_channel_type` and `option_simple_close`, remain separate from staging/overlay interop, keep simple-taproot opens private, and use type-22 nonce maps for final RAA/reestablish. `tap-ldk-cli simple-taproot-negotiation-report` reports staging, overlay, and final modes. | Closed. |
-| Done | #92 | Implement full simple-taproot splice nonce-map compliance | Implemented in `OpenAgentsInc/rust-lightning@1e7b435a015dafb5cc314c135e2eebab18cf460f` and carried through `OpenAgentsInc/ldk-node@f803a5e3d0815bedf9250f22ff1045cea974135f`: final/multi-funding RAA and reestablish maps cover current, pending splice, and RBF funding txids; missing, empty, duplicate, unknown, scalar-with-multiple-funding, and nonce-reuse cases fail closed; serialized channel state preserves the pending splice and counterparty nonce map. `./scripts/check-simple-taproot-splice-policy.sh` now verifies support instead of an exclusion. | Closed; #93 through #95 remain open for full production compliance. |
-| Done | #82 | Track BOLT simple-taproot spec compliance gaps | All first-demo child issues #83 through #90 are closed, and #91/#92 now cover final feature-bit negotiation plus BTC-level splice nonce maps. The remaining production BOLT gaps are close-RBF nonce rotation and full vector/unilateral-spend replay. | Closed for first-demo scope; production tracker #95 remains open until #93 and #94 close. |
+| Done | #91 | Enable final `option_simple_taproot` production negotiation | Implemented in `OpenAgentsInc/rust-lightning@90f2e34fac15b18011bee7d939cd9c80141f4b8e` and carried through `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`: final bits 80/81 are behind `negotiate_final_simple_taproot_channels`, require `option_channel_type` and `option_simple_close`, remain separate from staging/overlay interop, keep simple-taproot opens private, and use type-22 nonce maps for final RAA/reestablish. `tap-ldk-cli simple-taproot-negotiation-report` reports staging, overlay, and final modes. | Closed. |
+| Done | #92 | Implement full simple-taproot splice nonce-map compliance | Implemented in `OpenAgentsInc/rust-lightning@90f2e34fac15b18011bee7d939cd9c80141f4b8e` and carried through `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`: final/multi-funding RAA and reestablish maps cover current, pending splice, and RBF funding txids; missing, empty, duplicate, unknown, scalar-with-multiple-funding, and nonce-reuse cases fail closed; serialized channel state preserves the pending splice and counterparty nonce map. `./scripts/check-simple-taproot-splice-policy.sh` now verifies support instead of an exclusion. | Closed. |
+| Done | #93 | Complete simple-taproot cooperative-close RBF nonce rotation | Implemented in `OpenAgentsInc/rust-lightning@90f2e34fac15b18011bee7d939cd9c80141f4b8e` and carried through `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`: after a signed simple-taproot close transaction, an explicit close-with-feerate request can produce a higher-fee RBF close using the latest peer closee nonce and a fresh closer nonce; signed close txids, received closer nonces, sent `closing_complete` state, and the RBF request flag persist; opener-as-closer and accepter-as-closer are covered; missing shutdown nonce, missing close partial, missing next closee nonce, and reused closer nonce fail closed. | Closed. |
+| Done | #82 | Track BOLT simple-taproot spec compliance gaps | All first-demo child issues #83 through #90 are closed, #91/#92 cover final feature-bit negotiation plus BTC-level splice nonce maps, and #93 covers cooperative-close RBF nonce rotation. The remaining production BOLT gap is full vector/unilateral-spend replay. | Closed for first-demo scope; production tracker #95 remains open until #94 closes. |
 | Done | #81 | Use fork-backed `ldk-node` for live `litd` settlement | `target/live-lightning-labs-outgoing-payment-issue81-rerun/report.json` completed with `issue_81_acceptance_met=true`: integrated `litd` funded the asset channel, sent the asset keysend, reported `SUCCEEDED`, native LDK claimed the HTLC, `ldk-node` recorded local receiver balance `125`, and no invalid commitment, partial-signature, control-block, or counterparty force-close logs were observed. | Closed; keep this command green as a Path B regression. |
 | Done | #57 | Live `tap-ldk` pays `litd` asset payment | `target/live-lightning-labs-outgoing-payment-issue57-final/report.json` completed with `issue_57_acceptance_met=true`: integrated `litd` funded the asset channel, paid native LDK, native LDK recorded the received asset, native LDK sent the asset back with a canonical Taproot Asset HTLC blob and dust-covering BTC amount, `litd` settled the invoice, and the observed `litd` channel asset balance reflects the returned amount. | Closed; keep this command green as a bidirectional Path B regression. |
 | Done | #58 | Live `litd` pays `tap-ldk` asset payment | `target/live-lightning-labs-outgoing-payment-issue58-rerun/report.json` completed with `issue_58_acceptance_met=true`: integrated `litd` paid native LDK, native LDK recorded the settled remote-to-local asset payment, bounded receiver metadata checks stayed fail-closed, and the restart snapshot reloaded the persisted receiver payment/balance checkpoint. | Closed; keep this command green as the `litd`-to-native receive/restart regression. |
 | Done | #59 | Replace Path B documented gaps with observed live balance checks | `target/path-b-lightning-labs-demo-issue59/path-b-completion-report.json` completed with `path_b_live_observed_balance_gate_met=true`, `live_daemon_gaps_remaining=false`, fixture-only completion disabled, and expected-only balance completion disabled. | Closed; keep the Path B wrapper completion report green as the observed-balance regression. |
 | Done | #60 | Full semantic Taproot Assets proof ancestry validation | `tap-ldk-core::proof` now requires `semantic-ancestry`, strict regtest outpoints, normal demo asset type, derived root hash/sum, expected asset/owner/amount checks, stale-anchor rejection, and Lightning Labs `TAPF` asset-leaf validation before wallet state advances. Funding, HTLC metadata, cooperative close, and recovery handoff use the same committed proof-root boundary. | Closed; keep `cargo test --locked` and the live tapd proof binding path green. Production full-history virtual transaction, STXO, grouped-asset, and reorg-watcher proof checks remain future production hardening work. |
-| Done | #61 | BOLT simple taproot channels in `rust-lightning` epic | Fork issues #62 through #70 and #75 are implemented and pinned, with vector/lifecycle smoke coverage. #88 proves the BTC-only open/pay/reestablish/cooperative-close/force-close base with legacy-channel isolation, #89 strengthens cooperative-close close/restart evidence, #90 records the historical first-demo splice boundary, #91 adds final feature-bit negotiation, #92 adds BTC-level splice nonce-map support, and #82 closes the first-demo BOLT tracker. `check-btc-simple-taproot-conformance`, `check-simple-taproot-cooperative-close`, and `check-simple-taproot-splice-policy` pass against the current fork line. | Closed for first-demo scope; #93 and #94 remain before a production-complete BOLT claim. |
+| Done | #61 | BOLT simple taproot channels in `rust-lightning` epic | Fork issues #62 through #70 and #75 are implemented and pinned, with vector/lifecycle smoke coverage. #88 proves the BTC-only open/pay/reestablish/cooperative-close/force-close base with legacy-channel isolation, #89 strengthens cooperative-close close/restart evidence, #90 records the historical first-demo splice boundary, #91 adds final feature-bit negotiation, #92 adds BTC-level splice nonce-map support, #93 adds cooperative-close RBF nonce rotation, and #82 closes the first-demo BOLT tracker. `check-btc-simple-taproot-conformance`, `check-simple-taproot-cooperative-close`, and `check-simple-taproot-splice-policy` pass against the current fork line. | Closed for first-demo scope; #94 remains before a production-complete BOLT claim. |
 | Done | #62 | Simple-taproot feature bits and channel type | Implemented in `OpenAgentsInc/rust-lightning` at `90054d8fc512eb9506955f27806b496e33d2b346`. | Closed. |
 | Done | #63 | Simple-taproot wire TLVs and message validation | Implemented in `OpenAgentsInc/rust-lightning` at `c237a0ae1189c0c59e27bdc8e8b99fd2bb018bcb`. | Closed. |
 | Done | #64 | MuSig2 signer and nonce state | Implemented in `OpenAgentsInc/rust-lightning` at `6e6b6c7b0407cd4cb0833228cfeb75ba5ccbb941`; key aggregation, counter/JIT nonce generation, partial-signature verification, final Schnorr aggregation, persisted nonce-use rejection, and signer-facing `InMemorySigner` helpers are covered. | Closed. |
@@ -895,7 +901,7 @@ The stronger demo adds:
 ## Open Decisions
 
 - When to move the public demo from staging/overlay interop to final
-  `option_simple_taproot`; this waits on #93 through #95.
+  `option_simple_taproot`; this waits on #94 and the #95 tracker.
 - Whether to upstream BTC-only simple-taproot support independently before
   layering Taproot Assets on top.
 - How the Taproot Assets commitment sibling maps into each simple-taproot

@@ -7,10 +7,10 @@ The live Taproot Assets demo needs an owned `ldk-node` fork:
 - Fork: `https://github.com/OpenAgentsInc/ldk-node`
 - Upstream: `https://github.com/lightningdevkit/ldk-node`
 - Current fork commit used by `tap-ldk`:
-  `f803a5e3d0815bedf9250f22ff1045cea974135f`
+  `971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
 - Current `rust-lightning` fork commit:
-  `1e7b435a015dafb5cc314c135e2eebab18cf460f`
-- Tracking issues: #77, #78, #79, #80, #81, #57, #58, #91, #92
+  `90f2e34fac15b18011bee7d939cd9c80141f4b8e`
+- Tracking issues: #77, #78, #79, #80, #81, #57, #58, #91, #92, #93
 
 ## Why This Fork Exists
 
@@ -60,8 +60,9 @@ coverage.
    rejection rule for simple-taproot/Taproot Asset open/accept handling, the
    #87 staging/final RAA/reestablish nonce-field split for Lightning Labs
    overlay interop, the #88 BTC-only simple-taproot conformance gate, and the
-   #89 cooperative-close P2TR key-path witness assertion through the pinned
-   Rust Lightning revision. `OpenAgentsInc/ldk-node@f803a5e3d0815bedf9250f22ff1045cea974135f`
+   #89 cooperative-close P2TR key-path witness assertion and the #93
+   cooperative-close RBF nonce-rotation support through the pinned Rust
+   Lightning revision. `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
    also exposes the separate final `option_simple_taproot` config flag while
    keeping Taproot Asset overlay config on the staging base, and pins the
    Rust Lightning splice nonce-map support from #92. The fork does not
@@ -76,7 +77,7 @@ coverage.
    regression fixture. It also clears the stale invalid-control-block fallback
    symptom by carrying the persisted key-path holder commitment signature.
 6. #57 uses the same fork-backed live channel for the reverse native-to-`litd`
-   send. `OpenAgentsInc/ldk-node@f803a5e3d0815bedf9250f22ff1045cea974135f`
+   send. `OpenAgentsInc/ldk-node@971b9b8a36cfeb56b23e814e8ddeb95db91af86f`
    emits the canonical Lightning Labs outer-TLV Taproot Asset HTLC blob, and
    the live harness sends 354,000 msat with the 125-unit asset HTLC so LND's
    dust check passes.
