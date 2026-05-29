@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "description": "Issue #99 bounded negative proof-vector checklist for proof-history state-advance rejection.",
+  "scope": "synthetic regtest fixture; documents vector class, representative boundary, and regression test target",
+  "vectors": [
+    {
+      "id": "wrong-genesis",
+      "boundary": "proof validation context and Lightning Labs TAPF import",
+      "expected_rejection": "genesis outpoint mismatch before wallet balance import",
+      "test_target": "proof::tests::semantic_context_rejects_wrong_fields_and_stale_anchor"
+    },
+    {
+      "id": "wrong-anchor",
+      "boundary": "proof validation context and wallet import",
+      "expected_rejection": "anchor outpoint mismatch before wallet balance import",
+      "test_target": "proof::tests::semantic_context_rejects_wrong_fields_and_stale_anchor"
+    },
+    {
+      "id": "stale-proof",
+      "boundary": "proof validation context, close proof handoff, and recovery checkpoint",
+      "expected_rejection": "stale proof cannot become current balance or recovery state",
+      "test_target": "proof::tests::semantic_context_rejects_wrong_fields_and_stale_anchor"
+    },
+    {
+      "id": "malformed-tapf-proof-file-transport",
+      "boundary": "Lightning Labs TAPF wallet import",
+      "expected_rejection": "malformed proof-file transport fails before wallet state advances",
+      "test_target": "wallet::tests::malformed_and_wrong_anchor_tapd_proofs_fail_before_state_advances"
+    },
+    {
+      "id": "invalid-split-sum",
+      "boundary": "proof-history replay and TAP VM split conservation",
+      "expected_rejection": "invalid split sum fails before accepted replay output",
+      "test_target": "proof::tests::proof_history_replay_rejects_contradictory_amounts"
+    },
+    {
+      "id": "wrong-owner-script-key",
+      "boundary": "proof validation context, close proof handoff, and TAPF import",
+      "expected_rejection": "wrong owner key fails before wallet or close state advances",
+      "test_target": "proof::tests::semantic_context_rejects_wrong_fields_and_stale_anchor"
+    },
+    {
+      "id": "missing-stxo",
+      "boundary": "proof-history replay and channel funding",
+      "expected_rejection": "missing spent transaction output fails before accepted replay or funded channel state",
+      "test_target": "proof::tests::proof_history_replay_rejects_missing_inputs_without_balances"
+    },
+    {
+      "id": "wrong-asset-type",
+      "boundary": "proof validation context and wallet import",
+      "expected_rejection": "wrong asset type fails before wallet balance import",
+      "test_target": "proof::tests::semantic_context_rejects_wrong_fields_and_stale_anchor"
+    },
+    {
+      "id": "wrong-amount",
+      "boundary": "proof validation context and wallet storage validation",
+      "expected_rejection": "wrong amount fails before balance import or persisted balance validation",
+      "test_target": "proof::tests::semantic_context_rejects_wrong_fields_and_stale_anchor"
+    },
+    {
+      "id": "wrong-root-hash",
+      "boundary": "proof import and proof-history replay",
+      "expected_rejection": "wrong root hash fails before wallet balance or replay output acceptance",
+      "test_target": "proof::tests::commitment_root_hash_mismatch_fails_closed"
+    },
+    {
+      "id": "wrong-root-sum",
+      "boundary": "proof import and proof-history replay",
+      "expected_rejection": "wrong root sum fails before wallet balance or replay output acceptance",
+      "test_target": "proof::tests::root_sum_mismatch_fails_closed"
+    },
+    {
+      "id": "mismatched-tap-commitment-output-root",
+      "boundary": "asset-channel funding",
+      "expected_rejection": "mismatched output commitment root fails before funded channel state advances",
+      "test_target": "asset_channel_funding::tests::wrong_expected_funding_root_fails_before_state_advances"
+    },
+    {
+      "id": "reorg-sensitive-history",
+      "boundary": "proof-history replay and recovery checkpoint",
+      "expected_rejection": "reorg-sensitive stale history cannot become accepted balance or recovered state",
+      "test_target": "proof::tests::proof_history_replay_rejects_stale_reorg_sensitive_history"
+    }
+  ]
+}

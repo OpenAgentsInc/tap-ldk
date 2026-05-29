@@ -203,6 +203,48 @@ RejectWrongOwner ==
     /\ UNCHANGED <<issued, assetId, amount, anchor, root, history,
         stxoPresent, chainView>>
 
+RejectWrongAssetType ==
+    /\ state \in {Unresolved, Pending}
+    /\ state' = Rejected
+    /\ badReasons' = badReasons \cup {"wrong_asset_type"}
+    /\ proofFile' = "well_formed"
+    /\ UNCHANGED <<issued, assetId, amount, owner, anchor, root, history,
+        stxoPresent, chainView>>
+
+RejectWrongAmount ==
+    /\ state \in {Pending, Spendable}
+    /\ state' = Rejected
+    /\ amount' = MaxAmount + 2
+    /\ badReasons' = badReasons \cup {"wrong_amount"}
+    /\ proofFile' = "well_formed"
+    /\ UNCHANGED <<issued, assetId, owner, anchor, root, history,
+        stxoPresent, chainView>>
+
+RejectWrongRootHash ==
+    /\ state \in {Pending, Issued, Spendable}
+    /\ state' = Rejected
+    /\ root' = <<"wrong_hash", amount, owner, anchor>>
+    /\ badReasons' = badReasons \cup {"wrong_root_hash"}
+    /\ proofFile' = "well_formed"
+    /\ UNCHANGED <<issued, assetId, amount, owner, anchor, history,
+        stxoPresent, chainView>>
+
+RejectWrongRootSum ==
+    /\ state \in {Pending, Issued, Spendable}
+    /\ state' = Rejected
+    /\ amount' = MaxAmount + 3
+    /\ badReasons' = badReasons \cup {"wrong_root_sum"}
+    /\ proofFile' = "well_formed"
+    /\ UNCHANGED <<issued, assetId, owner, anchor, root, history,
+        stxoPresent, chainView>>
+
+RejectMismatchedTapCommitmentOutputRoot ==
+    /\ state \in {Spendable, ChannelLocked}
+    /\ state' = Rejected
+    /\ badReasons' = badReasons \cup {"mismatched_tap_commitment_output_root"}
+    /\ UNCHANGED <<issued, assetId, amount, owner, anchor, root, history,
+        proofFile, stxoPresent, chainView>>
+
 RejectInvalidSplitSum ==
     /\ state = Spendable
     /\ amount = MaxAmount
@@ -260,6 +302,11 @@ Next ==
     \/ RejectWrongGenesis
     \/ RejectWrongAnchor
     \/ RejectWrongOwner
+    \/ RejectWrongAssetType
+    \/ RejectWrongAmount
+    \/ RejectWrongRootHash
+    \/ RejectWrongRootSum
+    \/ RejectMismatchedTapCommitmentOutputRoot
     \/ RejectInvalidSplitSum
     \/ RejectMalformedProofFile
     \/ RejectMissingStxo

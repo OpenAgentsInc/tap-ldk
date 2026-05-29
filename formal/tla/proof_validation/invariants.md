@@ -15,8 +15,10 @@
 - Accepted proof-history state must keep asset ID, amount, owner script key,
   anchor, and root coherent across issuance, split, transfer, channel funding,
   commitment update, close, and sweep.
-- Wrong genesis, wrong anchor, wrong owner script key, invalid split sum,
-  missing STXO, malformed proof-file transport, stale proof, and
-  reorg-sensitive history cannot become accepted wallet or channel balances.
+- Wrong genesis, wrong anchor, wrong owner script key, wrong asset type, wrong
+  amount, wrong root hash, wrong root sum, mismatched TapCommitment output
+  root, invalid split sum, missing STXO, malformed proof-file transport, stale
+  proof, and reorg-sensitive history cannot become accepted wallet or channel
+  balances.
 - Counterexamples must become Rust regression tests or explicit production
   boundary notes; the model must not weaken runtime validation policy.

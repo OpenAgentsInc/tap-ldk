@@ -1300,6 +1300,8 @@ fn encode_hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::BTreeSet, fs, path::Path};
+
     use super::*;
 
     fn proof() -> ProofFile {
@@ -1363,6 +1365,17 @@ mod tests {
     }
 
     #[test]
+    fn commitment_root_hash_mismatch_fails_closed() {
+        let mut proof = proof();
+        proof.tap_asset_root.hash = Bytes32([42; 32]);
+
+        assert!(matches!(
+            proof.verify_semantic_ancestry(&ProofValidationContext::default()),
+            Err(ProofError::CommitmentRootMismatch { .. })
+        ));
+    }
+
+    #[test]
     fn semantic_context_rejects_wrong_fields_and_stale_anchor() {
         let proof = proof();
 
@@ -1392,6 +1405,22 @@ mod tests {
             Err(ProofError::WrongOwner { .. })
         ));
 
+        let mut wrong_genesis = ProofValidationContext::default();
+        wrong_genesis.expected_genesis_outpoint =
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0".to_owned());
+        assert!(matches!(
+            proof.verify_semantic_ancestry(&wrong_genesis),
+            Err(ProofError::BrokenAncestry("genesis outpoint mismatch"))
+        ));
+
+        let mut wrong_anchor = ProofValidationContext::default();
+        wrong_anchor.expected_anchor_outpoint =
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1".to_owned());
+        assert!(matches!(
+            proof.verify_semantic_ancestry(&wrong_anchor),
+            Err(ProofError::BrokenAncestry("anchor outpoint mismatch"))
+        ));
+
         let mut stale = ProofValidationContext::default();
         stale.stale_anchor_outpoint = Some(proof.anchor_outpoint.clone());
         assert!(matches!(
@@ -1405,6 +1434,65 @@ mod tests {
             wrong_type.verify_semantic_ancestry(&ProofValidationContext::default()),
             Err(ProofError::WrongAssetType { .. })
         ));
+    }
+
+    #[test]
+    fn negative_proof_vector_fixture_covers_required_classes() {
+        let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("fixtures/synthetic/proof_negative_vectors.json");
+        let raw = fs::read_to_string(fixture_path).expect("negative vector fixture reads");
+        let fixture: serde_json::Value =
+            serde_json::from_str(&raw).expect("negative vector fixture parses");
+        let vectors = fixture["vectors"]
+            .as_array()
+            .expect("vectors must be an array");
+        let seen = vectors
+            .iter()
+            .map(|vector| {
+                let id = vector["id"].as_str().expect("vector id");
+                assert!(
+                    !vector["boundary"].as_str().unwrap_or_default().is_empty(),
+                    "vector {id} missing boundary"
+                );
+                assert!(
+                    !vector["expected_rejection"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .is_empty(),
+                    "vector {id} missing expected rejection"
+                );
+                assert!(
+                    !vector["test_target"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .is_empty(),
+                    "vector {id} missing test target"
+                );
+                id.to_owned()
+            })
+            .collect::<BTreeSet<_>>();
+
+        for required in [
+            "wrong-genesis",
+            "wrong-anchor",
+            "stale-proof",
+            "malformed-tapf-proof-file-transport",
+            "invalid-split-sum",
+            "wrong-owner-script-key",
+            "missing-stxo",
+            "wrong-asset-type",
+            "wrong-amount",
+            "wrong-root-hash",
+            "wrong-root-sum",
+            "mismatched-tap-commitment-output-root",
+            "reorg-sensitive-history",
+        ] {
+            assert!(
+                seen.contains(required),
+                "missing negative proof vector: {required}"
+            );
+        }
     }
 
     #[test]
@@ -1906,6 +1994,78 @@ mod tests {
         assert!(matches!(
             ProofHistoryEngine::replay(&records),
             Err(ProofHistoryReplayError::OutputRootMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn proof_history_replay_rejects_stale_reorg_sensitive_history() {
+        let asset_id = Bytes32([8; 32]);
+        let stale_issuance = vec![record(
+            "stale-reorg-issuance",
+            ProofTransitionKind::Issuance,
+            1,
+            vec![],
+            vec![output(
+                "stale-output",
+                asset_id,
+                100,
+                key(2),
+                1,
+                ProofHistoryState::Stale,
+            )],
+        )];
+        assert!(matches!(
+            ProofHistoryEngine::replay(&stale_issuance),
+            Err(ProofHistoryReplayError::InvalidOutputState {
+                record_id,
+                output_id,
+                state,
+                ..
+            }) if record_id == "stale-reorg-issuance"
+                && output_id == "stale-output"
+                && state == ProofHistoryState::Stale
+        ));
+
+        let accepted_then_stale = vec![
+            record(
+                "issue",
+                ProofTransitionKind::Issuance,
+                1,
+                vec![],
+                vec![output(
+                    "issued",
+                    asset_id,
+                    100,
+                    key(2),
+                    1,
+                    ProofHistoryState::Accepted,
+                )],
+            ),
+            record(
+                "reorg-sensitive-transfer",
+                ProofTransitionKind::Transfer,
+                2,
+                vec!["issued"],
+                vec![output(
+                    "reorged",
+                    asset_id,
+                    100,
+                    key(3),
+                    2,
+                    ProofHistoryState::Stale,
+                )],
+            ),
+        ];
+        assert!(matches!(
+            ProofHistoryEngine::replay(&accepted_then_stale),
+            Err(ProofHistoryReplayError::InvalidOutputState {
+                record_id,
+                output_id,
+                state,
+                ..
+            }) if record_id == "reorg-sensitive-transfer"
+                && output_id == "reorged"
+                && state == ProofHistoryState::Stale
         ));
     }
 

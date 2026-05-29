@@ -146,6 +146,18 @@
       }
     },
     {
+      "id": "synthetic-proof-negative-vectors",
+      "category": "proof",
+      "status": "synthetic_regtest",
+      "path": "fixtures/synthetic/proof_negative_vectors.json",
+      "source": {
+        "upstream": "https://github.com/lightninglabs/taproot-assets",
+        "local_path": "../projects/lightninglabs/repos/taproot-assets/proof",
+        "commit": "743db21da57b",
+        "notes": "Issue #99 bounded negative proof-vector checklist tying each invalid proof class to a state-advance rejection test."
+      }
+    },
+    {
       "id": "synthetic-channel-trace-placeholder",
       "category": "channel_trace",
       "status": "synthetic_regtest",

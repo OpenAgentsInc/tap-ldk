@@ -17,8 +17,10 @@ This model covers the policy enforced by
 for #97. It models a bounded valid path through well-formed proof import,
 issuance, accepted issuance, split, transfer, channel funding, commitment
 update, close, and sweep. It also models invalid paths for wrong genesis,
-wrong anchor, wrong owner script key, invalid split sum, malformed proof-file
-transport, missing STXO, stale proof, and reorg-sensitive history.
+wrong anchor, wrong owner script key, wrong asset type, wrong amount, wrong
+root hash, wrong root sum, mismatched TapCommitment output root, invalid split
+sum, malformed proof-file transport, missing STXO, stale proof, and
+reorg-sensitive history.
 
 The checked invariants are narrow:
 

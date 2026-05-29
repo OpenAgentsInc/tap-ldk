@@ -410,6 +410,12 @@ models wrong genesis, wrong anchor, wrong owner, invalid split sum, malformed
 proof-file transport, missing STXO, stale proof, and reorg-sensitive history
 as paths that cannot end in accepted balances.
 
+Issue #99 adds the corresponding negative-vector checklist and tightens the
+formal invalid-transition set for wrong asset type, wrong amount, wrong root
+hash, wrong root sum, and mismatched TapCommitment output root. The point is
+to keep every bad proof class tied to a state-advance boundary, not just a
+parser error.
+
 The first implementation step is to replace the current bounded proof-history
 surface with an explicit proof-chain replay engine. That engine should live
 around `proof.rs`, `tapd_proof.rs`, `mssmt.rs`, `taproot_commitment.rs`, and
