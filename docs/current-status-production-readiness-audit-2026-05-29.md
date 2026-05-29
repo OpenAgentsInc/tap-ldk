@@ -318,3 +318,160 @@ clear remaining hardening path.
 That wording matters. The project has crossed the line from architecture plan
 to working experimental implementation. It has not crossed the line from
 working experimental implementation to production financial software.
+
+## Proof Engine And Formal Verification Roadmap
+
+The next production-hardening sequence should treat proof history as the core
+wallet authority. The wallet should not accept an asset balance because a demo
+fixture, local counter, latest proof leaf, or channel state says the balance
+exists. It should accept a balance only when it can replay the relevant proof
+chain and explain how that balance was created, moved, split, locked into a
+channel, updated through commitments, closed, swept, or rejected. The formal
+verification work should be added at the same time as the implementation work,
+because the model is the clearest way to keep the acceptance rule narrow.
+
+The first implementation step is to replace the current bounded proof-history
+surface with an explicit proof-chain replay engine. That engine should live
+around `proof.rs`, `tapd_proof.rs`, `mssmt.rs`, `taproot_commitment.rs`, and
+`tap_vm.rs`, with call sites in funding, commitment, close, recovery, wallet
+balance, and Lightning Labs interop paths. The replay engine should build a
+typed history graph from issuance, split, transfer, channel funding,
+commitment update, cooperative close, unilateral close, second-level HTLC,
+sweep, and proof-export records. Each accepted output should point to the
+exact virtual transition, TapCommitment root, owner script key, anchor
+outpoint, amount, asset ID, and prior state that justify it. If any link is
+missing or contradictory, the wallet should refuse to advance state instead
+of presenting a balance.
+
+The matching formal work should start by completing
+`formal/tla/proof_validation/`. That directory already has assumptions,
+boundaries, and invariants, but it does not yet have a checked `.tla` and
+`.cfg` pair. The model should represent a bounded asset universe with issued,
+pending, spendable, spent, channel-locked, closed, swept, stale, and rejected
+states. It should model valid and invalid proof transitions for issuance,
+split, transfer, funding, commitment update, close, and sweep. The main
+invariant should be explainability: every accepted wallet or channel balance
+must be reachable from a valid issuance path through valid transitions whose
+asset ID, owner, amount, anchor, and root all agree. The model should also
+prove that wrong genesis, wrong anchor, wrong owner script key, invalid split
+sum, missing STXO, malformed proof-file transport, stale proof, and
+reorg-sensitive history all terminate in rejected or unresolved states, never
+in accepted balance.
+
+The second implementation step is to make negative proof vectors first-class.
+The repo should add fixtures for wrong genesis, wrong anchor, stale proof,
+malformed `TAPF` proof-file transport, invalid split sums, wrong owner script
+key, missing STXO, wrong asset type, wrong amount, wrong root hash, wrong root
+sum, mismatched TapCommitment output root, and reorg-sensitive history. These
+fixtures should exercise both native proof import and Lightning Labs proof-file
+interop. They should not be isolated parser tests only. At least one path must
+try to move each invalid proof into wallet balance state, channel funding
+state, commitment state, close state, or recovery state, and the state advance
+must fail closed.
+
+The formal companion for those vectors should extend the proof-validation TLA+
+model with explicit invalid transitions, then map every meaningful TLC
+counterexample to a Rust regression test. If TLC finds a sequence where a
+malformed proof becomes accepted because the model failed to carry one field
+through a split or close transition, the Rust test should assert that the same
+field is checked in the real replay engine. If a behavior is intentionally
+outside the model, the exception should be written into
+`formal/tla/proof_validation/boundaries.md` before the code relies on it.
+
+The third implementation step is to connect proof replay to channel funding
+and commitment updates. A Taproot Asset channel should not open from a latest
+leaf alone. The funding path should prove that the asset input being locked
+into the channel is spendable, owned by the expected key, tied to the expected
+asset ID and genesis, and conserved into the channel allocation. Each
+commitment update should then be able to derive the new local and remote asset
+allocation from the previous accepted channel state plus the HTLC or balance
+transition being applied. This belongs in `asset_channel_funding.rs`,
+`asset_commitment.rs`, `simple_taproot_asset_channel.rs`, and the
+OpenAgentsInc Rust Lightning asset-channel state hooks.
+
+The matching models are `asset_channel`, `asset_commitment`, and
+`asset_conservation`. They should be tightened so proof replay is not an
+external assumption. Funding should require a verified input proof state.
+Commitment updates should require conservation from the prior durable state.
+A restart should not recover a newer Lightning commitment number unless the
+matching proof replay state and asset-channel blob are also present. These
+models do not need to know Bitcoin script semantics; they do need to prove
+that the wallet never creates or forgets asset balance through funding,
+commitment, rejection, or restart.
+
+The fourth implementation step is close and sweep replay. Cooperative close
+should export proof material tied to the actual close outputs. Unilateral
+close should preserve proof ownership for every spendable output, including
+second-level HTLC success and timeout paths. Sweep should either produce an
+accepted proof state for the final spendable output or a clear unrecovered
+state. A failed sweep must not be reported as recovered. This work belongs in
+`asset_close.rs`, `asset_recovery.rs`, `wallet.rs`, the Rust Lightning proof
+ownership recovery hooks, and the live regtest close/sweep scripts.
+
+The formal companion is `close_recovery`. That model should stop treating
+proof recovery as a simple terminal state and instead model close output,
+second-level output, sweep attempt, sweep success, sweep failure, proof export,
+and restart. Its key invariant should be that close and sweep do not create,
+destroy, or reassign assets outside the modeled penalty or timeout path. A
+recovered balance must correspond to the latest accepted proof state for the
+actual spendable output.
+
+The fifth implementation step is reorg-sensitive history. Production proof
+acceptance needs a chain-state boundary. The wallet should distinguish a proof
+whose anchor is confirmed and stable enough for the configured policy from a
+proof whose anchor is missing, stale, reorged, or still pending. For regtest
+and demo mode this can start as a small synthetic chain-state adapter, but the
+core replay engine should already carry enough status to avoid treating a
+reorged output as spendable. Reorg handling should be added before the wallet
+claims production-grade proof import or recovery.
+
+The formal model should keep reorg handling bounded. It should not attempt to
+prove Bitcoin consensus. It should model anchor states such as unknown,
+pending, confirmed, stale, and reorged, then prove that accepted balances can
+only depend on anchors that satisfy the configured policy. A reorged anchor
+should move dependent balances to rejected or unresolved until a valid
+replacement proof path is replayed.
+
+The sixth implementation step is to make Rust-native verification a gate. The
+TLA+ models should describe the intended state space, but the parser,
+arithmetic, serialization, and validation code must be checked in Rust. Add
+`proptest` coverage for amount conservation, split sums, proof graph
+topology, quote/proof binding, and restart state transitions. Add fuzz targets
+for TLV parsing, `TAPF` proof files, virtual PSBT summaries, TapCommitment
+records, and imported Lightning Labs blobs. Add Kani targets for pure helpers
+that validate asset amount arithmetic, owner/asset matching, proof-state
+transitions, and no-overflow conservation. Miri can be used for unsafe or
+FFI-sensitive paths if those appear; loom should wait until proof or channel
+state uses shared concurrent mutation that actually needs interleaving
+coverage.
+
+The seventh implementation step is to wire the checks into normal developer
+and CI flow. `scripts/formal-check.sh` already discovers checked-in TLA+
+configs and skips cleanly when no checker is installed. Once
+`ProofValidation.tla` and `ProofValidation.cfg` exist, that script should run
+the proof-validation model with the rest of the checked specs. A future CI job
+should run formatting, `cargo test --locked`, proof negative vectors, the
+native demo, the compatibility demo, the BOLT simple-taproot scripts, formal
+checks when TLC is available, property tests, fuzz smoke targets, and Kani
+targets. If a tool is optional locally, the skip behavior must be explicit and
+visible rather than silently ignored.
+
+The eighth implementation step is documentation and issue hygiene. This work
+should be split into a new GitHub issue sequence rather than buried under the
+closed first-demo issues. The sequence should track the proof replay engine,
+negative vectors, proof-validation TLA+ model, channel-funding proof replay,
+commitment proof replay, close/sweep proof replay, reorg-sensitive policy,
+property/fuzz/Kani harnesses, CI integration, and compatibility-matrix updates.
+Each issue should state the implementation files, the model files, the
+negative vectors, and the verification command that closes it.
+
+The exit bar for this roadmap is precise. A production proof-engine claim can
+be made only when every accepted wallet balance, channel balance, close output,
+sweep output, and exported proof can be explained from a replayed proof chain;
+when the listed negative vectors fail closed at every state-advance boundary;
+when the proof-validation, conservation, channel, commitment, and close models
+have checked configs; when meaningful model counterexamples have corresponding
+Rust regressions; and when the normal check suite includes both model-level
+and Rust-native verification for the replay engine. Until then, the correct
+claim remains that `tap-ldk` has a strict first-demo semantic proof boundary,
+not a production-complete Taproot Assets proof engine.
