@@ -111,6 +111,14 @@ bounded lifecycle report and the bounded chain/sweeper observation report.
   chain observation report must keep `live_chain_watcher_backed=false` and
   `production_ready=false` until actual chain-watcher and sweeper callbacks
   feed the same typed report.
+- Live regtest callback reports must bind each lifecycle observation to one
+  typed callback record and one explicit Bitcoin Core regtest snapshot. A live
+  callback claim requires regtest network identity, observed height at or above
+  the mined height, a 32-byte block hash, unique callback IDs, matching
+  observation IDs, matching event IDs, matching observation source/kind, and
+  deterministic callback digests. Live regtest callback backing is not a
+  production-ready claim until real close/sweep transactions replace the
+  bounded synthetic anchors.
 
 ## rust-lightning Integration Invariants
 

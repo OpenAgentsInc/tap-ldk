@@ -359,6 +359,10 @@ callbacks, stale/reorged recovery claims, and production-ready claims. Once
 that bridge is green, later work can replace the synthetic lifecycle anchors
 with real close, unilateral, second-level, and sweep transactions.
 
+That first deliverable is now implemented at the core-model layer. The
+remaining work in the issue wave is CLI/script wiring against local Bitcoin
+Core regtest and then docs plus extended-check integration.
+
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
 maps for multiple funding candidates. The asset overlay must now prove that

@@ -45,3 +45,11 @@ observation to Bitcoin Core regtest height/block data and a typed callback
 record. That makes live watcher input visible and testable without pretending
 that synthetic close and sweep anchors are already production force-close
 transactions.
+
+Current live-regtest bridge status: the core model now exists in
+`tap_ldk_core::onchain_lifecycle`. It wraps the bounded observation report in a
+regtest chain snapshot and one callback record per observation. Validation
+checks regtest network identity, observed height, mined block count, block hash
+shape, unique callbacks, observation/event/source/kind matching, deterministic
+callback digests, complete callback coverage, and `production_ready=false`.
+CLI and script wiring are the next step.

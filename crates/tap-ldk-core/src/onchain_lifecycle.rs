@@ -21,6 +21,7 @@ use crate::{
 
 pub const ONCHAIN_LIFECYCLE_REPORT_SCHEMA_VERSION: u32 = 1;
 pub const ONCHAIN_LIFECYCLE_CHAIN_OBSERVATION_REPORT_SCHEMA_VERSION: u32 = 1;
+pub const ONCHAIN_LIFECYCLE_LIVE_REGTEST_CALLBACK_REPORT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -248,6 +249,64 @@ impl OnchainLifecycleObservationKind {
             self,
             Self::FinalSweepAnchor | Self::FailedSweep | Self::BtcOnlySweepRefusal
         )
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnchainLifecycleLiveRegtestCallbackKind {
+    ChainWatcherAnchor,
+    SweeperAnchor,
+    SweeperRefusal,
+    WalletMonitorRefusal,
+    WalletMonitorRestart,
+}
+
+impl OnchainLifecycleLiveRegtestCallbackKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ChainWatcherAnchor => "chain_watcher_anchor",
+            Self::SweeperAnchor => "sweeper_anchor",
+            Self::SweeperRefusal => "sweeper_refusal",
+            Self::WalletMonitorRefusal => "wallet_monitor_refusal",
+            Self::WalletMonitorRestart => "wallet_monitor_restart",
+        }
+    }
+
+    fn matches_observation(self, observation: &OnchainLifecycleObservation) -> bool {
+        match self {
+            Self::ChainWatcherAnchor => {
+                observation.source == OnchainLifecycleObservationSource::ChainWatcher
+                    && matches!(
+                        observation.kind,
+                        OnchainLifecycleObservationKind::CooperativeCloseAnchor
+                            | OnchainLifecycleObservationKind::UnilateralCommitmentAnchor
+                            | OnchainLifecycleObservationKind::SecondLevelHtlcAnchor
+                            | OnchainLifecycleObservationKind::StaleProofOwnershipAnchor
+                    )
+            }
+            Self::SweeperAnchor => {
+                observation.source == OnchainLifecycleObservationSource::Sweeper
+                    && observation.kind == OnchainLifecycleObservationKind::FinalSweepAnchor
+            }
+            Self::SweeperRefusal => {
+                observation.source == OnchainLifecycleObservationSource::Sweeper
+                    && matches!(
+                        observation.kind,
+                        OnchainLifecycleObservationKind::FailedSweep
+                            | OnchainLifecycleObservationKind::BtcOnlySweepRefusal
+                    )
+            }
+            Self::WalletMonitorRefusal => {
+                observation.source == OnchainLifecycleObservationSource::WalletMonitor
+                    && observation.kind
+                        == OnchainLifecycleObservationKind::MissingProofOwnershipRefusal
+            }
+            Self::WalletMonitorRestart => {
+                observation.source == OnchainLifecycleObservationSource::WalletMonitor
+                    && observation.kind == OnchainLifecycleObservationKind::RestartEvidence
+            }
+        }
     }
 }
 
@@ -932,6 +991,295 @@ impl OnchainLifecycleChainObservationReport {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OnchainLifecycleLiveRegtestChainSnapshot {
+    pub network: String,
+    pub source: String,
+    pub start_height: u32,
+    pub observed_height: u32,
+    pub mined_blocks: u32,
+    pub best_block_hash: String,
+    pub snapshot_digest: Bytes32,
+}
+
+impl OnchainLifecycleLiveRegtestChainSnapshot {
+    pub fn new(
+        start_height: u32,
+        observed_height: u32,
+        mined_blocks: u32,
+        best_block_hash: String,
+    ) -> Self {
+        let mut snapshot = Self {
+            network: "regtest".to_owned(),
+            source: "bitcoin_core_regtest".to_owned(),
+            start_height,
+            observed_height,
+            mined_blocks,
+            best_block_hash,
+            snapshot_digest: Bytes32::ZERO,
+        };
+        snapshot.snapshot_digest = snapshot.digest();
+        snapshot
+    }
+
+    pub fn validate(&self) -> Result<(), OnchainLifecycleError> {
+        if self.network != "regtest" {
+            return Err(OnchainLifecycleError::UnsupportedLiveRegtestNetwork {
+                network: self.network.clone(),
+            });
+        }
+        if self.source != "bitcoin_core_regtest" {
+            return Err(OnchainLifecycleError::UnsupportedLiveRegtestSource {
+                source: self.source.clone(),
+            });
+        }
+        if self.mined_blocks == 0
+            || self.observed_height < self.start_height.saturating_add(self.mined_blocks)
+        {
+            return Err(OnchainLifecycleError::InvalidLiveRegtestHeight {
+                start_height: self.start_height,
+                observed_height: self.observed_height,
+                mined_blocks: self.mined_blocks,
+            });
+        }
+        if !is_hex_64(&self.best_block_hash) {
+            return Err(OnchainLifecycleError::InvalidLiveRegtestBlockHash {
+                block_hash: self.best_block_hash.clone(),
+            });
+        }
+        if self.snapshot_digest != self.digest() {
+            return Err(OnchainLifecycleError::LiveRegtestSnapshotDigestMismatch);
+        }
+        Ok(())
+    }
+
+    fn digest(&self) -> Bytes32 {
+        let mut hasher = Sha256::new();
+        hasher.update(b"tap-ldk:onchain-lifecycle-live-regtest-snapshot:v1");
+        hash_string(&mut hasher, &self.network);
+        hash_string(&mut hasher, &self.source);
+        hasher.update(self.start_height.to_be_bytes());
+        hasher.update(self.observed_height.to_be_bytes());
+        hasher.update(self.mined_blocks.to_be_bytes());
+        hash_string(&mut hasher, &self.best_block_hash);
+        Bytes32(hasher.finalize().into())
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OnchainLifecycleLiveRegtestCallback {
+    pub callback_id: String,
+    pub observation_id: String,
+    pub lifecycle_event_id: String,
+    pub source: OnchainLifecycleObservationSource,
+    pub kind: OnchainLifecycleObservationKind,
+    pub callback_kind: OnchainLifecycleLiveRegtestCallbackKind,
+    pub height: u32,
+    pub block_hash: String,
+    pub callback_digest: Bytes32,
+}
+
+impl OnchainLifecycleLiveRegtestCallback {
+    pub fn new(
+        callback_kind: OnchainLifecycleLiveRegtestCallbackKind,
+        observation: &OnchainLifecycleObservation,
+        snapshot: &OnchainLifecycleLiveRegtestChainSnapshot,
+    ) -> Self {
+        let mut callback = Self {
+            callback_id: live_regtest_callback_id_for(callback_kind, observation, snapshot),
+            observation_id: observation.observation_id.clone(),
+            lifecycle_event_id: observation.lifecycle_event_id.clone(),
+            source: observation.source,
+            kind: observation.kind,
+            callback_kind,
+            height: snapshot.observed_height,
+            block_hash: snapshot.best_block_hash.clone(),
+            callback_digest: Bytes32::ZERO,
+        };
+        callback.callback_digest = callback.digest();
+        callback
+    }
+
+    pub fn validate(&self) -> Result<(), OnchainLifecycleError> {
+        require_nonempty("callback_id", &self.callback_id)?;
+        require_nonempty("callback_observation_id", &self.observation_id)?;
+        require_nonempty("callback_lifecycle_event_id", &self.lifecycle_event_id)?;
+        if !is_hex_64(&self.block_hash) {
+            return Err(OnchainLifecycleError::InvalidLiveRegtestBlockHash {
+                block_hash: self.block_hash.clone(),
+            });
+        }
+        if self.callback_digest != self.digest() {
+            return Err(OnchainLifecycleError::LiveRegtestCallbackDigestMismatch {
+                callback_id: self.callback_id.clone(),
+            });
+        }
+        Ok(())
+    }
+
+    fn digest(&self) -> Bytes32 {
+        let mut hasher = Sha256::new();
+        hasher.update(b"tap-ldk:onchain-lifecycle-live-regtest-callback:v1");
+        hash_string(&mut hasher, &self.callback_id);
+        hash_string(&mut hasher, &self.observation_id);
+        hash_string(&mut hasher, &self.lifecycle_event_id);
+        hash_string(&mut hasher, self.source.as_str());
+        hash_string(&mut hasher, self.kind.as_str());
+        hash_string(&mut hasher, self.callback_kind.as_str());
+        hasher.update(self.height.to_be_bytes());
+        hash_string(&mut hasher, &self.block_hash);
+        Bytes32(hasher.finalize().into())
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OnchainLifecycleLiveRegtestCallbackReport {
+    pub version: u32,
+    pub chain_observation_report: OnchainLifecycleChainObservationReport,
+    pub regtest_snapshot: OnchainLifecycleLiveRegtestChainSnapshot,
+    pub callbacks: Vec<OnchainLifecycleLiveRegtestCallback>,
+    pub all_callbacks_bound: bool,
+    pub live_regtest_chain_backed: bool,
+    pub production_ready: bool,
+}
+
+impl OnchainLifecycleLiveRegtestCallbackReport {
+    pub fn from_chain_observation_report(
+        chain_observation_report: OnchainLifecycleChainObservationReport,
+        regtest_snapshot: OnchainLifecycleLiveRegtestChainSnapshot,
+    ) -> Result<Self, OnchainLifecycleError> {
+        let callbacks = chain_observation_report
+            .observations
+            .iter()
+            .map(|observation| {
+                OnchainLifecycleLiveRegtestCallback::new(
+                    callback_kind_for_observation(observation),
+                    observation,
+                    &regtest_snapshot,
+                )
+            })
+            .collect::<Vec<_>>();
+        Self::new(chain_observation_report, regtest_snapshot, callbacks)
+    }
+
+    pub fn new(
+        chain_observation_report: OnchainLifecycleChainObservationReport,
+        regtest_snapshot: OnchainLifecycleLiveRegtestChainSnapshot,
+        callbacks: Vec<OnchainLifecycleLiveRegtestCallback>,
+    ) -> Result<Self, OnchainLifecycleError> {
+        let all_callbacks_bound =
+            live_regtest_callbacks_bound(&chain_observation_report.observations, &callbacks);
+        let report = Self {
+            version: ONCHAIN_LIFECYCLE_LIVE_REGTEST_CALLBACK_REPORT_SCHEMA_VERSION,
+            all_callbacks_bound,
+            live_regtest_chain_backed: true,
+            production_ready: false,
+            chain_observation_report,
+            regtest_snapshot,
+            callbacks,
+        };
+        report.validate()?;
+        Ok(report)
+    }
+
+    pub fn validate(&self) -> Result<(), OnchainLifecycleError> {
+        if self.version != ONCHAIN_LIFECYCLE_LIVE_REGTEST_CALLBACK_REPORT_SCHEMA_VERSION {
+            return Err(OnchainLifecycleError::UnsupportedLiveRegtestReportVersion(
+                self.version,
+            ));
+        }
+        self.chain_observation_report.validate()?;
+        self.regtest_snapshot.validate()?;
+        if self.callbacks.is_empty() {
+            return Err(OnchainLifecycleError::EmptyLiveRegtestCallbackReport);
+        }
+        if !self.live_regtest_chain_backed {
+            return Err(OnchainLifecycleError::MissingLiveRegtestBacking);
+        }
+        if self.production_ready {
+            return Err(OnchainLifecycleError::UnsupportedProductionClaim);
+        }
+
+        let observations_by_id = self
+            .chain_observation_report
+            .observations
+            .iter()
+            .map(|observation| (observation.observation_id.clone(), observation))
+            .collect::<BTreeMap<_, _>>();
+        let mut callback_ids = BTreeSet::<String>::new();
+        for callback in &self.callbacks {
+            callback.validate()?;
+            if !callback_ids.insert(callback.callback_id.clone()) {
+                return Err(OnchainLifecycleError::DuplicateLiveRegtestCallback {
+                    callback_id: callback.callback_id.clone(),
+                });
+            }
+            if callback.height != self.regtest_snapshot.observed_height
+                || callback.block_hash != self.regtest_snapshot.best_block_hash
+            {
+                return Err(OnchainLifecycleError::LiveRegtestCallbackSnapshotMismatch {
+                    callback_id: callback.callback_id.clone(),
+                });
+            }
+            let observation = observations_by_id
+                .get(&callback.observation_id)
+                .ok_or_else(
+                    || OnchainLifecycleError::LiveRegtestCallbackUnknownObservation {
+                        callback_id: callback.callback_id.clone(),
+                        observation_id: callback.observation_id.clone(),
+                    },
+                )?;
+            if callback.lifecycle_event_id != observation.lifecycle_event_id
+                || callback.source != observation.source
+                || callback.kind != observation.kind
+                || !callback.callback_kind.matches_observation(observation)
+            {
+                return Err(
+                    OnchainLifecycleError::LiveRegtestCallbackObservationMismatch {
+                        callback_id: callback.callback_id.clone(),
+                        observation_id: callback.observation_id.clone(),
+                    },
+                );
+            }
+            if observation.lifecycle_event_status
+                == OnchainLifecycleEventStatus::AssetProofRecovered
+                && observation.anchor_state != ProofAnchorState::Confirmed
+            {
+                return Err(
+                    OnchainLifecycleError::LiveRegtestRecoveredAnchorNotConfirmed {
+                        callback_id: callback.callback_id.clone(),
+                        observation_id: callback.observation_id.clone(),
+                    },
+                );
+            }
+        }
+
+        self.expect_summary(
+            "all_callbacks_bound",
+            self.all_callbacks_bound,
+            live_regtest_callbacks_bound(
+                &self.chain_observation_report.observations,
+                &self.callbacks,
+            ),
+        )?;
+
+        Ok(())
+    }
+
+    fn expect_summary(
+        &self,
+        field: &'static str,
+        claimed: bool,
+        actual: bool,
+    ) -> Result<(), OnchainLifecycleError> {
+        if claimed != actual {
+            Err(OnchainLifecycleError::LiveRegtestCallbackSummaryMismatch { field })
+        } else {
+            Ok(())
+        }
+    }
+}
+
 pub fn run_onchain_lifecycle_smoke() -> Result<OnchainLifecycleReport, OnchainLifecycleError> {
     let close = run_native_asset_close_smoke()?;
     let recovery = run_native_asset_recovery_matrix_smoke()?;
@@ -1051,6 +1399,16 @@ pub fn run_chain_watcher_lifecycle_smoke()
     OnchainLifecycleChainObservationReport::new(lifecycle_report, observations)
 }
 
+pub fn run_live_regtest_chain_watcher_lifecycle_smoke(
+    snapshot: OnchainLifecycleLiveRegtestChainSnapshot,
+) -> Result<OnchainLifecycleLiveRegtestCallbackReport, OnchainLifecycleError> {
+    let chain_observation_report = run_chain_watcher_lifecycle_smoke()?;
+    OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+        chain_observation_report,
+        snapshot,
+    )
+}
+
 #[derive(Debug)]
 pub enum OnchainLifecycleError {
     NativeClose(NativeAssetCloseError),
@@ -1058,10 +1416,13 @@ pub enum OnchainLifecycleError {
     MissingLifecycleEvidence(&'static str),
     UnsupportedVersion(u32),
     UnsupportedObservationReportVersion(u32),
+    UnsupportedLiveRegtestReportVersion(u32),
     UnsupportedProductionClaim,
     UnsupportedLiveChainWatcherClaim,
+    MissingLiveRegtestBacking,
     EmptyReport,
     EmptyObservationReport,
+    EmptyLiveRegtestCallbackReport,
     MissingField(&'static str),
     DuplicateEvent {
         event_id: String,
@@ -1127,6 +1488,45 @@ pub enum OnchainLifecycleError {
     ObservationSummaryMismatch {
         field: &'static str,
     },
+    UnsupportedLiveRegtestNetwork {
+        network: String,
+    },
+    UnsupportedLiveRegtestSource {
+        source: String,
+    },
+    InvalidLiveRegtestHeight {
+        start_height: u32,
+        observed_height: u32,
+        mined_blocks: u32,
+    },
+    InvalidLiveRegtestBlockHash {
+        block_hash: String,
+    },
+    LiveRegtestSnapshotDigestMismatch,
+    DuplicateLiveRegtestCallback {
+        callback_id: String,
+    },
+    LiveRegtestCallbackDigestMismatch {
+        callback_id: String,
+    },
+    LiveRegtestCallbackSnapshotMismatch {
+        callback_id: String,
+    },
+    LiveRegtestCallbackUnknownObservation {
+        callback_id: String,
+        observation_id: String,
+    },
+    LiveRegtestCallbackObservationMismatch {
+        callback_id: String,
+        observation_id: String,
+    },
+    LiveRegtestRecoveredAnchorNotConfirmed {
+        callback_id: String,
+        observation_id: String,
+    },
+    LiveRegtestCallbackSummaryMismatch {
+        field: &'static str,
+    },
     MissingProofHistory {
         event_id: String,
     },
@@ -1171,6 +1571,10 @@ impl fmt::Display for OnchainLifecycleError {
                 f,
                 "unsupported on-chain lifecycle observation report schema version {version}"
             ),
+            Self::UnsupportedLiveRegtestReportVersion(version) => write!(
+                f,
+                "unsupported live regtest lifecycle callback report schema version {version}"
+            ),
             Self::UnsupportedProductionClaim => {
                 write!(
                     f,
@@ -1181,9 +1585,16 @@ impl fmt::Display for OnchainLifecycleError {
                 f,
                 "bounded on-chain lifecycle observation report cannot claim live chain watcher backing"
             ),
+            Self::MissingLiveRegtestBacking => write!(
+                f,
+                "live regtest lifecycle callback report is missing live regtest backing"
+            ),
             Self::EmptyReport => write!(f, "on-chain lifecycle report is empty"),
             Self::EmptyObservationReport => {
                 write!(f, "on-chain lifecycle observation report is empty")
+            }
+            Self::EmptyLiveRegtestCallbackReport => {
+                write!(f, "live regtest lifecycle callback report is empty")
             }
             Self::MissingField(field) => write!(f, "on-chain lifecycle missing {field}"),
             Self::DuplicateEvent { event_id } => {
@@ -1295,6 +1706,61 @@ impl fmt::Display for OnchainLifecycleError {
             Self::ObservationSummaryMismatch { field } => write!(
                 f,
                 "on-chain lifecycle observation summary field {field} does not match observations"
+            ),
+            Self::UnsupportedLiveRegtestNetwork { network } => {
+                write!(f, "unsupported live regtest network {network}")
+            }
+            Self::UnsupportedLiveRegtestSource { source } => {
+                write!(f, "unsupported live regtest source {source}")
+            }
+            Self::InvalidLiveRegtestHeight {
+                start_height,
+                observed_height,
+                mined_blocks,
+            } => write!(
+                f,
+                "invalid live regtest heights: start={start_height} observed={observed_height} mined={mined_blocks}"
+            ),
+            Self::InvalidLiveRegtestBlockHash { block_hash } => {
+                write!(f, "invalid live regtest block hash {block_hash}")
+            }
+            Self::LiveRegtestSnapshotDigestMismatch => {
+                write!(f, "live regtest chain snapshot digest mismatch")
+            }
+            Self::DuplicateLiveRegtestCallback { callback_id } => {
+                write!(f, "duplicate live regtest callback {callback_id}")
+            }
+            Self::LiveRegtestCallbackDigestMismatch { callback_id } => {
+                write!(f, "live regtest callback {callback_id} digest mismatch")
+            }
+            Self::LiveRegtestCallbackSnapshotMismatch { callback_id } => write!(
+                f,
+                "live regtest callback {callback_id} does not match the regtest snapshot"
+            ),
+            Self::LiveRegtestCallbackUnknownObservation {
+                callback_id,
+                observation_id,
+            } => write!(
+                f,
+                "live regtest callback {callback_id} references unknown observation {observation_id}"
+            ),
+            Self::LiveRegtestCallbackObservationMismatch {
+                callback_id,
+                observation_id,
+            } => write!(
+                f,
+                "live regtest callback {callback_id} does not match observation {observation_id}"
+            ),
+            Self::LiveRegtestRecoveredAnchorNotConfirmed {
+                callback_id,
+                observation_id,
+            } => write!(
+                f,
+                "live regtest callback {callback_id} recovered observation {observation_id} without confirmed anchor state"
+            ),
+            Self::LiveRegtestCallbackSummaryMismatch { field } => write!(
+                f,
+                "live regtest callback summary field {field} does not match callbacks"
             ),
             Self::MissingProofHistory { event_id } => {
                 write!(
@@ -1590,6 +2056,47 @@ fn restart_observation_present(observations: &[OnchainLifecycleObservation]) -> 
     })
 }
 
+fn live_regtest_callbacks_bound(
+    observations: &[OnchainLifecycleObservation],
+    callbacks: &[OnchainLifecycleLiveRegtestCallback],
+) -> bool {
+    observations.iter().all(|observation| {
+        callbacks.iter().any(|callback| {
+            callback.observation_id == observation.observation_id
+                && callback.lifecycle_event_id == observation.lifecycle_event_id
+                && callback.source == observation.source
+                && callback.kind == observation.kind
+                && callback.callback_kind.matches_observation(observation)
+        })
+    })
+}
+
+fn callback_kind_for_observation(
+    observation: &OnchainLifecycleObservation,
+) -> OnchainLifecycleLiveRegtestCallbackKind {
+    match observation.kind {
+        OnchainLifecycleObservationKind::CooperativeCloseAnchor
+        | OnchainLifecycleObservationKind::UnilateralCommitmentAnchor
+        | OnchainLifecycleObservationKind::SecondLevelHtlcAnchor
+        | OnchainLifecycleObservationKind::StaleProofOwnershipAnchor => {
+            OnchainLifecycleLiveRegtestCallbackKind::ChainWatcherAnchor
+        }
+        OnchainLifecycleObservationKind::FinalSweepAnchor => {
+            OnchainLifecycleLiveRegtestCallbackKind::SweeperAnchor
+        }
+        OnchainLifecycleObservationKind::FailedSweep
+        | OnchainLifecycleObservationKind::BtcOnlySweepRefusal => {
+            OnchainLifecycleLiveRegtestCallbackKind::SweeperRefusal
+        }
+        OnchainLifecycleObservationKind::MissingProofOwnershipRefusal => {
+            OnchainLifecycleLiveRegtestCallbackKind::WalletMonitorRefusal
+        }
+        OnchainLifecycleObservationKind::RestartEvidence => {
+            OnchainLifecycleLiveRegtestCallbackKind::WalletMonitorRestart
+        }
+    }
+}
+
 fn has_proof_export(events: &[OnchainLifecycleEvent], kind: OnchainLifecycleEventKind) -> bool {
     has_status(events, kind, OnchainLifecycleEventStatus::ProofExported)
 }
@@ -1650,6 +2157,24 @@ fn observation_id_for(
     format!("{}:{}", kind.as_str(), digest.to_hex())
 }
 
+fn live_regtest_callback_id_for(
+    kind: OnchainLifecycleLiveRegtestCallbackKind,
+    observation: &OnchainLifecycleObservation,
+    snapshot: &OnchainLifecycleLiveRegtestChainSnapshot,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:onchain-lifecycle-live-regtest-callback-id:v1");
+    hash_string(&mut hasher, kind.as_str());
+    hash_string(&mut hasher, &observation.observation_id);
+    hash_string(&mut hasher, &observation.lifecycle_event_id);
+    hash_string(&mut hasher, observation.source.as_str());
+    hash_string(&mut hasher, observation.kind.as_str());
+    hasher.update(snapshot.observed_height.to_be_bytes());
+    hash_string(&mut hasher, &snapshot.best_block_hash);
+    let digest = Bytes32(hasher.finalize().into());
+    format!("{}:{}", kind.as_str(), digest.to_hex())
+}
+
 fn require_nonempty(field: &'static str, value: &str) -> Result<(), OnchainLifecycleError> {
     if value.is_empty() {
         Err(OnchainLifecycleError::MissingField(field))
@@ -1660,6 +2185,10 @@ fn require_nonempty(field: &'static str, value: &str) -> Result<(), OnchainLifec
 
 fn empty_optional(value: Option<&str>) -> bool {
     value.map(str::is_empty).unwrap_or(true)
+}
+
+fn is_hex_64(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn hash_string(hasher: &mut Sha256, value: &str) {
@@ -2006,6 +2535,135 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn live_regtest_callback_smoke_binds_observations_to_snapshot() {
+        let report = run_live_regtest_chain_watcher_lifecycle_smoke(live_snapshot())
+            .expect("live regtest callback smoke passes");
+        report
+            .validate()
+            .expect("live regtest callback report validates");
+
+        assert!(report.all_callbacks_bound);
+        assert!(report.live_regtest_chain_backed);
+        assert!(!report.production_ready);
+        assert_eq!(
+            report.chain_observation_report.observations.len(),
+            report.callbacks.len()
+        );
+        assert!(report.callbacks.iter().all(|callback| {
+            callback.height == report.regtest_snapshot.observed_height
+                && callback.block_hash == report.regtest_snapshot.best_block_hash
+        }));
+    }
+
+    #[test]
+    fn live_regtest_callback_report_rejects_bad_snapshot_and_callbacks() {
+        let chain_report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("chain observation report builds");
+        let mut report = OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+            chain_report,
+            live_snapshot(),
+        )
+        .expect("live regtest report builds");
+
+        report.live_regtest_chain_backed = false;
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::MissingLiveRegtestBacking)
+        ));
+
+        let chain_report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("chain observation report builds");
+        let mut report = OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+            chain_report,
+            live_snapshot(),
+        )
+        .expect("live regtest report builds");
+        report.production_ready = true;
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::UnsupportedProductionClaim)
+        ));
+
+        let mut bad_snapshot = live_snapshot();
+        bad_snapshot.observed_height = bad_snapshot.start_height;
+        bad_snapshot.snapshot_digest = bad_snapshot.digest();
+        assert!(matches!(
+            bad_snapshot.validate(),
+            Err(OnchainLifecycleError::InvalidLiveRegtestHeight { .. })
+        ));
+
+        let mut bad_snapshot = live_snapshot();
+        bad_snapshot.best_block_hash = "not-a-block-hash".to_owned();
+        bad_snapshot.snapshot_digest = bad_snapshot.digest();
+        assert!(matches!(
+            bad_snapshot.validate(),
+            Err(OnchainLifecycleError::InvalidLiveRegtestBlockHash { .. })
+        ));
+
+        let chain_report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("chain observation report builds");
+        let mut report = OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+            chain_report,
+            live_snapshot(),
+        )
+        .expect("live regtest report builds");
+        report.callbacks.push(report.callbacks[0].clone());
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::DuplicateLiveRegtestCallback { .. })
+        ));
+
+        let chain_report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("chain observation report builds");
+        let mut report = OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+            chain_report,
+            live_snapshot(),
+        )
+        .expect("live regtest report builds");
+        report.callbacks[0].observation_id = "unknown-observation".to_owned();
+        report.callbacks[0].callback_digest = report.callbacks[0].digest();
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::LiveRegtestCallbackUnknownObservation { .. })
+        ));
+
+        let chain_report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("chain observation report builds");
+        let mut report = OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+            chain_report,
+            live_snapshot(),
+        )
+        .expect("live regtest report builds");
+        report.callbacks[0].block_hash = "11".repeat(32);
+        report.callbacks[0].callback_digest = report.callbacks[0].digest();
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::LiveRegtestCallbackSnapshotMismatch { .. })
+        ));
+
+        let chain_report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("chain observation report builds");
+        let mut report = OnchainLifecycleLiveRegtestCallbackReport::from_chain_observation_report(
+            chain_report,
+            live_snapshot(),
+        )
+        .expect("live regtest report builds");
+        report.all_callbacks_bound = false;
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::LiveRegtestCallbackSummaryMismatch {
+                field: "all_callbacks_bound"
+            })
+        ));
+    }
+
     fn valid_report() -> OnchainLifecycleReport {
         OnchainLifecycleReport::new(vec![
             event(OnchainLifecycleEventKind::CooperativeCloseLocal),
@@ -2126,5 +2784,9 @@ mod tests {
                 .with_wallet_evidence(Bytes32([7; 32]))
                 .with_monitor_evidence(Bytes32([8; 32])),
         }
+    }
+
+    fn live_snapshot() -> OnchainLifecycleLiveRegtestChainSnapshot {
+        OnchainLifecycleLiveRegtestChainSnapshot::new(100, 101, 1, "ab".repeat(32))
     }
 }
