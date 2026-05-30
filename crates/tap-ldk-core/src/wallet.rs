@@ -20,6 +20,10 @@ use crate::{
         ProofHistoryState, ProofNetwork, ProofTransitionKind, ProofValidationContext,
         VerificationScope,
     },
+    proof_courier::{
+        PROOF_COURIER_BUNDLE_SCHEMA_VERSION, PROOF_COURIER_TRANSPORT, ProofCourierBundle,
+        ProofCourierError, proof_digest_for, proof_hex_for,
+    },
     tapd_proof::{TapdProofError, TapdProofFileSummary, decode_tapd_proof_file},
 };
 
@@ -100,6 +104,14 @@ impl WalletState {
         &mut self,
         request: TapdProofImportRequest,
     ) -> Result<ImportOutcome, WalletError> {
+        self.import_tapd_proof_file_with_anchor_state(request, ProofAnchorState::Confirmed)
+    }
+
+    pub fn import_tapd_proof_file_with_anchor_state(
+        &mut self,
+        request: TapdProofImportRequest,
+        anchor_state: ProofAnchorState,
+    ) -> Result<ImportOutcome, WalletError> {
         let proof_summary =
             decode_tapd_proof_file(&request.tapd_proof_file).map_err(WalletError::TapdProof)?;
         let proof = request.build_semantic_proof(&proof_summary)?;
@@ -107,7 +119,7 @@ impl WalletState {
             proof,
             Some(request.tapd_proof_file),
             Some(proof_summary),
-            ProofAnchorState::Confirmed,
+            anchor_state,
         )
     }
 
@@ -249,6 +261,77 @@ impl WalletState {
             .as_deref()
             .ok_or_else(|| WalletError::NoTapdProofFile(proof_id.to_owned()))?;
         decode_hex(tapd_hex)
+    }
+
+    pub fn export_proof_courier_bundle(
+        &self,
+        proof_id: &str,
+    ) -> Result<ProofCourierBundle, WalletError> {
+        self.validate()?;
+        let encoded = self.export_encoded_proof(proof_id)?;
+        let proof = ProofFile::decode(&encoded).map_err(WalletError::Proof)?;
+        let stored = self
+            .proofs
+            .get(proof_id)
+            .ok_or_else(|| WalletError::UnknownProof(proof_id.to_owned()))?;
+        let utxo = self
+            .spendable_utxos
+            .get(proof_id)
+            .ok_or_else(|| WalletError::ObsoleteProofExport(proof_id.to_owned()))?;
+
+        Ok(ProofCourierBundle {
+            version: PROOF_COURIER_BUNDLE_SCHEMA_VERSION,
+            transport: PROOF_COURIER_TRANSPORT.to_owned(),
+            proof_id: proof_id.to_owned(),
+            asset_id: proof.asset_id.to_hex(),
+            amount: proof.amount.value(),
+            script_key: proof.script_key.to_hex(),
+            genesis_outpoint: proof.genesis_outpoint,
+            anchor_outpoint: proof.anchor_outpoint,
+            anchor_state: utxo.anchor_state,
+            proof_history_record_id: stored.proof_history_record_id.clone(),
+            proof_history_output_id: stored.proof_history_output_id.clone(),
+            proof_history_transition_id: stored.proof_history_transition_id.clone(),
+            proof_tlv_hex: proof_hex_for(&encoded),
+            proof_tlv_digest: proof_digest_for(&encoded),
+            tapd_raw_proof_file_hex: stored.tapd_raw_proof_file_hex.clone(),
+            tapd_raw_proof_file_digest: stored.tapd_raw_proof_file_digest,
+        })
+    }
+
+    pub fn import_proof_courier_bundle(
+        &mut self,
+        bundle: ProofCourierBundle,
+    ) -> Result<ImportOutcome, WalletError> {
+        let validation = bundle.validate().map_err(WalletError::ProofCourier)?;
+        let proof = validation.proof;
+        let expected_history = wallet_proof_history_metadata(&bundle.proof_id, &proof)?;
+        if bundle.proof_history_record_id != expected_history.record_id
+            || bundle.proof_history_output_id != expected_history.output_id
+            || bundle.proof_history_transition_id != expected_history.transition_id.to_hex()
+        {
+            return Err(WalletError::UnexplainedProofHistory(bundle.proof_id));
+        }
+
+        let outcome = if let Some(tapd_hex) = bundle.tapd_raw_proof_file_hex.as_deref() {
+            let tapd_proof_file = decode_hex(tapd_hex)?;
+            self.import_tapd_proof_file_with_anchor_state(
+                TapdProofImportRequest {
+                    asset_id: proof.asset_id,
+                    genesis_outpoint: proof.genesis_outpoint.clone(),
+                    anchor_outpoint: proof.anchor_outpoint.clone(),
+                    amount: proof.amount,
+                    script_key: proof.script_key,
+                    tapd_proof_file,
+                },
+                bundle.anchor_state,
+            )?
+        } else {
+            self.import_verified_proof_with_anchor_state(proof, bundle.anchor_state)?
+        };
+
+        self.require_imported_bundle_state(&bundle)?;
+        Ok(outcome)
     }
 
     pub fn issue_regtest_asset(
@@ -517,6 +600,31 @@ impl WalletState {
         }
         Ok(explanation)
     }
+
+    fn require_imported_bundle_state(
+        &self,
+        bundle: &ProofCourierBundle,
+    ) -> Result<(), WalletError> {
+        let stored = self
+            .proofs
+            .get(&bundle.proof_id)
+            .ok_or_else(|| WalletError::UnknownProof(bundle.proof_id.clone()))?;
+        let utxo = self
+            .spendable_utxos
+            .get(&bundle.proof_id)
+            .ok_or_else(|| WalletError::ObsoleteProofExport(bundle.proof_id.clone()))?;
+        if stored.proof_history_record_id != bundle.proof_history_record_id
+            || stored.proof_history_output_id != bundle.proof_history_output_id
+            || stored.proof_history_transition_id != bundle.proof_history_transition_id
+            || utxo.proof_history_output_id != bundle.proof_history_output_id
+            || utxo.anchor_state != bundle.anchor_state
+        {
+            return Err(WalletError::UnexplainedProofHistory(
+                bundle.proof_id.clone(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -783,6 +891,7 @@ pub enum WalletError {
     Json(serde_json::Error),
     Proof(ProofError),
     ProofHistory(ProofHistoryReplayError),
+    ProofCourier(ProofCourierError),
     TapdProof(TapdProofError),
     Asset(AssetError),
     UnsupportedVersion(u32),
@@ -808,6 +917,7 @@ impl fmt::Display for WalletError {
             Self::Json(err) => write!(f, "wallet JSON error: {err}"),
             Self::Proof(err) => write!(f, "wallet proof error: {err}"),
             Self::ProofHistory(err) => write!(f, "wallet proof-history error: {err}"),
+            Self::ProofCourier(err) => write!(f, "wallet proof-courier error: {err}"),
             Self::TapdProof(err) => write!(f, "wallet tapd proof error: {err}"),
             Self::Asset(err) => write!(f, "wallet asset error: {err}"),
             Self::UnsupportedVersion(version) => {
@@ -1152,6 +1262,119 @@ mod tests {
             expected_tapd_balances()
         );
         fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn proof_courier_bundle_roundtrip_survives_restart() {
+        let path = temp_wallet_path("proof_courier_restart");
+        let mut source = WalletState::default();
+        let imported = source
+            .import_verified_proof(valid_proof())
+            .expect("proof imports");
+        let bundle = source
+            .export_proof_courier_bundle(imported.proof_id())
+            .expect("proof courier bundle exports");
+
+        assert_eq!(bundle.proof_id, imported.proof_id());
+        assert_eq!(bundle.anchor_state, ProofAnchorState::Confirmed);
+        assert_eq!(bundle.proof_history_output_id, imported.proof_id());
+
+        let mut receiver = WalletState::default();
+        let outcome = receiver
+            .import_proof_courier_bundle(bundle)
+            .expect("proof courier bundle imports");
+        assert_eq!(outcome.status(), "imported");
+        assert_eq!(
+            receiver.balances().expect("receiver balances"),
+            expected_balances()
+        );
+
+        receiver.save_atomic(&path).expect("wallet saves");
+        let loaded = WalletState::load(&path).expect("wallet reloads");
+        assert_eq!(
+            loaded.balances().expect("loaded balances"),
+            expected_balances()
+        );
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn tapd_proof_courier_preserves_raw_tapf_after_restart() {
+        let path = temp_wallet_path("tapd_proof_courier_restart");
+        let tapd_proof_file = tapd_proof_file_fixture();
+        let mut source = WalletState::default();
+        let imported = source
+            .import_tapd_proof_file(tapd_fixture_import_request(tapd_proof_file.clone()))
+            .expect("tapd proof file imports");
+        let bundle = source
+            .export_proof_courier_bundle(imported.proof_id())
+            .expect("tapd proof courier bundle exports");
+        assert!(bundle.tapd_raw_proof_file_hex.is_some());
+        assert!(bundle.tapd_raw_proof_file_digest.is_some());
+
+        let mut receiver = WalletState::default();
+        let outcome = receiver
+            .import_proof_courier_bundle(bundle)
+            .expect("tapd proof courier bundle imports");
+        assert_eq!(
+            receiver
+                .export_tapd_proof_file(outcome.proof_id())
+                .expect("tapd proof exports"),
+            tapd_proof_file
+        );
+        assert_eq!(
+            receiver.balances().expect("receiver balances"),
+            expected_tapd_balances()
+        );
+
+        receiver.save_atomic(&path).expect("wallet saves");
+        let loaded = WalletState::load(&path).expect("wallet reloads");
+        assert_eq!(
+            loaded
+                .export_tapd_proof_file(outcome.proof_id())
+                .expect("tapd proof exports after reload"),
+            tapd_proof_file
+        );
+        assert_eq!(
+            loaded.balances().expect("loaded balances"),
+            expected_tapd_balances()
+        );
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn proof_courier_export_requires_current_spendable_anchor() {
+        let proof = valid_proof();
+        let anchor = proof.anchor_outpoint.clone();
+        let mut wallet = WalletState::default();
+        let outcome = wallet.import_verified_proof(proof).expect("proof imports");
+        let proof_id = outcome.proof_id().to_owned();
+
+        wallet
+            .update_anchor_state(&anchor, ProofAnchorState::Reorged)
+            .expect("anchor updates to reorged");
+        assert!(matches!(
+            wallet.export_proof_courier_bundle(&proof_id),
+            Err(WalletError::UnexplainedProofHistory(id)) if id.as_str() == proof_id
+        ));
+
+        wallet
+            .update_anchor_state(&anchor, ProofAnchorState::Stale)
+            .expect("anchor updates to stale");
+        assert!(matches!(
+            wallet.export_proof_courier_bundle(&proof_id),
+            Err(WalletError::UnexplainedProofHistory(id)) if id.as_str() == proof_id
+        ));
+
+        let mut pending_wallet = WalletState::default();
+        let pending = pending_wallet
+            .import_verified_proof_with_anchor_state(valid_proof(), ProofAnchorState::Pending)
+            .expect("pending proof imports");
+        let pending_proof_id = pending.proof_id().to_owned();
+        assert!(matches!(
+            pending_wallet.export_proof_courier_bundle(&pending_proof_id),
+            Err(WalletError::UnexplainedProofHistory(id)) if id.as_str() == pending_proof_id
+        ));
     }
 
     #[test]

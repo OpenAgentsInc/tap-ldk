@@ -26,6 +26,15 @@ cargo run -p tap-ldk-cli -- wallet-export-proof-file target/demo-wallet.json '<p
 cargo run -p tap-ldk-cli -- wallet-verify-proof-file target/proof.tlv
 ```
 
+For normal local handoff between wallets, prefer a proof-courier bundle. It
+keeps the proof bytes, replayed proof-history metadata, anchor state, asset
+fields, digests, and optional TAPF proof file bytes together:
+
+```bash
+cargo run -p tap-ldk-cli -- wallet-export-proof-bundle target/demo-wallet.json '<proof-id>' target/proof-bundle.json
+cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.json target/proof-bundle.json
+```
+
 `tapd` proof files can be imported from raw `TAPF` bytes or
 hex fixture files and exported back as raw bytes:
 
@@ -75,6 +84,8 @@ identifier, not a production wallet database key.
 - A proof is decoded and verified before it can advance wallet state.
 - Duplicate proof import is idempotent and does not double count balance.
 - Stored UTXO fields must match the encoded verified proof.
+- Proof-courier export is allowed only for currently accepted, spendable wallet
+  proofs. Pending, stale, reorged, obsolete, or unexplained proofs fail closed.
 - Restarting the CLI and loading the same wallet file must produce the same
   balance view.
 - Private signing keys are not stored in this bounded schema.

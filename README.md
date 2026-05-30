@@ -82,6 +82,8 @@ cargo run -p tap-ldk-cli -- first-demo-scope
 cargo run -p tap-ldk-cli -- simple-taproot-negotiation-report
 cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
+cargo run -p tap-ldk-cli -- wallet-export-proof-bundle target/demo-wallet.json '<proof-id>' target/proof-bundle.json
+cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.json target/proof-bundle.json
 ```
 
 ## Docs

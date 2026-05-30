@@ -153,7 +153,9 @@ Last updated: 2026-05-29
 - The next production epic should focus on proof courier/export policy:
   accepted proof bytes, optional Lightning Labs `TAPF` bytes, proof-history
   metadata, anchor state, and digests need to move together as a validated
-  bundle instead of loose local files.
+  bundle instead of loose local files. The core bundle schema, wallet
+  import/export helpers, and CLI commands are now in place; remaining work in
+  this epic is negative-vector expansion, verification wiring, and final docs.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

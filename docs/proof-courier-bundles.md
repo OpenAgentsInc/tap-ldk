@@ -20,4 +20,14 @@ semantic ancestry. Bad schema versions, wrong transport strings, mismatched
 fields, malformed proof bytes, and mismatched digests fail closed.
 
 Current status: the core bundle schema and validation are implemented in
-`proof_courier`. Wallet import/export and CLI commands are the next step.
+`proof_courier`, and the wallet can import and export bundles through
+`export_proof_courier_bundle` and `import_proof_courier_bundle`. The CLI exposes
+that path through `wallet-export-proof-bundle` and
+`wallet-import-proof-bundle`.
+
+Bundle export is gated by the same replayed wallet balance check as raw proof
+export. Confirmed, spendable proofs can be exported. Pending, stale, reorged,
+obsolete, or proof-history-mismatched proofs cannot be exported as accepted
+bundles. Bundle import passes through semantic proof validation, TAPF validation
+when TAPF bytes are present, deterministic proof-history metadata checks, and
+the wallet storage validator before state is saved.

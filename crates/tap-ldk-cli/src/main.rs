@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path, process, str::FromStr};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use tap_ldk_core::{
     ProjectInfo,
@@ -29,6 +29,7 @@ use tap_ldk_core::{
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
     proof::{ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
+    proof_courier::ProofCourierBundle,
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
     rfq_invoice::run_rfq_invoice_smoke,
     rfq_quote_store::{RfqQuoteRequest, RfqQuoteStore},
@@ -886,6 +887,38 @@ fn main() {
             }
             println!("exported proof {proof_id} to {output_path}");
         }
+        [command, wallet_path, bundle_path] if command == "wallet-import-proof-bundle" => {
+            let bundle =
+                read_json_or_exit::<ProofCourierBundle>(bundle_path, "proof courier bundle");
+            let mut wallet = load_wallet_or_default_or_exit(wallet_path);
+            let outcome = match wallet.import_proof_courier_bundle(bundle) {
+                Ok(outcome) => outcome,
+                Err(err) => {
+                    eprintln!("failed to import proof courier bundle {bundle_path}: {err}");
+                    process::exit(1);
+                }
+            };
+            save_wallet_or_exit(wallet_path, &wallet);
+            println!(
+                "{} proof courier bundle {}",
+                outcome.status(),
+                outcome.proof_id()
+            );
+        }
+        [command, wallet_path, proof_id, output_path]
+            if command == "wallet-export-proof-bundle" =>
+        {
+            let wallet = load_wallet_or_exit(wallet_path);
+            let bundle = match wallet.export_proof_courier_bundle(proof_id) {
+                Ok(bundle) => bundle,
+                Err(err) => {
+                    eprintln!("failed to export proof courier bundle {proof_id}: {err}");
+                    process::exit(1);
+                }
+            };
+            save_json_or_exit(output_path, &bundle, "proof courier bundle");
+            println!("exported proof courier bundle {proof_id} to {output_path}");
+        }
         [command, wallet_path, proof_id, output_path]
             if command == "wallet-export-tapd-proof-file" =>
         {
@@ -986,6 +1019,8 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk wallet-balances <wallet.json>");
     println!("  tap-ldk wallet-proofs <wallet.json>");
     println!("  tap-ldk wallet-export-proof-file <wallet.json> <proof-id> <proof.tlv>");
+    println!("  tap-ldk wallet-import-proof-bundle <wallet.json> <proof-bundle.json>");
+    println!("  tap-ldk wallet-export-proof-bundle <wallet.json> <proof-id> <proof-bundle.json>");
     println!("  tap-ldk wallet-export-tapd-proof-file <wallet.json> <proof-id> <tapd-proof-file>");
 }
 
@@ -1171,6 +1206,23 @@ fn save_json_or_exit<T: Serialize>(path: &str, value: &T, label: &str) {
     if let Err(err) = fs::write(path_ref, raw) {
         eprintln!("failed to write {label} {path}: {err}");
         process::exit(1);
+    }
+}
+
+fn read_json_or_exit<T: DeserializeOwned>(path: &str, label: &str) -> T {
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            eprintln!("failed to read {label} {path}: {err}");
+            process::exit(1);
+        }
+    };
+    match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(err) => {
+            eprintln!("failed to parse {label} {path}: {err}");
+            process::exit(1);
+        }
     }
 }
 
