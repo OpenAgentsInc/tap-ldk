@@ -162,18 +162,16 @@ Last updated: 2026-05-30
   sweep refusal. Those records now consolidate into a typed lifecycle report
   exposed by `tap-ldk onchain-lifecycle-smoke` and written by the Path A demo.
   The normal proof-engine wrapper now runs that report through
-  `scripts/onchain-lifecycle-smoke.sh`. The bounded lifecycle gate is complete
-  for the current close/recovery evidence; the next production phase is to feed
-  the same event vocabulary from a live chain watcher and sweeper callbacks.
-- The immediate next issue wave should add the chain/sweeper observation layer
-  that live chain-watcher code will later feed. That means typed observations
-  for close anchors, unilateral anchors, second-level HTLC anchors, sweep
-  anchors, sweep failures, reorged anchors, and wallet/monitor restart
-  evidence, plus a report that refuses to mark production readiness until those
-  observations are backed by a real live regtest watcher. The core observation
-  model and bounded `chain-watcher-lifecycle-smoke` report are now implemented
-  and written by Path A; the remaining issue in this wave is to add the report
-  to the normal proof-engine check wrapper and update the operator docs.
+  `scripts/onchain-lifecycle-smoke.sh`.
+- The bounded chain/sweeper observation layer is also in place. It records
+  typed observations for close anchors, unilateral anchors, second-level HTLC
+  anchors, sweep anchors, sweep failures, stale/refusal paths, and
+  wallet/monitor restart evidence, then refuses to mark live watcher or
+  production readiness. Path A writes `chain-watcher-lifecycle.json`, and
+  `scripts/proof-engine-check.sh` now runs
+  `scripts/chain-watcher-lifecycle-smoke.sh`. The next production phase is to
+  feed the same event and observation vocabulary from a live regtest chain
+  watcher and sweeper callbacks.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

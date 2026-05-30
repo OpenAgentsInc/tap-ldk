@@ -33,6 +33,7 @@ run_required formal ./scripts/formal-check.sh
 run_required rust-native-verification ./scripts/rust-verification-check.sh
 run_required native-demo ./scripts/path-a-native-demo.sh
 run_required onchain-lifecycle ./scripts/onchain-lifecycle-smoke.sh
+run_required chain-watcher-lifecycle ./scripts/chain-watcher-lifecycle-smoke.sh
 
 run_optional_extended btc-simple-taproot ./scripts/check-btc-simple-taproot-conformance.sh
 run_optional_extended simple-taproot-cooperative-close ./scripts/check-simple-taproot-cooperative-close.sh

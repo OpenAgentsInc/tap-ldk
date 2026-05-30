@@ -35,6 +35,8 @@ artifacts:
   force-close gate status.
 - `onchain-lifecycle.json`: typed lifecycle report tying close export to
   bounded recovery, refusal, and restart evidence.
+- `chain-watcher-lifecycle.json`: typed bounded observation report tying those
+  lifecycle events to chain, sweeper, and wallet/monitor observations.
 
 ## Force Close Gate
 
@@ -46,3 +48,6 @@ recovery. Live on-chain resolver and sweeper integration is still pending.
 `scripts/onchain-lifecycle-smoke.sh` keeps this boundary explicit in the normal
 proof-engine gate: the bounded report may explain proof ownership and refusals,
 but it must not claim live chain-watcher backing or production readiness.
+`scripts/chain-watcher-lifecycle-smoke.sh` adds the adjacent observation gate:
+every bounded lifecycle event needs one matching typed observation, but the
+report still cannot claim a live watcher or production-ready force-close path.

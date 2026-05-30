@@ -36,7 +36,8 @@ targets, and Kani harnesses should stay mapped to the formal invariants they
 cover, and optional tools must skip explicitly rather than silently removing a
 verification boundary from the developer flow.
 `scripts/proof-engine-check.sh` and `.github/workflows/proof-engine.yml` are
-the current umbrella gates for that policy.
+the current umbrella gates for that policy. The wrapper includes both the
+bounded lifecycle report and the bounded chain/sweeper observation report.
 
 ## Current Demo Invariants
 
@@ -106,7 +107,10 @@ the current umbrella gates for that policy.
   close/sweep/reorg/restart observation with a deterministic observation ID,
   matching lifecycle event ID, explicit anchor state, and source. Confirmed
   recovery must require confirmed chain state; reorged or stale anchors must
-  refuse recovery until a replacement proof path is observed.
+  refuse recovery until a replacement proof path is observed. The bounded
+  chain observation report must keep `live_chain_watcher_backed=false` and
+  `production_ready=false` until actual chain-watcher and sweeper callbacks
+  feed the same typed report.
 
 ## rust-lightning Integration Invariants
 

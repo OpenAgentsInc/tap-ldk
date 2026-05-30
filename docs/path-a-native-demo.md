@@ -46,4 +46,7 @@ Close/recovery artifacts are captured separately:
 close/recovery evidence and marks the live chain-watcher boundary.
 `chain-watcher-lifecycle.json` is the typed bounded observation report. It
 binds lifecycle events to chain-watcher, sweeper, and wallet/monitor evidence,
-but keeps live watcher and production readiness flags false.
+but keeps live watcher and production readiness flags false. The same
+observation report is checked directly by
+`scripts/chain-watcher-lifecycle-smoke.sh` and by the normal proof-engine
+wrapper.

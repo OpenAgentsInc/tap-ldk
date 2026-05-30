@@ -44,16 +44,18 @@ Current completed pieces:
   `chain-watcher-lifecycle.json` beside it.
 - `scripts/onchain-lifecycle-smoke.sh` validates the lifecycle report and
   writes the checked artifact under `target/onchain-lifecycle-smoke/`.
+- `scripts/chain-watcher-lifecycle-smoke.sh` validates the bounded
+  chain/sweeper observation report and writes the checked artifact under
+  `target/chain-watcher-lifecycle-smoke/`.
 - `scripts/proof-engine-check.sh` runs the lifecycle smoke as part of the
-  normal proof-engine gate.
+  normal proof-engine gate, and now runs the chain-watcher lifecycle smoke
+  beside it.
 - The local proof-courier bundle can move accepted wallet proofs with
   proof-history metadata, anchor state, asset fields, optional TAPF bytes, and
   digests.
 
 Remaining after this bounded gate:
 
-- normal proof-engine wrapper coverage for the bounded chain/sweeper
-  observation report;
 - live chain-watcher integration for pending, confirmed, stale, and reorged
   close/sweep anchors;
 - live post-close proof export and balance observation against integrated

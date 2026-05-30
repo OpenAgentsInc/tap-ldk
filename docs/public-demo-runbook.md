@@ -122,7 +122,7 @@ Mocked or bounded pieces:
   claim.
 - The chain-watcher lifecycle report is also bounded. It validates the
   observation vocabulary that live chain-watcher and sweeper callbacks must
-  feed later.
+  feed later and is checked by `scripts/chain-watcher-lifecycle-smoke.sh`.
 - Live on-chain sweeper integration remains pending. The bounded recovery
   smoke refuses BTC-only sweep state as asset recovery.
 

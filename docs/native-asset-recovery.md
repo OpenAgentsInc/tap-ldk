@@ -28,7 +28,10 @@ recovered output, and the BTC-only restart abstraction remains unaffected.
 `tap-ldk onchain-lifecycle-smoke` folds these recovery records together with
 cooperative close proof export and restart evidence into one typed lifecycle
 report. `scripts/onchain-lifecycle-smoke.sh` validates that report in the
-normal proof-engine gate.
+normal proof-engine gate. `tap-ldk chain-watcher-lifecycle-smoke` then binds
+that lifecycle report to bounded chain, sweeper, and wallet/monitor
+observations, and `scripts/chain-watcher-lifecycle-smoke.sh` validates those
+observations in the same proof-engine wrapper.
 
 ## Boundaries
 

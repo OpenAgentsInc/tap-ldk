@@ -325,29 +325,29 @@ state. The important production question is not merely whether the Bitcoin
 transaction is valid. It is whether the asset owner can still prove ownership
 of the correct asset output after the transaction confirms.
 
-The next issue wave is the bounded lifecycle gate before the live chain watcher.
-The code now exposes one typed lifecycle report through
+The bounded lifecycle gate before the live chain watcher is now in place. The
+code exposes one typed lifecycle report through
 `tap-ldk onchain-lifecycle-smoke` and the Path A artifact set. Each lifecycle
 event names its channel, asset, amount, proof-history output, proof handoff
 digest, wallet or monitor evidence when required, and terminal status. Sweep
 failure remains a refusal, BTC-only sweep state does not count as asset
-recovery, and restart recovery requires both wallet and monitor evidence. Once
-that bounded report is green in the normal proof-engine check, which now runs
-`scripts/onchain-lifecycle-smoke.sh`, later live-regtest work can feed it from
+recovery, and restart recovery requires both wallet and monitor evidence. The
+bounded report is green in the normal proof-engine check, which now runs
+`scripts/onchain-lifecycle-smoke.sh`, so later live-regtest work can feed it from
 actual chain notifications and sweeper callbacks.
 
-The current production issue wave adds that feed boundary without claiming the
-live daemon path too early. The repo now has a typed chain/sweeper observation
-model and a bounded `tap-ldk chain-watcher-lifecycle-smoke` report next to the
-lifecycle report. It records which lifecycle events have a close anchor,
-unilateral anchor, second-level HTLC anchor, final sweep anchor, failed sweep
-callback, refusal marker, or wallet/monitor restart observation. Confirmed
-lifecycle recovery requires confirmed observations. Stale or reorged anchors
-remain refused, and a BTC-only or failed sweep callback cannot turn into
-Taproot Asset recovery by naming the right channel. Path A now writes this as
-`chain-watcher-lifecycle.json`. The remaining step in this issue wave is to
-put that report under the normal proof-engine wrapper before replacing bounded
-observations with actual live regtest watcher callbacks.
+The current production issue wave added that feed boundary without claiming
+the live daemon path too early. The repo now has a typed chain/sweeper
+observation model and a bounded `tap-ldk chain-watcher-lifecycle-smoke` report
+next to the lifecycle report. It records which lifecycle events have a close
+anchor, unilateral anchor, second-level HTLC anchor, final sweep anchor, failed
+sweep callback, refusal marker, or wallet/monitor restart observation.
+Confirmed lifecycle recovery requires confirmed observations. Stale or
+reorged anchors remain refused, and a BTC-only or failed sweep callback cannot
+turn into Taproot Asset recovery by naming the right channel. Path A writes
+this as `chain-watcher-lifecycle.json`, and the normal proof-engine wrapper now
+runs `scripts/chain-watcher-lifecycle-smoke.sh`. The next production step is
+replacing bounded observations with actual live regtest watcher callbacks.
 
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
@@ -368,10 +368,10 @@ versions and flows are known-good, known-failing, or intentionally unsupported.
 Verification is now part of the normal gate, but it should keep expanding as
 new production surfaces land. `scripts/proof-engine-check.sh` runs formatting,
 locked tests, formal checks, Rust-native verification, the native demo, and the
-bounded on-chain lifecycle report; the extended mode adds the BOLT scripts and
-compatibility demo. Future epics should add their own property tests, fuzz
-targets, Kani harnesses, and formal notes to that wrapper instead of relying on
-ad hoc one-off commands.
+bounded on-chain lifecycle and chain/sweeper observation reports; the extended
+mode adds the BOLT scripts and compatibility demo. Future epics should add
+their own property tests, fuzz targets, Kani harnesses, and formal notes to
+that wrapper instead of relying on ad hoc one-off commands.
 
 The long-running fork-risk phase should reduce divergence. The Rust Lightning changes should be
 split into reviewable units: BTC simple-taproot base, MuSig2 signer and nonce
@@ -573,7 +573,8 @@ when no checker is installed. `scripts/rust-verification-check.sh` runs the
 property tests and visibly skips optional fuzz or Kani checks when those tools
 are not installed. `scripts/proof-engine-check.sh` is the local umbrella
 command: it runs formatting, `cargo test --locked`, formal checks,
-Rust-native verification, and the native demo by default, and it runs the BOLT
+Rust-native verification, the native demo, the on-chain lifecycle smoke, and
+the chain-watcher lifecycle smoke by default, and it runs the BOLT
 simple-taproot scripts plus the compatibility demo when
 `TAP_LDK_EXTENDED_CHECKS=1` is set. `.github/workflows/proof-engine.yml` wires
 the same normal suite into GitHub Actions for pushes and pull requests, with a

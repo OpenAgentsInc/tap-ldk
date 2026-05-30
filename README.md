@@ -55,11 +55,10 @@ Last updated: 2026-05-30
   live chain-watcher callbacks, live sweeper callbacks, integrated `litd`
   post-close proof observation, and production backup/restore remain future
   work.
-- The active issue wave is adding typed chain/sweeper observations for those
-  lifecycle events. Core observation validation and the
-  `chain-watcher-lifecycle-smoke` report are implemented; the remaining step is
-  to put that report into the normal proof-engine check wrapper before live
-  chain-watcher work starts.
+- The typed chain/sweeper observation gate is now in the normal proof-engine
+  wrapper. It validates bounded close, unilateral, HTLC, sweep, refusal, and
+  restart observations through `chain-watcher-lifecycle-smoke`, while still
+  refusing live watcher or production-ready claims.
 
 Still not done:
 
@@ -84,6 +83,7 @@ Run the main checks from the repo root:
 ```bash
 ./scripts/proof-engine-check.sh
 ./scripts/onchain-lifecycle-smoke.sh
+./scripts/chain-watcher-lifecycle-smoke.sh
 cargo fmt --check
 CARGO_NET_GIT_FETCH_WITH_CLI=true cargo test --locked
 ./scripts/check-btc-simple-taproot-conformance.sh

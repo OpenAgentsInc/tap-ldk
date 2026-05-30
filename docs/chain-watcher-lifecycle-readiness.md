@@ -17,13 +17,14 @@ replacement proof path is observed.
 
 The bounded report now exists and is exposed through
 `tap-ldk chain-watcher-lifecycle-smoke`. Path A writes the same report as
-`chain-watcher-lifecycle.json` next to the close and lifecycle artifacts. The
-report validates that every bounded lifecycle event has one matching typed
-observation, while still keeping `live_chain_watcher_backed=false` and
-`production_ready=false`. The remaining step in this issue wave is adding that
-report to the normal proof-engine gate. After that, live regtest code can feed
-the same report from real chain notifications, resolver callbacks, sweeper
-callbacks, and persisted wallet plus monitor state after restart.
+`chain-watcher-lifecycle.json` next to the close and lifecycle artifacts, and
+`scripts/proof-engine-check.sh` runs it through
+`scripts/chain-watcher-lifecycle-smoke.sh`. The report validates that every
+bounded lifecycle event has one matching typed observation, while still keeping
+`live_chain_watcher_backed=false` and `production_ready=false`. Live regtest
+code should now feed the same report from real chain notifications, resolver
+callbacks, sweeper callbacks, and persisted wallet plus monitor state after
+restart.
 
 Current implementation status: the core observation model is now present in
 `tap_ldk_core::onchain_lifecycle`. It defines observation sources, observation
@@ -34,4 +35,6 @@ not confirmed, if a stale or reorged anchor is counted as recovered, if failed
 or BTC-only sweep state is marked recovered, if restart evidence is incomplete,
 if the observation digest is tampered, if an observation references an unknown
 lifecycle event, or if observation fields do not match the referenced lifecycle
-event.
+event. The local smoke script also checks summary booleans, observation kind
+coverage, event-to-observation coverage, confirmed recovery anchor state, and
+refusal statuses.
