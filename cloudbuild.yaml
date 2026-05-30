@@ -1,0 +1,33 @@
+timeout: "7200s"
+
+substitutions:
+  _TAP_LDK_EXTENDED_CHECKS: "0"
+
+options:
+  machineType: E2_HIGHCPU_32
+  diskSizeGb: "300"
+
+steps:
+  - id: proof-engine
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        docker run --rm \
+          --network=host \
+          -v /workspace:/workspace \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -w /workspace \
+          -e CARGO_NET_GIT_FETCH_WITH_CLI=true \
+          -e CARGO_BUILD_JOBS=2 \
+          -e CARGO_INCREMENTAL=0 \
+          -e CARGO_PROFILE_DEV_DEBUG=0 \
+          -e CARGO_PROFILE_TEST_DEBUG=0 \
+          -e RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+          -e TAP_LDK_CONTAINER_RUNTIME=docker \
+          -e TAP_LDK_EXTENDED_CHECKS="${_TAP_LDK_EXTENDED_CHECKS}" \
+          -e TAP_LDK_SOURCE_COMMIT="$${COMMIT_SHA:-}" \
+          rust:1.85-bookworm \
+          bash ./scripts/cloudbuild-proof-engine.sh

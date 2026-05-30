@@ -1,0 +1,11 @@
+.git/
+target/
+.tap-ldk/
+.worktrees/
+fuzz/target/
+fuzz/artifacts/
+fuzz/Cargo.lock
+**/*.rs.bk
+.DS_Store
+.env
+.env.*

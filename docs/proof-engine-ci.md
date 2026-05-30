@@ -1,7 +1,7 @@
 # Proof Engine CI
 
 The proof-engine hardening checks are wired through one local wrapper and one
-GitHub Actions workflow.
+Google Cloud Build config.
 
 Run the normal local suite with:
 
@@ -29,11 +29,33 @@ callback script, and the `lnd`/`tapd`/`litd` compatibility demo. Those checks
 need the pinned OpenAgentsInc `rust-lightning` checkout for the BOLT scripts
 and a Docker-capable environment for the live/demo harnesses.
 
-The GitHub workflow at `.github/workflows/proof-engine.yml` runs the normal
-suite on pushes to `main` and pull requests. It also exposes a manual
-`workflow_dispatch` extended run that checks out the pinned OpenAgentsInc
-`rust-lightning` fork and runs the same wrapper with
-`TAP_LDK_EXTENDED_CHECKS=1`.
+The remote runner path is Google Cloud Build, not GitHub-hosted Actions. The
+GitHub workflow was removed because GitHub was refusing to start jobs before
+any repo step ran. `cloudbuild.yaml` runs the proof-engine wrapper inside a
+Rust 1.85 container with Docker socket access for the regtest and demo
+containers.
+
+Submit the fast remote suite with:
+
+```bash
+./scripts/gcloud-proof-engine-submit.sh fast
+```
+
+Submit the extended remote suite with:
+
+```bash
+./scripts/gcloud-proof-engine-submit.sh extended
+```
+
+The submit wrapper uses `GOOGLE_CLOUD_PROJECT` or the active `gcloud` project.
+It uses `GOOGLE_CLOUD_REGION`, `builds/region`, or `compute/region` when a
+region is configured. The Cloud Build config can also be submitted directly:
+
+```bash
+gcloud builds submit . \
+  --config cloudbuild.yaml \
+  --substitutions _TAP_LDK_EXTENDED_CHECKS=0
+```
 
 The CI claim is intentionally bounded. It verifies the current proof-engine
 hardening surfaces: semantic proof validation, typed proof-history replay,

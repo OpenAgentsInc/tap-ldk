@@ -147,7 +147,7 @@ Last updated: 2026-05-30
   model, negative proof vectors, wallet/funding/commitment/close/recovery
   replay gates, a bounded anchor-state policy for confirmed, pending, stale,
   and reorged anchors, Rust-native property/fuzz/Kani harnesses, a local
-  proof-engine check wrapper, and GitHub Actions workflow coverage. Live
+  proof-engine check wrapper, and Google Cloud Build coverage. Live
   chain watcher integration, grouped assets, and full STXO/split/change proof
   history remain future production work.
 - The local proof courier/export policy is complete for the current bounded

@@ -35,9 +35,11 @@ Rust-native verification is part of that contract. Property tests, fuzz
 targets, and Kani harnesses should stay mapped to the formal invariants they
 cover, and optional tools must skip explicitly rather than silently removing a
 verification boundary from the developer flow.
-`scripts/proof-engine-check.sh` and `.github/workflows/proof-engine.yml` are
-the current umbrella gates for that policy. The wrapper includes both the
-bounded lifecycle report and the bounded chain/sweeper observation report.
+`scripts/proof-engine-check.sh` and `cloudbuild.yaml` are the current umbrella
+gates for that policy. The wrapper includes both the bounded lifecycle report
+and the bounded chain/sweeper observation report. Google Cloud Build is the
+remote CI runner path; GitHub-hosted Actions is intentionally not the proof
+engine runner.
 
 ## Current Demo Invariants
 

@@ -36,7 +36,8 @@ Last updated: 2026-05-30
 - The first proof-engine hardening sequence is complete: #96 through #106 added
   typed proof-history replay, negative vectors, TLA+ proof-validation checks,
   Rust-native property/fuzz/Kani harnesses, close/recovery replay, anchor-state
-  policy, a local proof-engine check wrapper, and GitHub Actions coverage.
+  policy, a local proof-engine check wrapper, and a passing Google Cloud Build
+  fast suite.
 - The local proof-courier hardening sequence is complete: #107 through #110
   added a typed bundle that moves proof bytes, optional TAPF bytes,
   proof-history IDs, anchor state, asset fields, and digests together. The
@@ -79,6 +80,7 @@ Run the main checks from the repo root:
 
 ```bash
 ./scripts/proof-engine-check.sh
+./scripts/gcloud-proof-engine-submit.sh fast
 ./scripts/onchain-lifecycle-smoke.sh
 ./scripts/chain-watcher-lifecycle-smoke.sh
 ./scripts/live-regtest-chain-watcher-lifecycle-smoke.sh

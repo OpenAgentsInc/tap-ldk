@@ -593,9 +593,11 @@ command: it runs formatting, `cargo test --locked`, formal checks,
 Rust-native verification, the native demo, the on-chain lifecycle smoke, and
 the chain-watcher lifecycle smoke by default, and it runs the BOLT
 simple-taproot scripts plus the compatibility demo when
-`TAP_LDK_EXTENDED_CHECKS=1` is set. `.github/workflows/proof-engine.yml` wires
-the same normal suite into GitHub Actions for pushes and pull requests, with a
-manual extended workflow for the heavier BOLT and compatibility checks.
+`TAP_LDK_EXTENDED_CHECKS=1` is set. `cloudbuild.yaml` is now the remote CI
+runner path for that same wrapper on Google Cloud Build. The GitHub-hosted
+Actions workflow was removed because GitHub refused to allocate runners before
+any repo step could start. The Cloud Build submit wrapper supports both fast
+and extended modes.
 
 The eighth implementation step is documentation and issue hygiene. That work
 is now represented by the #96 through #106 sequence rather than being buried
