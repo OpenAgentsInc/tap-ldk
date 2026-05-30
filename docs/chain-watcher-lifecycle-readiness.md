@@ -19,3 +19,12 @@ The next issue wave should implement this as a bounded report first, then add
 it to the normal proof-engine gate. After that, live regtest code can feed the
 same report from real chain notifications, resolver callbacks, sweeper
 callbacks, and persisted wallet plus monitor state after restart.
+
+Current implementation status: the core observation model is now present in
+`tap_ldk_core::onchain_lifecycle`. It defines observation sources, observation
+kinds, deterministic IDs, explicit anchor states, optional height/outpoint or
+sweep digest fields, wallet and monitor evidence fields, refusal reasons, and
+observation digests. Validation fails closed if a recovered lifecycle event is
+not confirmed, if a stale or reorged anchor is counted as recovered, if failed
+or BTC-only sweep state is marked recovered, if restart evidence is incomplete,
+or if the observation digest is tampered.

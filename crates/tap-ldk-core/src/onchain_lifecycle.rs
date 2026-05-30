@@ -12,6 +12,7 @@ use crate::{
         NativeAssetProofRecoveryReport, NativeAssetRecoveryError, NativeAssetRecoveryMatrixReport,
         run_native_asset_recovery_matrix_smoke,
     },
+    proof::ProofAnchorState,
 };
 
 pub const ONCHAIN_LIFECYCLE_REPORT_SCHEMA_VERSION: u32 = 1;
@@ -119,6 +120,357 @@ impl OnchainLifecycleEventStatus {
             Self::Refused => "refused",
             Self::Restarted => "restarted",
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnchainLifecycleObservationSource {
+    ChainWatcher,
+    Sweeper,
+    WalletMonitor,
+}
+
+impl OnchainLifecycleObservationSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ChainWatcher => "chain_watcher",
+            Self::Sweeper => "sweeper",
+            Self::WalletMonitor => "wallet_monitor",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnchainLifecycleObservationKind {
+    CooperativeCloseAnchor,
+    UnilateralCommitmentAnchor,
+    SecondLevelHtlcAnchor,
+    FinalSweepAnchor,
+    FailedSweep,
+    BtcOnlySweepRefusal,
+    StaleProofOwnershipAnchor,
+    MissingProofOwnershipRefusal,
+    RestartEvidence,
+}
+
+impl OnchainLifecycleObservationKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::CooperativeCloseAnchor => "cooperative_close_anchor",
+            Self::UnilateralCommitmentAnchor => "unilateral_commitment_anchor",
+            Self::SecondLevelHtlcAnchor => "second_level_htlc_anchor",
+            Self::FinalSweepAnchor => "final_sweep_anchor",
+            Self::FailedSweep => "failed_sweep",
+            Self::BtcOnlySweepRefusal => "btc_only_sweep_refusal",
+            Self::StaleProofOwnershipAnchor => "stale_proof_ownership_anchor",
+            Self::MissingProofOwnershipRefusal => "missing_proof_ownership_refusal",
+            Self::RestartEvidence => "restart_evidence",
+        }
+    }
+
+    fn required_source(self) -> OnchainLifecycleObservationSource {
+        match self {
+            Self::CooperativeCloseAnchor
+            | Self::UnilateralCommitmentAnchor
+            | Self::SecondLevelHtlcAnchor
+            | Self::StaleProofOwnershipAnchor => OnchainLifecycleObservationSource::ChainWatcher,
+            Self::FinalSweepAnchor | Self::FailedSweep | Self::BtcOnlySweepRefusal => {
+                OnchainLifecycleObservationSource::Sweeper
+            }
+            Self::MissingProofOwnershipRefusal | Self::RestartEvidence => {
+                OnchainLifecycleObservationSource::WalletMonitor
+            }
+        }
+    }
+
+    fn required_status(self) -> OnchainLifecycleEventStatus {
+        match self {
+            Self::CooperativeCloseAnchor => OnchainLifecycleEventStatus::ProofExported,
+            Self::UnilateralCommitmentAnchor
+            | Self::SecondLevelHtlcAnchor
+            | Self::FinalSweepAnchor => OnchainLifecycleEventStatus::AssetProofRecovered,
+            Self::FailedSweep
+            | Self::BtcOnlySweepRefusal
+            | Self::StaleProofOwnershipAnchor
+            | Self::MissingProofOwnershipRefusal => OnchainLifecycleEventStatus::Refused,
+            Self::RestartEvidence => OnchainLifecycleEventStatus::Restarted,
+        }
+    }
+
+    fn matches_lifecycle_kind(self, kind: OnchainLifecycleEventKind) -> bool {
+        match self {
+            Self::CooperativeCloseAnchor => matches!(
+                kind,
+                OnchainLifecycleEventKind::CooperativeCloseLocal
+                    | OnchainLifecycleEventKind::CooperativeCloseRemote
+            ),
+            Self::UnilateralCommitmentAnchor => {
+                kind == OnchainLifecycleEventKind::UnilateralCommitment
+            }
+            Self::SecondLevelHtlcAnchor => matches!(
+                kind,
+                OnchainLifecycleEventKind::SecondLevelHtlcSuccess
+                    | OnchainLifecycleEventKind::SecondLevelHtlcTimeout
+            ),
+            Self::FinalSweepAnchor => kind == OnchainLifecycleEventKind::FinalSweep,
+            Self::FailedSweep => kind == OnchainLifecycleEventKind::FailedSweep,
+            Self::BtcOnlySweepRefusal => kind == OnchainLifecycleEventKind::BtcOnlySweepRefusal,
+            Self::StaleProofOwnershipAnchor => {
+                kind == OnchainLifecycleEventKind::StaleProofOwnershipRefusal
+            }
+            Self::MissingProofOwnershipRefusal => {
+                kind == OnchainLifecycleEventKind::MissingProofOwnershipRefusal
+            }
+            Self::RestartEvidence => kind == OnchainLifecycleEventKind::RestartRecovery,
+        }
+    }
+
+    fn requires_anchor_outpoint(self) -> bool {
+        matches!(
+            self,
+            Self::CooperativeCloseAnchor
+                | Self::UnilateralCommitmentAnchor
+                | Self::SecondLevelHtlcAnchor
+                | Self::FinalSweepAnchor
+                | Self::StaleProofOwnershipAnchor
+        )
+    }
+
+    fn requires_sweep_output(self) -> bool {
+        matches!(
+            self,
+            Self::FinalSweepAnchor | Self::FailedSweep | Self::BtcOnlySweepRefusal
+        )
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OnchainLifecycleObservation {
+    pub observation_id: String,
+    pub lifecycle_event_id: String,
+    pub lifecycle_event_kind: OnchainLifecycleEventKind,
+    pub lifecycle_event_status: OnchainLifecycleEventStatus,
+    pub source: OnchainLifecycleObservationSource,
+    pub kind: OnchainLifecycleObservationKind,
+    pub channel_id: String,
+    pub asset_id: Bytes32,
+    pub amount: u64,
+    pub anchor_state: ProofAnchorState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor_outpoint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sweep_output_digest: Option<Bytes32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wallet_evidence_digest: Option<Bytes32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monitor_evidence_digest: Option<Bytes32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal_reason: Option<String>,
+    pub observation_digest: Bytes32,
+}
+
+impl OnchainLifecycleObservation {
+    pub fn new(
+        kind: OnchainLifecycleObservationKind,
+        source: OnchainLifecycleObservationSource,
+        lifecycle_event: &OnchainLifecycleEvent,
+        anchor_state: ProofAnchorState,
+    ) -> Self {
+        let mut observation = Self {
+            observation_id: observation_id_for(kind, source, lifecycle_event),
+            lifecycle_event_id: lifecycle_event.event_id.clone(),
+            lifecycle_event_kind: lifecycle_event.kind,
+            lifecycle_event_status: lifecycle_event.status,
+            source,
+            kind,
+            channel_id: lifecycle_event.channel_id.clone(),
+            asset_id: lifecycle_event.asset_id,
+            amount: lifecycle_event.amount,
+            anchor_state,
+            height: None,
+            anchor_outpoint: None,
+            sweep_output_digest: None,
+            wallet_evidence_digest: None,
+            monitor_evidence_digest: None,
+            refusal_reason: None,
+            observation_digest: Bytes32::ZERO,
+        };
+        observation.observation_digest = observation.digest();
+        observation
+    }
+
+    pub fn with_height(mut self, height: u32) -> Self {
+        self.height = Some(height);
+        self.refresh_digest()
+    }
+
+    pub fn with_anchor_outpoint(mut self, anchor_outpoint: String) -> Self {
+        self.anchor_outpoint = Some(anchor_outpoint);
+        self.refresh_digest()
+    }
+
+    pub fn with_sweep_output(mut self, digest: Bytes32) -> Self {
+        self.sweep_output_digest = Some(digest);
+        self.refresh_digest()
+    }
+
+    pub fn with_wallet_evidence(mut self, digest: Bytes32) -> Self {
+        self.wallet_evidence_digest = Some(digest);
+        self.refresh_digest()
+    }
+
+    pub fn with_monitor_evidence(mut self, digest: Bytes32) -> Self {
+        self.monitor_evidence_digest = Some(digest);
+        self.refresh_digest()
+    }
+
+    pub fn with_refusal_reason(mut self, reason: String) -> Self {
+        self.refusal_reason = Some(reason);
+        self.refresh_digest()
+    }
+
+    pub fn validate(&self) -> Result<(), OnchainLifecycleError> {
+        require_nonempty("observation_id", &self.observation_id)?;
+        require_nonempty("lifecycle_event_id", &self.lifecycle_event_id)?;
+        require_nonempty("channel_id", &self.channel_id)?;
+        if self.asset_id == Bytes32::ZERO {
+            return Err(OnchainLifecycleError::ObservationZeroAssetId {
+                observation_id: self.observation_id.clone(),
+            });
+        }
+        if self.amount == 0 {
+            return Err(OnchainLifecycleError::ObservationZeroAmount {
+                observation_id: self.observation_id.clone(),
+            });
+        }
+        if self.source != self.kind.required_source() {
+            return Err(OnchainLifecycleError::ObservationWrongSource {
+                observation_id: self.observation_id.clone(),
+                kind: self.kind,
+                source: self.source,
+            });
+        }
+        if !self.kind.matches_lifecycle_kind(self.lifecycle_event_kind) {
+            return Err(OnchainLifecycleError::ObservationWrongLifecycleKind {
+                observation_id: self.observation_id.clone(),
+                kind: self.kind,
+                lifecycle_event_kind: self.lifecycle_event_kind,
+            });
+        }
+        if self.lifecycle_event_status != self.kind.required_status() {
+            return Err(OnchainLifecycleError::ObservationWrongLifecycleStatus {
+                observation_id: self.observation_id.clone(),
+                kind: self.kind,
+                lifecycle_event_status: self.lifecycle_event_status,
+            });
+        }
+        self.validate_anchor_state()?;
+        if self.kind.requires_anchor_outpoint() && empty_optional(self.anchor_outpoint.as_deref()) {
+            return Err(OnchainLifecycleError::MissingObservationEvidence {
+                observation_id: self.observation_id.clone(),
+                field: "anchor_outpoint",
+            });
+        }
+        if self.kind.requires_sweep_output() && self.sweep_output_digest.is_none() {
+            return Err(OnchainLifecycleError::MissingObservationEvidence {
+                observation_id: self.observation_id.clone(),
+                field: "sweep_output_digest",
+            });
+        }
+        if self.kind == OnchainLifecycleObservationKind::RestartEvidence
+            && (self.wallet_evidence_digest.is_none() || self.monitor_evidence_digest.is_none())
+        {
+            return Err(OnchainLifecycleError::MissingObservationEvidence {
+                observation_id: self.observation_id.clone(),
+                field: "restart_wallet_and_monitor_evidence",
+            });
+        }
+        if self.lifecycle_event_status == OnchainLifecycleEventStatus::Refused
+            && empty_optional(self.refusal_reason.as_deref())
+        {
+            return Err(OnchainLifecycleError::MissingObservationEvidence {
+                observation_id: self.observation_id.clone(),
+                field: "refusal_reason",
+            });
+        }
+        if self.lifecycle_event_status != OnchainLifecycleEventStatus::Refused
+            && self.refusal_reason.is_some()
+        {
+            return Err(OnchainLifecycleError::UnexpectedObservationRefusalReason {
+                observation_id: self.observation_id.clone(),
+            });
+        }
+        if self.observation_digest != self.digest() {
+            return Err(OnchainLifecycleError::ObservationDigestMismatch {
+                observation_id: self.observation_id.clone(),
+            });
+        }
+        Ok(())
+    }
+
+    fn validate_anchor_state(&self) -> Result<(), OnchainLifecycleError> {
+        let valid = match self.kind {
+            OnchainLifecycleObservationKind::CooperativeCloseAnchor
+            | OnchainLifecycleObservationKind::UnilateralCommitmentAnchor
+            | OnchainLifecycleObservationKind::SecondLevelHtlcAnchor
+            | OnchainLifecycleObservationKind::FinalSweepAnchor
+            | OnchainLifecycleObservationKind::RestartEvidence => {
+                self.anchor_state == ProofAnchorState::Confirmed
+            }
+            OnchainLifecycleObservationKind::FailedSweep => {
+                !matches!(self.anchor_state, ProofAnchorState::Confirmed)
+            }
+            OnchainLifecycleObservationKind::BtcOnlySweepRefusal => true,
+            OnchainLifecycleObservationKind::StaleProofOwnershipAnchor => {
+                matches!(
+                    self.anchor_state,
+                    ProofAnchorState::Stale | ProofAnchorState::Reorged
+                )
+            }
+            OnchainLifecycleObservationKind::MissingProofOwnershipRefusal => {
+                self.anchor_state == ProofAnchorState::Unknown
+            }
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(OnchainLifecycleError::ObservationWrongAnchorState {
+                observation_id: self.observation_id.clone(),
+                kind: self.kind,
+                anchor_state: self.anchor_state,
+            })
+        }
+    }
+
+    fn refresh_digest(mut self) -> Self {
+        self.observation_digest = self.digest();
+        self
+    }
+
+    fn digest(&self) -> Bytes32 {
+        let mut hasher = Sha256::new();
+        hasher.update(b"tap-ldk:onchain-lifecycle-observation:v1");
+        hash_string(&mut hasher, &self.observation_id);
+        hash_string(&mut hasher, &self.lifecycle_event_id);
+        hash_string(&mut hasher, self.lifecycle_event_kind.as_str());
+        hash_string(&mut hasher, self.lifecycle_event_status.as_str());
+        hash_string(&mut hasher, self.source.as_str());
+        hash_string(&mut hasher, self.kind.as_str());
+        hash_string(&mut hasher, &self.channel_id);
+        hasher.update(self.asset_id.0);
+        hasher.update(self.amount.to_be_bytes());
+        hash_string(&mut hasher, self.anchor_state.as_str());
+        hash_optional_u32(&mut hasher, self.height);
+        hash_optional_string(&mut hasher, self.anchor_outpoint.as_deref());
+        hash_optional_bytes32(&mut hasher, self.sweep_output_digest);
+        hash_optional_bytes32(&mut hasher, self.wallet_evidence_digest);
+        hash_optional_bytes32(&mut hasher, self.monitor_evidence_digest);
+        hash_optional_string(&mut hasher, self.refusal_reason.as_deref());
+        Bytes32(hasher.finalize().into())
     }
 }
 
@@ -576,6 +928,42 @@ pub enum OnchainLifecycleError {
         kind: OnchainLifecycleEventKind,
         status: OnchainLifecycleEventStatus,
     },
+    ObservationZeroAssetId {
+        observation_id: String,
+    },
+    ObservationZeroAmount {
+        observation_id: String,
+    },
+    ObservationWrongSource {
+        observation_id: String,
+        kind: OnchainLifecycleObservationKind,
+        source: OnchainLifecycleObservationSource,
+    },
+    ObservationWrongLifecycleKind {
+        observation_id: String,
+        kind: OnchainLifecycleObservationKind,
+        lifecycle_event_kind: OnchainLifecycleEventKind,
+    },
+    ObservationWrongLifecycleStatus {
+        observation_id: String,
+        kind: OnchainLifecycleObservationKind,
+        lifecycle_event_status: OnchainLifecycleEventStatus,
+    },
+    ObservationWrongAnchorState {
+        observation_id: String,
+        kind: OnchainLifecycleObservationKind,
+        anchor_state: ProofAnchorState,
+    },
+    MissingObservationEvidence {
+        observation_id: String,
+        field: &'static str,
+    },
+    UnexpectedObservationRefusalReason {
+        observation_id: String,
+    },
+    ObservationDigestMismatch {
+        observation_id: String,
+    },
     MissingProofHistory {
         event_id: String,
     },
@@ -642,6 +1030,73 @@ impl fmt::Display for OnchainLifecycleError {
                 "on-chain lifecycle event {event_id} has status {} for kind {}",
                 status.as_str(),
                 kind.as_str()
+            ),
+            Self::ObservationZeroAssetId { observation_id } => {
+                write!(
+                    f,
+                    "on-chain lifecycle observation {observation_id} has zero asset id"
+                )
+            }
+            Self::ObservationZeroAmount { observation_id } => {
+                write!(
+                    f,
+                    "on-chain lifecycle observation {observation_id} has zero amount"
+                )
+            }
+            Self::ObservationWrongSource {
+                observation_id,
+                kind,
+                source,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} has source {} for kind {}",
+                source.as_str(),
+                kind.as_str()
+            ),
+            Self::ObservationWrongLifecycleKind {
+                observation_id,
+                kind,
+                lifecycle_event_kind,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} has lifecycle kind {} for observation kind {}",
+                lifecycle_event_kind.as_str(),
+                kind.as_str()
+            ),
+            Self::ObservationWrongLifecycleStatus {
+                observation_id,
+                kind,
+                lifecycle_event_status,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} has lifecycle status {} for observation kind {}",
+                lifecycle_event_status.as_str(),
+                kind.as_str()
+            ),
+            Self::ObservationWrongAnchorState {
+                observation_id,
+                kind,
+                anchor_state,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} has anchor state {} for kind {}",
+                anchor_state.as_str(),
+                kind.as_str()
+            ),
+            Self::MissingObservationEvidence {
+                observation_id,
+                field,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} is missing {field}"
+            ),
+            Self::UnexpectedObservationRefusalReason { observation_id } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} has unexpected refusal reason"
+            ),
+            Self::ObservationDigestMismatch { observation_id } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} digest mismatch"
             ),
             Self::MissingProofHistory { event_id } => {
                 write!(
@@ -847,6 +1302,24 @@ fn event_id_for(
     format!("{}:{}", kind.as_str(), digest.to_hex())
 }
 
+fn observation_id_for(
+    kind: OnchainLifecycleObservationKind,
+    source: OnchainLifecycleObservationSource,
+    lifecycle_event: &OnchainLifecycleEvent,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:onchain-lifecycle-observation-id:v1");
+    hash_string(&mut hasher, kind.as_str());
+    hash_string(&mut hasher, source.as_str());
+    hash_string(&mut hasher, &lifecycle_event.event_id);
+    hash_string(&mut hasher, lifecycle_event.kind.as_str());
+    hash_string(&mut hasher, &lifecycle_event.channel_id);
+    hasher.update(lifecycle_event.asset_id.0);
+    hasher.update(lifecycle_event.amount.to_be_bytes());
+    let digest = Bytes32(hasher.finalize().into());
+    format!("{}:{}", kind.as_str(), digest.to_hex())
+}
+
 fn require_nonempty(field: &'static str, value: &str) -> Result<(), OnchainLifecycleError> {
     if value.is_empty() {
         Err(OnchainLifecycleError::MissingField(field))
@@ -869,6 +1342,16 @@ fn hash_optional_string(hasher: &mut Sha256, value: Option<&str>) {
         Some(value) => {
             hasher.update([1]);
             hash_string(hasher, value);
+        }
+        None => hasher.update([0]),
+    }
+}
+
+fn hash_optional_u32(hasher: &mut Sha256, value: Option<u32>) {
+    match value {
+        Some(value) => {
+            hasher.update([1]);
+            hasher.update(value.to_be_bytes());
         }
         None => hasher.update([0]),
     }
@@ -1013,6 +1496,120 @@ mod tests {
         }
     }
 
+    #[test]
+    fn chain_observations_validate_required_lifecycle_classes() {
+        let observations = valid_observations();
+
+        for observation in &observations {
+            observation.validate().expect("observation validates");
+        }
+
+        let observed_kinds = observations
+            .iter()
+            .map(|observation| observation.kind)
+            .collect::<BTreeSet<_>>();
+        for kind in [
+            OnchainLifecycleObservationKind::CooperativeCloseAnchor,
+            OnchainLifecycleObservationKind::UnilateralCommitmentAnchor,
+            OnchainLifecycleObservationKind::SecondLevelHtlcAnchor,
+            OnchainLifecycleObservationKind::FinalSweepAnchor,
+            OnchainLifecycleObservationKind::FailedSweep,
+            OnchainLifecycleObservationKind::BtcOnlySweepRefusal,
+            OnchainLifecycleObservationKind::StaleProofOwnershipAnchor,
+            OnchainLifecycleObservationKind::MissingProofOwnershipRefusal,
+            OnchainLifecycleObservationKind::RestartEvidence,
+        ] {
+            assert!(observed_kinds.contains(&kind), "missing {}", kind.as_str());
+        }
+    }
+
+    #[test]
+    fn chain_observations_fail_closed_on_bad_claims_and_missing_evidence() {
+        let mut recovered_failed_sweep = event(OnchainLifecycleEventKind::FailedSweep);
+        recovered_failed_sweep.status = OnchainLifecycleEventStatus::AssetProofRecovered;
+        recovered_failed_sweep.event_digest = recovered_failed_sweep.digest();
+        let failed_sweep_observation = observation(
+            &recovered_failed_sweep,
+            OnchainLifecycleObservationKind::FailedSweep,
+        );
+        assert!(matches!(
+            failed_sweep_observation.validate(),
+            Err(OnchainLifecycleError::ObservationWrongLifecycleStatus { .. })
+        ));
+
+        let mut recovered_btc_only = event(OnchainLifecycleEventKind::BtcOnlySweepRefusal);
+        recovered_btc_only.status = OnchainLifecycleEventStatus::AssetProofRecovered;
+        recovered_btc_only.event_digest = recovered_btc_only.digest();
+        let btc_only_observation = observation(
+            &recovered_btc_only,
+            OnchainLifecycleObservationKind::BtcOnlySweepRefusal,
+        );
+        assert!(matches!(
+            btc_only_observation.validate(),
+            Err(OnchainLifecycleError::ObservationWrongLifecycleStatus { .. })
+        ));
+
+        let mut reorged_recovery = observation(
+            &event(OnchainLifecycleEventKind::UnilateralCommitment),
+            OnchainLifecycleObservationKind::UnilateralCommitmentAnchor,
+        );
+        reorged_recovery.anchor_state = ProofAnchorState::Reorged;
+        reorged_recovery.observation_digest = reorged_recovery.digest();
+        assert!(matches!(
+            reorged_recovery.validate(),
+            Err(OnchainLifecycleError::ObservationWrongAnchorState { .. })
+        ));
+
+        let mut missing_event_id = observation(
+            &event(OnchainLifecycleEventKind::CooperativeCloseLocal),
+            OnchainLifecycleObservationKind::CooperativeCloseAnchor,
+        );
+        missing_event_id.lifecycle_event_id.clear();
+        missing_event_id.observation_digest = missing_event_id.digest();
+        assert!(matches!(
+            missing_event_id.validate(),
+            Err(OnchainLifecycleError::MissingField("lifecycle_event_id"))
+        ));
+
+        let mut missing_anchor = observation(
+            &event(OnchainLifecycleEventKind::FinalSweep),
+            OnchainLifecycleObservationKind::FinalSweepAnchor,
+        );
+        missing_anchor.anchor_outpoint = None;
+        missing_anchor.observation_digest = missing_anchor.digest();
+        assert!(matches!(
+            missing_anchor.validate(),
+            Err(OnchainLifecycleError::MissingObservationEvidence {
+                field: "anchor_outpoint",
+                ..
+            })
+        ));
+
+        let mut missing_restart = observation(
+            &event(OnchainLifecycleEventKind::RestartRecovery),
+            OnchainLifecycleObservationKind::RestartEvidence,
+        );
+        missing_restart.wallet_evidence_digest = None;
+        missing_restart.observation_digest = missing_restart.digest();
+        assert!(matches!(
+            missing_restart.validate(),
+            Err(OnchainLifecycleError::MissingObservationEvidence {
+                field: "restart_wallet_and_monitor_evidence",
+                ..
+            })
+        ));
+
+        let mut tampered = observation(
+            &event(OnchainLifecycleEventKind::CooperativeCloseRemote),
+            OnchainLifecycleObservationKind::CooperativeCloseAnchor,
+        );
+        tampered.observation_digest = Bytes32([99; 32]);
+        assert!(matches!(
+            tampered.validate(),
+            Err(OnchainLifecycleError::ObservationDigestMismatch { .. })
+        ));
+    }
+
     fn valid_report() -> OnchainLifecycleReport {
         OnchainLifecycleReport::new(vec![
             event(OnchainLifecycleEventKind::CooperativeCloseLocal),
@@ -1028,6 +1625,81 @@ mod tests {
             event(OnchainLifecycleEventKind::RestartRecovery),
         ])
         .expect("valid report")
+    }
+
+    fn valid_observations() -> Vec<OnchainLifecycleObservation> {
+        valid_report()
+            .events
+            .iter()
+            .map(|event| {
+                let kind = match event.kind {
+                    OnchainLifecycleEventKind::CooperativeCloseLocal
+                    | OnchainLifecycleEventKind::CooperativeCloseRemote => {
+                        OnchainLifecycleObservationKind::CooperativeCloseAnchor
+                    }
+                    OnchainLifecycleEventKind::UnilateralCommitment => {
+                        OnchainLifecycleObservationKind::UnilateralCommitmentAnchor
+                    }
+                    OnchainLifecycleEventKind::SecondLevelHtlcSuccess
+                    | OnchainLifecycleEventKind::SecondLevelHtlcTimeout => {
+                        OnchainLifecycleObservationKind::SecondLevelHtlcAnchor
+                    }
+                    OnchainLifecycleEventKind::FinalSweep => {
+                        OnchainLifecycleObservationKind::FinalSweepAnchor
+                    }
+                    OnchainLifecycleEventKind::FailedSweep => {
+                        OnchainLifecycleObservationKind::FailedSweep
+                    }
+                    OnchainLifecycleEventKind::BtcOnlySweepRefusal => {
+                        OnchainLifecycleObservationKind::BtcOnlySweepRefusal
+                    }
+                    OnchainLifecycleEventKind::StaleProofOwnershipRefusal => {
+                        OnchainLifecycleObservationKind::StaleProofOwnershipAnchor
+                    }
+                    OnchainLifecycleEventKind::MissingProofOwnershipRefusal => {
+                        OnchainLifecycleObservationKind::MissingProofOwnershipRefusal
+                    }
+                    OnchainLifecycleEventKind::RestartRecovery => {
+                        OnchainLifecycleObservationKind::RestartEvidence
+                    }
+                };
+                observation(event, kind)
+            })
+            .collect()
+    }
+
+    fn observation(
+        event: &OnchainLifecycleEvent,
+        kind: OnchainLifecycleObservationKind,
+    ) -> OnchainLifecycleObservation {
+        let anchor_state = match kind {
+            OnchainLifecycleObservationKind::FailedSweep => ProofAnchorState::Unknown,
+            OnchainLifecycleObservationKind::StaleProofOwnershipAnchor => ProofAnchorState::Stale,
+            OnchainLifecycleObservationKind::MissingProofOwnershipRefusal => {
+                ProofAnchorState::Unknown
+            }
+            _ => ProofAnchorState::Confirmed,
+        };
+        let source = kind.required_source();
+        let observation = OnchainLifecycleObservation::new(kind, source, event, anchor_state)
+            .with_height(144)
+            .with_wallet_evidence(Bytes32([21; 32]))
+            .with_monitor_evidence(Bytes32([22; 32]));
+        let observation = if kind.requires_anchor_outpoint() {
+            observation.with_anchor_outpoint(format!("anchor:{}:0", event.event_id))
+        } else {
+            observation
+        };
+        let observation = if kind.requires_sweep_output() {
+            observation.with_sweep_output(Bytes32([23; 32]))
+        } else {
+            observation
+        };
+        if event.status == OnchainLifecycleEventStatus::Refused {
+            observation.with_refusal_reason(format!("{} refused", kind.as_str()))
+        } else {
+            observation
+        }
     }
 
     fn event(kind: OnchainLifecycleEventKind) -> OnchainLifecycleEvent {
