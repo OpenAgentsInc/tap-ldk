@@ -22,6 +22,8 @@ Path A native-to-native demo artifacts: ...
 - cooperative close exports final proofs at alice=575 bob=425
 - on-chain lifecycle report records close, bounded recovery, refusal, and
   restart evidence
+- chain observation report binds that lifecycle evidence to bounded
+  chain/sweeper observations
 ```
 
 The command makes mocked pieces visible in `summary.txt`: bounded local issuer,
@@ -36,8 +38,12 @@ Close/recovery artifacts are captured separately:
 - `native-close-remote-proof.hex`
 - `close-recovery-status.json`
 - `onchain-lifecycle.json`
+- `chain-watcher-lifecycle.json`
 
 `close-recovery-status.json` is the machine-visible force-close gate. It keeps
 `force_close_supported=false` until a real force-close/sweep smoke exists.
 `onchain-lifecycle.json` is the typed bounded report that explains the current
 close/recovery evidence and marks the live chain-watcher boundary.
+`chain-watcher-lifecycle.json` is the typed bounded observation report. It
+binds lifecycle events to chain-watcher, sweeper, and wallet/monitor evidence,
+but keeps live watcher and production readiness flags false.

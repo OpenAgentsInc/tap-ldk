@@ -17,7 +17,10 @@ close proof artifacts. The recovery smoke also validates bounded force-close,
 second-level HTLC, and final sweep proof-ownership records and refuses BTC-only
 sweeps as asset recovery. Path A also writes a bounded on-chain lifecycle
 report that consolidates close proof export, unilateral/HTLC/sweep recovery
-evidence, refusals, and restart evidence.
+evidence, refusals, and restart evidence. It also writes a bounded
+chain-watcher lifecycle report that binds those lifecycle events to typed
+chain, sweeper, and wallet/monitor observations without claiming live watcher
+support.
 
 Path B is the native `tap-ldk` to independent `lnd`/`tapd`/`litd` compatibility
 demo. It runs fixture-backed Lightning Labs software blob/proof/funding/RFQ
@@ -85,6 +88,8 @@ Path A native-to-native demo artifacts: ...
 - recovery smoke checks funding/RFQ/HTLC/commitment/settlement/close-prep restart boundaries
 - cooperative close exports final proofs at alice=575 bob=425
 - on-chain lifecycle report records close, bounded recovery, refusal, and restart evidence
+- chain observation report records bounded chain/sweeper observations for the
+  same lifecycle events
 - force-close proof-ownership recovery is machine-visible, while live on-chain
   sweeper integration remains pending
 ```
@@ -104,6 +109,7 @@ Key artifacts:
 - `native-close-remote-proof.hex`
 - `close-recovery-status.json`
 - `onchain-lifecycle.json`
+- `chain-watcher-lifecycle.json`
 - `logs/`
 
 Mocked or bounded pieces:
@@ -114,6 +120,9 @@ Mocked or bounded pieces:
 - UI is the headless CLI smoke.
 - The on-chain lifecycle report is bounded evidence, not a live chain-watcher
   claim.
+- The chain-watcher lifecycle report is also bounded. It validates the
+  observation vocabulary that live chain-watcher and sweeper callbacks must
+  feed later.
 - Live on-chain sweeper integration remains pending. The bounded recovery
   smoke refuses BTC-only sweep state as asset recovery.
 

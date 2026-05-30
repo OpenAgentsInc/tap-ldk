@@ -55,10 +55,11 @@ Last updated: 2026-05-30
   live chain-watcher callbacks, live sweeper callbacks, integrated `litd`
   post-close proof observation, and production backup/restore remain future
   work.
-- The next issue wave should add typed chain/sweeper observations for those
-  lifecycle events. That is the first production step toward live chain-watcher
-  support: close and sweep anchors must be observed, confirmed, refused, or
-  reorged through one checked report before any live force-close claim is made.
+- The active issue wave is adding typed chain/sweeper observations for those
+  lifecycle events. Core observation validation and the
+  `chain-watcher-lifecycle-smoke` report are implemented; the remaining step is
+  to put that report into the normal proof-engine check wrapper before live
+  chain-watcher work starts.
 
 Still not done:
 
@@ -104,6 +105,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-export-proof-bundle target/demo-wallet.json '<proof-id>' target/proof-bundle.json
 cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.json target/proof-bundle.json
 cargo run -p tap-ldk-cli -- onchain-lifecycle-smoke
+cargo run -p tap-ldk-cli -- chain-watcher-lifecycle-smoke
 ```
 
 ## Docs

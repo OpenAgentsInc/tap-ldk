@@ -336,16 +336,18 @@ that bounded report is green in the normal proof-engine check, which now runs
 `scripts/onchain-lifecycle-smoke.sh`, later live-regtest work can feed it from
 actual chain notifications and sweeper callbacks.
 
-The next production issue wave should add that feed boundary without claiming
-the live daemon path too early. The repo needs a typed chain/sweeper
-observation report that can sit next to the lifecycle report. It should record
-which lifecycle events have a close anchor, unilateral anchor, second-level
-HTLC anchor, final sweep anchor, failed sweep callback, reorg marker, or
-wallet/monitor restart observation. Confirmed lifecycle recovery must require
-confirmed observations. Stale or reorged anchors must remain refused, and a
-BTC-only or failed sweep callback must not be able to turn into Taproot Asset
-recovery by naming the right channel. This is the next honest step before
-replacing bounded observations with actual live regtest watcher callbacks.
+The current production issue wave adds that feed boundary without claiming the
+live daemon path too early. The repo now has a typed chain/sweeper observation
+model and a bounded `tap-ldk chain-watcher-lifecycle-smoke` report next to the
+lifecycle report. It records which lifecycle events have a close anchor,
+unilateral anchor, second-level HTLC anchor, final sweep anchor, failed sweep
+callback, refusal marker, or wallet/monitor restart observation. Confirmed
+lifecycle recovery requires confirmed observations. Stale or reorged anchors
+remain refused, and a BTC-only or failed sweep callback cannot turn into
+Taproot Asset recovery by naming the right channel. Path A now writes this as
+`chain-watcher-lifecycle.json`. The remaining step in this issue wave is to
+put that report under the normal proof-engine wrapper before replacing bounded
+observations with actual live regtest watcher callbacks.
 
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce

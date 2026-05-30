@@ -25,6 +25,7 @@ CLOSE_LOCAL_PROOF_HEX="$ARTIFACT_DIR/native-close-local-proof.hex"
 CLOSE_REMOTE_PROOF_HEX="$ARTIFACT_DIR/native-close-remote-proof.hex"
 CLOSE_RECOVERY_STATUS="$ARTIFACT_DIR/close-recovery-status.json"
 ONCHAIN_LIFECYCLE_REPORT="$ARTIFACT_DIR/onchain-lifecycle.json"
+CHAIN_OBSERVATION_REPORT="$ARTIFACT_DIR/chain-watcher-lifecycle.json"
 
 ISSUER_KEY="02a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f"
 BOB_KEY="03a0afeb165f0ec36880b68e0baabd9ad9c62fd1a69aa998bc30e9a346202e078f"
@@ -134,6 +135,7 @@ run_json native-payment "$ARTIFACT_DIR/native-payment.json" cargo run -q -p tap-
 run_json native-recovery "$ARTIFACT_DIR/native-recovery.json" cargo run -q -p tap-ldk-cli -- asset-recovery-smoke
 run_json native-close "$CLOSE_REPORT" cargo run -q -p tap-ldk-cli -- asset-close-smoke
 run_json onchain-lifecycle "$ONCHAIN_LIFECYCLE_REPORT" cargo run -q -p tap-ldk-cli -- onchain-lifecycle-smoke
+run_json chain-watcher-lifecycle "$CHAIN_OBSERVATION_REPORT" cargo run -q -p tap-ldk-cli -- chain-watcher-lifecycle-smoke
 capture_close_artifacts
 
 cp "$BOB_WALLET" "$BOB_RESTART_WALLET"
@@ -155,6 +157,7 @@ Expected demo path:
 - recovery smoke checks funding/RFQ/HTLC/commitment/settlement/close-prep restart boundaries
 - cooperative close exports final proofs at alice=575 bob=425
 - on-chain lifecycle report records close proof export, bounded force-close recovery evidence, sweep refusals, and restart evidence at $ONCHAIN_LIFECYCLE_REPORT
+- chain observation report binds those lifecycle events to bounded chain/sweeper observations at $CHAIN_OBSERVATION_REPORT
 - close proofs are captured at $CLOSE_LOCAL_PROOF_HEX and $CLOSE_REMOTE_PROOF_HEX
 - force-close status is machine-visible in $CLOSE_RECOVERY_STATUS and remains deferred
 - bob wallet reload after restart keeps the same imported proof balance
@@ -177,3 +180,6 @@ cat "$CLOSE_RECOVERY_STATUS"
 echo
 echo "--- onchain-lifecycle.json ---"
 cat "$ONCHAIN_LIFECYCLE_REPORT"
+echo
+echo "--- chain-watcher-lifecycle.json ---"
+cat "$CHAIN_OBSERVATION_REPORT"

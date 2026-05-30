@@ -36,8 +36,12 @@ Current completed pieces:
 - `tap-ldk onchain-lifecycle-smoke` emits one typed report with cooperative
   close, unilateral commitment, second-level HTLC success/timeout, final sweep,
   refusal, and restart evidence.
+- `tap-ldk chain-watcher-lifecycle-smoke` emits the bounded chain/sweeper
+  observation report for those lifecycle events while explicitly refusing live
+  chain-watcher or production-readiness claims.
 - `scripts/path-a-native-demo.sh` writes that report as `onchain-lifecycle.json`
-  next to the native close/recovery artifacts.
+  next to the native close/recovery artifacts and now writes
+  `chain-watcher-lifecycle.json` beside it.
 - `scripts/onchain-lifecycle-smoke.sh` validates the lifecycle report and
   writes the checked artifact under `target/onchain-lifecycle-smoke/`.
 - `scripts/proof-engine-check.sh` runs the lifecycle smoke as part of the
@@ -48,9 +52,8 @@ Current completed pieces:
 
 Remaining after this bounded gate:
 
-- typed chain/sweeper observation reports that bind lifecycle events to close,
-  unilateral, second-level HTLC, sweep, failed-sweep, reorg, and restart
-  observations before the live watcher is connected;
+- normal proof-engine wrapper coverage for the bounded chain/sweeper
+  observation report;
 - live chain-watcher integration for pending, confirmed, stale, and reorged
   close/sweep anchors;
 - live post-close proof export and balance observation against integrated

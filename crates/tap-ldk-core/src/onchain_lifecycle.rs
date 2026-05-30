@@ -1,4 +1,8 @@
-use std::{collections::BTreeSet, error::Error, fmt};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    error::Error,
+    fmt,
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -16,6 +20,7 @@ use crate::{
 };
 
 pub const ONCHAIN_LIFECYCLE_REPORT_SCHEMA_VERSION: u32 = 1;
+pub const ONCHAIN_LIFECYCLE_CHAIN_OBSERVATION_REPORT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -797,6 +802,136 @@ impl OnchainLifecycleReport {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OnchainLifecycleChainObservationReport {
+    pub version: u32,
+    pub lifecycle_report: OnchainLifecycleReport,
+    pub observations: Vec<OnchainLifecycleObservation>,
+    pub all_lifecycle_events_observed: bool,
+    pub confirmed_recovery_observed: bool,
+    pub refusal_observations_present: bool,
+    pub restart_observation_present: bool,
+    pub live_chain_watcher_backed: bool,
+    pub production_ready: bool,
+}
+
+impl OnchainLifecycleChainObservationReport {
+    pub fn new(
+        lifecycle_report: OnchainLifecycleReport,
+        observations: Vec<OnchainLifecycleObservation>,
+    ) -> Result<Self, OnchainLifecycleError> {
+        let report = Self {
+            version: ONCHAIN_LIFECYCLE_CHAIN_OBSERVATION_REPORT_SCHEMA_VERSION,
+            all_lifecycle_events_observed: all_lifecycle_events_observed(
+                &lifecycle_report.events,
+                &observations,
+            ),
+            confirmed_recovery_observed: confirmed_recovery_observed(
+                &lifecycle_report.events,
+                &observations,
+            ),
+            refusal_observations_present: refusal_observations_present(
+                &lifecycle_report.events,
+                &observations,
+            ),
+            restart_observation_present: restart_observation_present(&observations),
+            live_chain_watcher_backed: false,
+            production_ready: false,
+            lifecycle_report,
+            observations,
+        };
+        report.validate()?;
+        Ok(report)
+    }
+
+    pub fn validate(&self) -> Result<(), OnchainLifecycleError> {
+        if self.version != ONCHAIN_LIFECYCLE_CHAIN_OBSERVATION_REPORT_SCHEMA_VERSION {
+            return Err(OnchainLifecycleError::UnsupportedObservationReportVersion(
+                self.version,
+            ));
+        }
+        self.lifecycle_report.validate()?;
+        if self.observations.is_empty() {
+            return Err(OnchainLifecycleError::EmptyObservationReport);
+        }
+        if self.live_chain_watcher_backed {
+            return Err(OnchainLifecycleError::UnsupportedLiveChainWatcherClaim);
+        }
+        if self.production_ready {
+            return Err(OnchainLifecycleError::UnsupportedProductionClaim);
+        }
+
+        let events_by_id = self
+            .lifecycle_report
+            .events
+            .iter()
+            .map(|event| (event.event_id.clone(), event))
+            .collect::<BTreeMap<_, _>>();
+        let mut observation_ids = BTreeSet::<String>::new();
+        for observation in &self.observations {
+            observation.validate()?;
+            if !observation_ids.insert(observation.observation_id.clone()) {
+                return Err(OnchainLifecycleError::DuplicateObservation {
+                    observation_id: observation.observation_id.clone(),
+                });
+            }
+            let event = events_by_id
+                .get(&observation.lifecycle_event_id)
+                .ok_or_else(|| OnchainLifecycleError::ObservationUnknownLifecycleEvent {
+                    observation_id: observation.observation_id.clone(),
+                    lifecycle_event_id: observation.lifecycle_event_id.clone(),
+                })?;
+            if observation.lifecycle_event_kind != event.kind
+                || observation.lifecycle_event_status != event.status
+                || observation.channel_id != event.channel_id
+                || observation.asset_id != event.asset_id
+                || observation.amount != event.amount
+            {
+                return Err(OnchainLifecycleError::ObservationLifecycleEventMismatch {
+                    observation_id: observation.observation_id.clone(),
+                    lifecycle_event_id: observation.lifecycle_event_id.clone(),
+                });
+            }
+        }
+
+        self.expect_summary(
+            "all_lifecycle_events_observed",
+            self.all_lifecycle_events_observed,
+            all_lifecycle_events_observed(&self.lifecycle_report.events, &self.observations),
+        )?;
+        self.expect_summary(
+            "confirmed_recovery_observed",
+            self.confirmed_recovery_observed,
+            confirmed_recovery_observed(&self.lifecycle_report.events, &self.observations),
+        )?;
+        self.expect_summary(
+            "refusal_observations_present",
+            self.refusal_observations_present,
+            refusal_observations_present(&self.lifecycle_report.events, &self.observations),
+        )?;
+        self.expect_summary(
+            "restart_observation_present",
+            self.restart_observation_present,
+            restart_observation_present(&self.observations),
+        )?;
+
+        Ok(())
+    }
+
+    fn expect_summary(
+        &self,
+        field: &'static str,
+        claimed: bool,
+        actual: bool,
+    ) -> Result<(), OnchainLifecycleError> {
+        if claimed != actual {
+            Err(OnchainLifecycleError::ObservationSummaryMismatch { field })
+        } else {
+            Ok(())
+        }
+    }
+}
+
 pub fn run_onchain_lifecycle_smoke() -> Result<OnchainLifecycleReport, OnchainLifecycleError> {
     let close = run_native_asset_close_smoke()?;
     let recovery = run_native_asset_recovery_matrix_smoke()?;
@@ -905,17 +1040,34 @@ pub fn run_onchain_lifecycle_smoke() -> Result<OnchainLifecycleReport, OnchainLi
     ])
 }
 
+pub fn run_chain_watcher_lifecycle_smoke()
+-> Result<OnchainLifecycleChainObservationReport, OnchainLifecycleError> {
+    let lifecycle_report = run_onchain_lifecycle_smoke()?;
+    let observations = lifecycle_report
+        .events
+        .iter()
+        .map(bounded_chain_observation_for_event)
+        .collect::<Vec<_>>();
+    OnchainLifecycleChainObservationReport::new(lifecycle_report, observations)
+}
+
 #[derive(Debug)]
 pub enum OnchainLifecycleError {
     NativeClose(NativeAssetCloseError),
     NativeRecovery(NativeAssetRecoveryError),
     MissingLifecycleEvidence(&'static str),
     UnsupportedVersion(u32),
+    UnsupportedObservationReportVersion(u32),
     UnsupportedProductionClaim,
+    UnsupportedLiveChainWatcherClaim,
     EmptyReport,
+    EmptyObservationReport,
     MissingField(&'static str),
     DuplicateEvent {
         event_id: String,
+    },
+    DuplicateObservation {
+        observation_id: String,
     },
     ZeroAssetId {
         event_id: String,
@@ -964,6 +1116,17 @@ pub enum OnchainLifecycleError {
     ObservationDigestMismatch {
         observation_id: String,
     },
+    ObservationUnknownLifecycleEvent {
+        observation_id: String,
+        lifecycle_event_id: String,
+    },
+    ObservationLifecycleEventMismatch {
+        observation_id: String,
+        lifecycle_event_id: String,
+    },
+    ObservationSummaryMismatch {
+        field: &'static str,
+    },
     MissingProofHistory {
         event_id: String,
     },
@@ -1004,16 +1167,33 @@ impl fmt::Display for OnchainLifecycleError {
             Self::UnsupportedVersion(version) => {
                 write!(f, "unsupported on-chain lifecycle schema version {version}")
             }
+            Self::UnsupportedObservationReportVersion(version) => write!(
+                f,
+                "unsupported on-chain lifecycle observation report schema version {version}"
+            ),
             Self::UnsupportedProductionClaim => {
                 write!(
                     f,
                     "bounded on-chain lifecycle report cannot claim production readiness"
                 )
             }
+            Self::UnsupportedLiveChainWatcherClaim => write!(
+                f,
+                "bounded on-chain lifecycle observation report cannot claim live chain watcher backing"
+            ),
             Self::EmptyReport => write!(f, "on-chain lifecycle report is empty"),
+            Self::EmptyObservationReport => {
+                write!(f, "on-chain lifecycle observation report is empty")
+            }
             Self::MissingField(field) => write!(f, "on-chain lifecycle missing {field}"),
             Self::DuplicateEvent { event_id } => {
                 write!(f, "duplicate on-chain lifecycle event {event_id}")
+            }
+            Self::DuplicateObservation { observation_id } => {
+                write!(
+                    f,
+                    "duplicate on-chain lifecycle observation {observation_id}"
+                )
             }
             Self::ZeroAssetId { event_id } => {
                 write!(f, "on-chain lifecycle event {event_id} has zero asset id")
@@ -1097,6 +1277,24 @@ impl fmt::Display for OnchainLifecycleError {
             Self::ObservationDigestMismatch { observation_id } => write!(
                 f,
                 "on-chain lifecycle observation {observation_id} digest mismatch"
+            ),
+            Self::ObservationUnknownLifecycleEvent {
+                observation_id,
+                lifecycle_event_id,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} references unknown lifecycle event {lifecycle_event_id}"
+            ),
+            Self::ObservationLifecycleEventMismatch {
+                observation_id,
+                lifecycle_event_id,
+            } => write!(
+                f,
+                "on-chain lifecycle observation {observation_id} does not match lifecycle event {lifecycle_event_id}"
+            ),
+            Self::ObservationSummaryMismatch { field } => write!(
+                f,
+                "on-chain lifecycle observation summary field {field} does not match observations"
             ),
             Self::MissingProofHistory { event_id } => {
                 write!(
@@ -1258,6 +1456,138 @@ fn lifecycle_evidence_digest(tag: &str, values: &[String]) -> Bytes32 {
         hash_string(&mut hasher, value);
     }
     Bytes32(hasher.finalize().into())
+}
+
+fn bounded_chain_observation_for_event(
+    event: &OnchainLifecycleEvent,
+) -> OnchainLifecycleObservation {
+    let kind = observation_kind_for_event(event.kind);
+    let anchor_state = match kind {
+        OnchainLifecycleObservationKind::FailedSweep
+        | OnchainLifecycleObservationKind::MissingProofOwnershipRefusal => {
+            ProofAnchorState::Unknown
+        }
+        OnchainLifecycleObservationKind::StaleProofOwnershipAnchor => ProofAnchorState::Stale,
+        _ => ProofAnchorState::Confirmed,
+    };
+    let observation =
+        OnchainLifecycleObservation::new(kind, kind.required_source(), event, anchor_state)
+            .with_height(144)
+            .with_wallet_evidence(event.wallet_evidence_digest.unwrap_or_else(|| {
+                lifecycle_evidence_digest(
+                    "wallet-observation",
+                    std::slice::from_ref(&event.event_id),
+                )
+            }))
+            .with_monitor_evidence(event.monitor_evidence_digest.unwrap_or_else(|| {
+                lifecycle_evidence_digest(
+                    "monitor-observation",
+                    std::slice::from_ref(&event.event_id),
+                )
+            }));
+    let observation = if kind.requires_anchor_outpoint() {
+        observation.with_anchor_outpoint(format!("{}:0", event.event_id))
+    } else {
+        observation
+    };
+    let observation = if kind.requires_sweep_output() {
+        observation.with_sweep_output(event.sweep_output_digest.unwrap_or_else(|| {
+            lifecycle_evidence_digest("sweep-observation", std::slice::from_ref(&event.event_id))
+        }))
+    } else {
+        observation
+    };
+    if event.status == OnchainLifecycleEventStatus::Refused {
+        observation.with_refusal_reason(
+            event
+                .refusal_reason
+                .clone()
+                .unwrap_or_else(|| format!("{} refused", event.kind.as_str())),
+        )
+    } else {
+        observation
+    }
+}
+
+fn observation_kind_for_event(kind: OnchainLifecycleEventKind) -> OnchainLifecycleObservationKind {
+    match kind {
+        OnchainLifecycleEventKind::CooperativeCloseLocal
+        | OnchainLifecycleEventKind::CooperativeCloseRemote => {
+            OnchainLifecycleObservationKind::CooperativeCloseAnchor
+        }
+        OnchainLifecycleEventKind::UnilateralCommitment => {
+            OnchainLifecycleObservationKind::UnilateralCommitmentAnchor
+        }
+        OnchainLifecycleEventKind::SecondLevelHtlcSuccess
+        | OnchainLifecycleEventKind::SecondLevelHtlcTimeout => {
+            OnchainLifecycleObservationKind::SecondLevelHtlcAnchor
+        }
+        OnchainLifecycleEventKind::FinalSweep => OnchainLifecycleObservationKind::FinalSweepAnchor,
+        OnchainLifecycleEventKind::FailedSweep => OnchainLifecycleObservationKind::FailedSweep,
+        OnchainLifecycleEventKind::BtcOnlySweepRefusal => {
+            OnchainLifecycleObservationKind::BtcOnlySweepRefusal
+        }
+        OnchainLifecycleEventKind::StaleProofOwnershipRefusal => {
+            OnchainLifecycleObservationKind::StaleProofOwnershipAnchor
+        }
+        OnchainLifecycleEventKind::MissingProofOwnershipRefusal => {
+            OnchainLifecycleObservationKind::MissingProofOwnershipRefusal
+        }
+        OnchainLifecycleEventKind::RestartRecovery => {
+            OnchainLifecycleObservationKind::RestartEvidence
+        }
+    }
+}
+
+fn all_lifecycle_events_observed(
+    events: &[OnchainLifecycleEvent],
+    observations: &[OnchainLifecycleObservation],
+) -> bool {
+    events.iter().all(|event| {
+        observations
+            .iter()
+            .any(|observation| observation.lifecycle_event_id == event.event_id)
+    })
+}
+
+fn confirmed_recovery_observed(
+    events: &[OnchainLifecycleEvent],
+    observations: &[OnchainLifecycleObservation],
+) -> bool {
+    events
+        .iter()
+        .filter(|event| event.status != OnchainLifecycleEventStatus::Refused)
+        .all(|event| {
+            observations.iter().any(|observation| {
+                observation.lifecycle_event_id == event.event_id
+                    && observation.anchor_state == ProofAnchorState::Confirmed
+            })
+        })
+}
+
+fn refusal_observations_present(
+    events: &[OnchainLifecycleEvent],
+    observations: &[OnchainLifecycleObservation],
+) -> bool {
+    events
+        .iter()
+        .filter(|event| event.status == OnchainLifecycleEventStatus::Refused)
+        .all(|event| {
+            observations.iter().any(|observation| {
+                observation.lifecycle_event_id == event.event_id
+                    && observation.lifecycle_event_status == OnchainLifecycleEventStatus::Refused
+                    && !empty_optional(observation.refusal_reason.as_deref())
+            })
+        })
+}
+
+fn restart_observation_present(observations: &[OnchainLifecycleObservation]) -> bool {
+    observations.iter().any(|observation| {
+        observation.kind == OnchainLifecycleObservationKind::RestartEvidence
+            && observation.anchor_state == ProofAnchorState::Confirmed
+            && observation.wallet_evidence_digest.is_some()
+            && observation.monitor_evidence_digest.is_some()
+    })
 }
 
 fn has_proof_export(events: &[OnchainLifecycleEvent], kind: OnchainLifecycleEventKind) -> bool {
@@ -1607,6 +1937,72 @@ mod tests {
         assert!(matches!(
             tampered.validate(),
             Err(OnchainLifecycleError::ObservationDigestMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn chain_observation_smoke_validates_and_covers_lifecycle_events() {
+        let report = run_chain_watcher_lifecycle_smoke().expect("chain observation smoke passes");
+        report
+            .validate()
+            .expect("chain observation report validates");
+
+        assert!(report.all_lifecycle_events_observed);
+        assert!(report.confirmed_recovery_observed);
+        assert!(report.refusal_observations_present);
+        assert!(report.restart_observation_present);
+        assert!(!report.live_chain_watcher_backed);
+        assert!(!report.production_ready);
+        assert_eq!(
+            report.lifecycle_report.events.len(),
+            report.observations.len()
+        );
+    }
+
+    #[test]
+    fn chain_observation_report_rejects_unknown_events_duplicates_and_false_claims() {
+        let lifecycle_report = valid_report();
+        let observations = valid_observations();
+        let mut report =
+            OnchainLifecycleChainObservationReport::new(lifecycle_report, observations)
+                .expect("report builds");
+
+        report.live_chain_watcher_backed = true;
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::UnsupportedLiveChainWatcherClaim)
+        ));
+
+        let mut report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("report builds");
+        report.observations[0].lifecycle_event_id = "unknown-event".to_owned();
+        report.observations[0].observation_digest = report.observations[0].digest();
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::ObservationUnknownLifecycleEvent { .. })
+        ));
+
+        let mut report =
+            OnchainLifecycleChainObservationReport::new(valid_report(), valid_observations())
+                .expect("report builds");
+        report.observations.push(report.observations[0].clone());
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::DuplicateObservation { .. })
+        ));
+
+        let lifecycle_report = valid_report();
+        let observations = valid_observations();
+        let mut report =
+            OnchainLifecycleChainObservationReport::new(lifecycle_report, observations)
+                .expect("report builds");
+        report.all_lifecycle_events_observed = false;
+        assert!(matches!(
+            report.validate(),
+            Err(OnchainLifecycleError::ObservationSummaryMismatch {
+                field: "all_lifecycle_events_observed"
+            })
         ));
     }
 
