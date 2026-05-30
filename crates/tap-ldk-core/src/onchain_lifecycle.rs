@@ -3,7 +3,16 @@ use std::{collections::BTreeSet, error::Error, fmt};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::asset::Bytes32;
+use crate::{
+    asset::Bytes32,
+    asset_close::{
+        NativeAssetCloseError, NativeAssetCloseSmokeReport, run_native_asset_close_smoke,
+    },
+    asset_recovery::{
+        NativeAssetProofRecoveryReport, NativeAssetRecoveryError, NativeAssetRecoveryMatrixReport,
+        run_native_asset_recovery_matrix_smoke,
+    },
+};
 
 pub const ONCHAIN_LIFECYCLE_REPORT_SCHEMA_VERSION: u32 = 1;
 
@@ -298,7 +307,7 @@ pub struct OnchainLifecycleReport {
 
 impl OnchainLifecycleReport {
     pub fn new(events: Vec<OnchainLifecycleEvent>) -> Result<Self, OnchainLifecycleError> {
-        let mut report = Self {
+        let report = Self {
             version: ONCHAIN_LIFECYCLE_REPORT_SCHEMA_VERSION,
             cooperative_close_exported: has_proof_export(
                 &events,
@@ -338,7 +347,7 @@ impl OnchainLifecycleReport {
         Ok(report)
     }
 
-    pub fn validate(&mut self) -> Result<(), OnchainLifecycleError> {
+    pub fn validate(&self) -> Result<(), OnchainLifecycleError> {
         if self.version != ONCHAIN_LIFECYCLE_REPORT_SCHEMA_VERSION {
             return Err(OnchainLifecycleError::UnsupportedVersion(self.version));
         }
@@ -436,8 +445,119 @@ impl OnchainLifecycleReport {
     }
 }
 
+pub fn run_onchain_lifecycle_smoke() -> Result<OnchainLifecycleReport, OnchainLifecycleError> {
+    let close = run_native_asset_close_smoke()?;
+    let recovery = run_native_asset_recovery_matrix_smoke()?;
+
+    require_lifecycle_evidence(
+        "close_proof_history_replayed",
+        close.close_proof_history_replayed,
+    )?;
+    require_lifecycle_evidence(
+        "proof_export_history_replayed",
+        close.proof_export_history_replayed,
+    )?;
+    require_lifecycle_evidence(
+        "local_wallet_export_matches_close_output",
+        close.local_wallet_export_matches_close_output,
+    )?;
+    require_lifecycle_evidence(
+        "remote_wallet_export_matches_close_output",
+        close.remote_wallet_export_matches_close_output,
+    )?;
+    require_lifecycle_evidence(
+        "restart_after_close_matches",
+        close.restart_after_close_matches,
+    )?;
+    require_lifecycle_evidence(
+        "failed_sweep_not_reported_recovered",
+        close.failed_sweep_not_reported_recovered,
+    )?;
+    require_lifecycle_evidence(
+        "normal_btc_restart_unaffected",
+        recovery.normal_btc_restart_unaffected,
+    )?;
+    require_lifecycle_evidence(
+        "missing_proof_ownership_refused",
+        recovery.missing_proof_ownership_refused,
+    )?;
+    require_lifecycle_evidence(
+        "stale_proof_ownership_refused",
+        recovery.stale_proof_ownership_refused,
+    )?;
+    require_lifecycle_evidence(
+        "btc_sweep_without_asset_proof_refused",
+        recovery.btc_sweep_without_asset_proof_refused,
+    )?;
+
+    OnchainLifecycleReport::new(vec![
+        cooperative_close_event(
+            OnchainLifecycleEventKind::CooperativeCloseLocal,
+            &close,
+            close.local_amount,
+            close.local_export_proof_history_output_id.clone(),
+            close.local_proof_digest,
+        ),
+        cooperative_close_event(
+            OnchainLifecycleEventKind::CooperativeCloseRemote,
+            &close,
+            close.remote_amount,
+            close.remote_export_proof_history_output_id.clone(),
+            close.remote_proof_digest,
+        ),
+        recovery_event(
+            OnchainLifecycleEventKind::UnilateralCommitment,
+            &recovery.force_close_recovery,
+        ),
+        recovery_event(
+            OnchainLifecycleEventKind::SecondLevelHtlcSuccess,
+            &recovery.second_level_htlc_recovery,
+        ),
+        recovery_event(
+            OnchainLifecycleEventKind::SecondLevelHtlcTimeout,
+            &recovery.second_level_htlc_recovery,
+        ),
+        recovery_event(
+            OnchainLifecycleEventKind::FinalSweep,
+            &recovery.final_sweep_recovery,
+        ),
+        refusal_event(
+            OnchainLifecycleEventKind::FailedSweep,
+            &close.channel_id,
+            close.asset_id,
+            close.total_amount,
+            "failed sweep was not reported as recovered asset ownership",
+        ),
+        refusal_event(
+            OnchainLifecycleEventKind::BtcOnlySweepRefusal,
+            &recovery.final_sweep_recovery.channel_id,
+            recovery.final_sweep_recovery.asset_id,
+            recovery.final_sweep_recovery.proof_root_sum,
+            "BTC-only sweep was refused as asset recovery",
+        ),
+        refusal_event(
+            OnchainLifecycleEventKind::StaleProofOwnershipRefusal,
+            &recovery.force_close_recovery.channel_id,
+            recovery.force_close_recovery.asset_id,
+            recovery.force_close_recovery.proof_root_sum,
+            "stale proof ownership state was refused",
+        ),
+        refusal_event(
+            OnchainLifecycleEventKind::MissingProofOwnershipRefusal,
+            &recovery.force_close_recovery.channel_id,
+            recovery.force_close_recovery.asset_id,
+            recovery.force_close_recovery.proof_root_sum,
+            "missing proof ownership state was refused",
+        ),
+        restart_event(&close, &recovery),
+    ])
+}
+
 #[derive(Debug)]
 pub enum OnchainLifecycleError {
+    NativeClose(NativeAssetCloseError),
+    NativeRecovery(NativeAssetRecoveryError),
+    MissingLifecycleEvidence(&'static str),
     UnsupportedVersion(u32),
     UnsupportedProductionClaim,
     EmptyReport,
@@ -485,6 +605,14 @@ pub enum OnchainLifecycleError {
 impl fmt::Display for OnchainLifecycleError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::NativeClose(err) => write!(f, "native close smoke failed: {err}"),
+            Self::NativeRecovery(err) => write!(f, "native recovery smoke failed: {err}"),
+            Self::MissingLifecycleEvidence(field) => {
+                write!(
+                    f,
+                    "on-chain lifecycle missing required smoke evidence {field}"
+                )
+            }
             Self::UnsupportedVersion(version) => {
                 write!(f, "unsupported on-chain lifecycle schema version {version}")
             }
@@ -563,6 +691,119 @@ impl fmt::Display for OnchainLifecycleError {
 }
 
 impl Error for OnchainLifecycleError {}
+
+impl From<NativeAssetCloseError> for OnchainLifecycleError {
+    fn from(err: NativeAssetCloseError) -> Self {
+        Self::NativeClose(err)
+    }
+}
+
+impl From<NativeAssetRecoveryError> for OnchainLifecycleError {
+    fn from(err: NativeAssetRecoveryError) -> Self {
+        Self::NativeRecovery(err)
+    }
+}
+
+fn cooperative_close_event(
+    kind: OnchainLifecycleEventKind,
+    report: &NativeAssetCloseSmokeReport,
+    amount: u64,
+    proof_history_output_id: String,
+    proof_handoff_digest: Bytes32,
+) -> OnchainLifecycleEvent {
+    OnchainLifecycleEvent::new(kind, report.channel_id.clone(), report.asset_id, amount)
+        .with_proof_history(proof_history_output_id)
+        .with_proof_handoff(proof_handoff_digest)
+        .with_wallet_evidence(proof_handoff_digest)
+        .with_monitor_evidence(report.ldk_close_allocation_digest)
+}
+
+fn recovery_event(
+    kind: OnchainLifecycleEventKind,
+    report: &NativeAssetProofRecoveryReport,
+) -> OnchainLifecycleEvent {
+    OnchainLifecycleEvent::new(
+        kind,
+        report.channel_id.clone(),
+        report.asset_id,
+        report.proof_root_sum,
+    )
+    .with_proof_history(report.proof_history_output_id.clone())
+    .with_proof_handoff(report.proof_handoff_digest)
+    .with_monitor_evidence(report.ldk_proof_ownership_digest)
+    .with_sweep_output(report.sweep_output_digest)
+}
+
+fn refusal_event(
+    kind: OnchainLifecycleEventKind,
+    channel_id: &str,
+    asset_id: Bytes32,
+    amount: u64,
+    reason: &str,
+) -> OnchainLifecycleEvent {
+    OnchainLifecycleEvent::new(kind, channel_id.to_owned(), asset_id, amount)
+        .with_refusal_reason(reason.to_owned())
+}
+
+fn restart_event(
+    close: &NativeAssetCloseSmokeReport,
+    recovery: &NativeAssetRecoveryMatrixReport,
+) -> OnchainLifecycleEvent {
+    let wallet_evidence = lifecycle_evidence_digest(
+        "restart-wallet",
+        &[
+            close.local_proof_digest.to_hex(),
+            close.remote_proof_digest.to_hex(),
+            close.local_wallet_balance.to_string(),
+            close.remote_wallet_balance.to_string(),
+        ],
+    );
+    let monitor_evidence = lifecycle_evidence_digest(
+        "restart-monitor",
+        &[
+            close.ldk_close_allocation_digest.to_hex(),
+            recovery
+                .force_close_recovery
+                .ldk_proof_ownership_digest
+                .to_hex(),
+            recovery
+                .force_close_recovery
+                .proof_history_output_id
+                .clone(),
+        ],
+    );
+
+    OnchainLifecycleEvent::new(
+        OnchainLifecycleEventKind::RestartRecovery,
+        close.channel_id.clone(),
+        close.asset_id,
+        close.total_amount,
+    )
+    .with_proof_history(close.local_export_proof_history_output_id.clone())
+    .with_wallet_evidence(wallet_evidence)
+    .with_monitor_evidence(monitor_evidence)
+}
+
+fn require_lifecycle_evidence(
+    field: &'static str,
+    present: bool,
+) -> Result<(), OnchainLifecycleError> {
+    if present {
+        Ok(())
+    } else {
+        Err(OnchainLifecycleError::MissingLifecycleEvidence(field))
+    }
+}
+
+fn lifecycle_evidence_digest(tag: &str, values: &[String]) -> Bytes32 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"tap-ldk:onchain-lifecycle-evidence:v1");
+    hash_string(&mut hasher, tag);
+    for value in values {
+        hash_string(&mut hasher, value);
+    }
+    Bytes32(hasher.finalize().into())
+}
 
 fn has_proof_export(events: &[OnchainLifecycleEvent], kind: OnchainLifecycleEventKind) -> bool {
     has_status(events, kind, OnchainLifecycleEventStatus::ProofExported)
@@ -649,7 +890,7 @@ mod tests {
 
     #[test]
     fn lifecycle_report_validates_required_events() {
-        let mut report = valid_report();
+        let report = valid_report();
         report.validate().expect("report validates");
 
         assert!(report.cooperative_close_exported);
@@ -732,6 +973,44 @@ mod tests {
             report.validate(),
             Err(OnchainLifecycleError::UnsupportedProductionClaim)
         ));
+    }
+
+    #[test]
+    fn onchain_lifecycle_smoke_covers_close_recovery_and_refusals() {
+        let report = run_onchain_lifecycle_smoke().expect("lifecycle smoke passes");
+        report.validate().expect("lifecycle report validates");
+
+        assert!(report.cooperative_close_exported);
+        assert!(report.unilateral_recovery_explained);
+        assert!(report.second_level_success_explained);
+        assert!(report.second_level_timeout_explained);
+        assert!(report.final_sweep_explained);
+        assert!(report.failed_sweep_refused);
+        assert!(report.btc_only_sweep_refused);
+        assert!(report.restart_recovery_explained);
+        assert!(!report.live_chain_watcher_backed);
+        assert!(!report.production_ready);
+
+        let kinds = report
+            .events
+            .iter()
+            .map(|event| event.kind)
+            .collect::<BTreeSet<_>>();
+        for kind in [
+            OnchainLifecycleEventKind::CooperativeCloseLocal,
+            OnchainLifecycleEventKind::CooperativeCloseRemote,
+            OnchainLifecycleEventKind::UnilateralCommitment,
+            OnchainLifecycleEventKind::SecondLevelHtlcSuccess,
+            OnchainLifecycleEventKind::SecondLevelHtlcTimeout,
+            OnchainLifecycleEventKind::FinalSweep,
+            OnchainLifecycleEventKind::FailedSweep,
+            OnchainLifecycleEventKind::BtcOnlySweepRefusal,
+            OnchainLifecycleEventKind::StaleProofOwnershipRefusal,
+            OnchainLifecycleEventKind::MissingProofOwnershipRefusal,
+            OnchainLifecycleEventKind::RestartRecovery,
+        ] {
+            assert!(kinds.contains(&kind), "missing {}", kind.as_str());
+        }
     }
 
     fn valid_report() -> OnchainLifecycleReport {

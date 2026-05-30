@@ -39,8 +39,9 @@ policy, local proof-courier bundle validation, formal models, Rust property
 tests, fuzz target compile/smoke paths, and optional Kani harnesses. It does
 not claim a production network proof universe/courier service, grouped-asset,
 live force-close/sweep, live chain-watcher, or asset-channel splice/RBF
-completeness. The next proof-engine expansion is the bounded on-chain
-lifecycle gate: a typed report that ties cooperative close, unilateral
+completeness. The bounded on-chain lifecycle report now exists as
+`tap-ldk onchain-lifecycle-smoke` and ties cooperative close, unilateral
 recovery, second-level HTLC recovery, final sweep, failed sweep refusal, and
-restart evidence into one checked surface before live chain-watcher callbacks
+restart evidence into one checked surface. The next proof-engine expansion is
+to run that command from the normal wrapper before live chain-watcher callbacks
 are wired.

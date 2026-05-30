@@ -49,9 +49,11 @@ Last updated: 2026-05-30
   and `lnd`/`tapd`/`litd` software compatibility.
 - The next production-hardening epic is on-chain lifecycle readiness. The
   bounded code already has cooperative close proof export and proof-ownership
-  recovery records for unilateral close, second-level HTLC, and final sweep
-  cases. The next step is a typed lifecycle gate that reports what is
-  explained, what is refused, and what still needs live chain-watcher work.
+  recovery records for unilateral close, second-level HTLC, and final sweep.
+  The repo now has a typed lifecycle smoke and Path A artifact for those
+  records; the remaining work in this epic is to add it to the normal
+  verification wrapper and keep the docs/status current before live
+  chain-watcher work starts.
 
 Still not done:
 
@@ -95,6 +97,7 @@ cargo run -p tap-ldk-cli -- wallet-init target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 cargo run -p tap-ldk-cli -- wallet-export-proof-bundle target/demo-wallet.json '<proof-id>' target/proof-bundle.json
 cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.json target/proof-bundle.json
+cargo run -p tap-ldk-cli -- onchain-lifecycle-smoke
 ```
 
 ## Docs

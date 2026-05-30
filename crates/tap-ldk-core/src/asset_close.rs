@@ -255,6 +255,10 @@ pub struct NativeAssetCloseSmokeReport {
     pub remote_proof_import_status: String,
     pub local_proof_tlv_hex: String,
     pub remote_proof_tlv_hex: String,
+    pub local_export_proof_history_output_id: String,
+    pub remote_export_proof_history_output_id: String,
+    pub local_proof_digest: Bytes32,
+    pub remote_proof_digest: Bytes32,
     pub local_wallet_balance: u64,
     pub remote_wallet_balance: u64,
     pub close_proof_history_replayed: bool,
@@ -384,6 +388,10 @@ pub fn run_native_asset_close_smoke() -> Result<NativeAssetCloseSmokeReport, Nat
         remote_proof_import_status: import_status(remote_import).to_owned(),
         local_proof_tlv_hex: close.local_proof_tlv_hex,
         remote_proof_tlv_hex: close.remote_proof_tlv_hex,
+        local_export_proof_history_output_id: close.local_export_proof_history_output_id,
+        remote_export_proof_history_output_id: close.remote_export_proof_history_output_id,
+        local_proof_digest: close.local_proof_digest,
+        remote_proof_digest: close.remote_proof_digest,
         local_wallet_balance,
         remote_wallet_balance,
         close_proof_history_replayed,
@@ -1336,6 +1344,10 @@ mod tests {
         assert_eq!(report.remote_wallet_balance, 425);
         assert_eq!(report.local_proof_import_status, "imported");
         assert_eq!(report.remote_proof_import_status, "imported");
+        assert!(!report.local_export_proof_history_output_id.is_empty());
+        assert!(!report.remote_export_proof_history_output_id.is_empty());
+        assert_ne!(report.local_proof_digest, Bytes32::ZERO);
+        assert_ne!(report.remote_proof_digest, Bytes32::ZERO);
         assert!(report.close_proof_history_replayed);
         assert!(report.proof_export_history_replayed);
         assert!(report.local_wallet_export_matches_close_output);

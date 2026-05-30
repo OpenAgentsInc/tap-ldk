@@ -159,9 +159,11 @@ Last updated: 2026-05-30
   bounded close/recovery code already records cooperative close proof export,
   unilateral commitment recovery, second-level HTLC recovery, final sweep
   recovery, failed-sweep refusal, stale proof-ownership refusal, and BTC-only
-  sweep refusal. The next work is to consolidate those into a typed lifecycle
-  report and normal verification gate before wiring the same vocabulary to a
-  live chain watcher.
+  sweep refusal. Those records now consolidate into a typed lifecycle report
+  exposed by `tap-ldk onchain-lifecycle-smoke` and written by the Path A demo.
+  The remaining work in this epic is to add the report to the normal
+  verification gate and finish the lifecycle docs before wiring the same event
+  vocabulary to a live chain watcher.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

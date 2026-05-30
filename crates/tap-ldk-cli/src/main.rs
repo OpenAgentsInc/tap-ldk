@@ -28,6 +28,7 @@ use tap_ldk_core::{
     },
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
+    onchain_lifecycle::run_onchain_lifecycle_smoke,
     proof::{ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
     proof_courier::ProofCourierBundle,
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
@@ -522,6 +523,16 @@ fn main() {
             };
             print_json_or_exit(&report, "native asset close smoke");
         }
+        [command] if command == "onchain-lifecycle-smoke" => {
+            let report = match run_onchain_lifecycle_smoke() {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed on-chain lifecycle smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "on-chain lifecycle smoke");
+        }
         [command] if command == "simple-taproot-asset-channel-smoke" => {
             let report = match run_simple_taproot_asset_channel_integration_smoke() {
                 Ok(report) => report,
@@ -992,6 +1003,7 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-payment-smoke");
     println!("  tap-ldk asset-recovery-smoke");
     println!("  tap-ldk asset-close-smoke");
+    println!("  tap-ldk onchain-lifecycle-smoke");
     println!("  tap-ldk simple-taproot-asset-channel-smoke");
     println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");

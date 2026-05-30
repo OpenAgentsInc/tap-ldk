@@ -325,16 +325,16 @@ state. The important production question is not merely whether the Bitcoin
 transaction is valid. It is whether the asset owner can still prove ownership
 of the correct asset output after the transaction confirms.
 
-The next issue wave should start with a bounded lifecycle gate before the live
-chain watcher. The code already has separate cooperative close and recovery
-reports, but they are not yet one typed lifecycle surface. The next epic should
-make that surface explicit: every lifecycle event should name its channel,
-asset, amount, proof-history output, proof handoff digest, wallet evidence,
-monitor evidence, and terminal status. Sweep failure must remain a refusal,
-BTC-only sweep state must not count as asset recovery, and restart recovery
-must require both wallet and monitor evidence. Once that bounded report is
-green in the normal proof-engine check, later live-regtest work can feed it
-from actual chain notifications and sweeper callbacks.
+The next issue wave is the bounded lifecycle gate before the live chain watcher.
+The code now exposes one typed lifecycle report through
+`tap-ldk onchain-lifecycle-smoke` and the Path A artifact set. Each lifecycle
+event names its channel, asset, amount, proof-history output, proof handoff
+digest, wallet or monitor evidence when required, and terminal status. Sweep
+failure remains a refusal, BTC-only sweep state does not count as asset
+recovery, and restart recovery requires both wallet and monitor evidence. Once
+that bounded report is green in the normal proof-engine check, later
+live-regtest work can feed it from actual chain notifications and sweeper
+callbacks.
 
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
