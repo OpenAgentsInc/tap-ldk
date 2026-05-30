@@ -332,9 +332,9 @@ event names its channel, asset, amount, proof-history output, proof handoff
 digest, wallet or monitor evidence when required, and terminal status. Sweep
 failure remains a refusal, BTC-only sweep state does not count as asset
 recovery, and restart recovery requires both wallet and monitor evidence. Once
-that bounded report is green in the normal proof-engine check, later
-live-regtest work can feed it from actual chain notifications and sweeper
-callbacks.
+that bounded report is green in the normal proof-engine check, which now runs
+`scripts/onchain-lifecycle-smoke.sh`, later live-regtest work can feed it from
+actual chain notifications and sweeper callbacks.
 
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
@@ -354,10 +354,11 @@ versions and flows are known-good, known-failing, or intentionally unsupported.
 
 Verification is now part of the normal gate, but it should keep expanding as
 new production surfaces land. `scripts/proof-engine-check.sh` runs formatting,
-locked tests, formal checks, Rust-native verification, and the native demo; the
-extended mode adds the BOLT scripts and compatibility demo. Future epics should
-add their own property tests, fuzz targets, Kani harnesses, and formal notes to
-that wrapper instead of relying on ad hoc one-off commands.
+locked tests, formal checks, Rust-native verification, the native demo, and the
+bounded on-chain lifecycle report; the extended mode adds the BOLT scripts and
+compatibility demo. Future epics should add their own property tests, fuzz
+targets, Kani harnesses, and formal notes to that wrapper instead of relying on
+ad hoc one-off commands.
 
 The long-running fork-risk phase should reduce divergence. The Rust Lightning changes should be
 split into reviewable units: BTC simple-taproot base, MuSig2 signer and nonce

@@ -25,6 +25,10 @@ force-close, second-level HTLC, and final sweep paths. A BTC-only sweep without
 asset proof ownership is refused as asset recovery, missing proof ownership is
 refused, stale proof ownership is refused, proof history is replayed for each
 recovered output, and the BTC-only restart abstraction remains unaffected.
+`tap-ldk onchain-lifecycle-smoke` folds these recovery records together with
+cooperative close proof export and restart evidence into one typed lifecycle
+report. `scripts/onchain-lifecycle-smoke.sh` validates that report in the
+normal proof-engine gate.
 
 ## Boundaries
 
@@ -32,4 +36,5 @@ This is still a bounded smoke, not a live on-chain resolver. It proves the
 asset recovery claim cannot be made without proof ownership material and that
 the three unilateral recovery spend paths have stable fork hook records and
 bounded proof-history output records. The remaining live work is wiring those
-records through real channel-manager, resolver, and sweeper call sites.
+records through real channel-manager, resolver, chain-watcher, and sweeper call
+sites.

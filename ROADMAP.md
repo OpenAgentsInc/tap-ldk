@@ -161,9 +161,10 @@ Last updated: 2026-05-30
   recovery, failed-sweep refusal, stale proof-ownership refusal, and BTC-only
   sweep refusal. Those records now consolidate into a typed lifecycle report
   exposed by `tap-ldk onchain-lifecycle-smoke` and written by the Path A demo.
-  The remaining work in this epic is to add the report to the normal
-  verification gate and finish the lifecycle docs before wiring the same event
-  vocabulary to a live chain watcher.
+  The normal proof-engine wrapper now runs that report through
+  `scripts/onchain-lifecycle-smoke.sh`. The bounded lifecycle gate is complete
+  for the current close/recovery evidence; the next production phase is to feed
+  the same event vocabulary from a live chain watcher and sweeper callbacks.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

@@ -33,6 +33,8 @@ artifacts:
 - `native-close-remote-proof.hex`: remote final-output proof export.
 - `close-recovery-status.json`: restart, stale-proof, failed-sweep, and
   force-close gate status.
+- `onchain-lifecycle.json`: typed lifecycle report tying close export to
+  bounded recovery, refusal, and restart evidence.
 
 ## Force Close Gate
 
@@ -41,3 +43,6 @@ is now covered by `asset-recovery-smoke`, which validates commitment,
 second-level HTLC, and final sweep proof-ownership records through the
 OpenAgentsInc rust-lightning fork and refuses BTC-only sweep state as asset
 recovery. Live on-chain resolver and sweeper integration is still pending.
+`scripts/onchain-lifecycle-smoke.sh` keeps this boundary explicit in the normal
+proof-engine gate: the bounded report may explain proof ownership and refusals,
+but it must not claim live chain-watcher backing or production readiness.

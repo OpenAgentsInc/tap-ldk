@@ -15,7 +15,9 @@ Path A is the runnable native-to-native demo. It issues a bounded local
 native asset-channel/payment/restart/close smokes, and exports cooperative
 close proof artifacts. The recovery smoke also validates bounded force-close,
 second-level HTLC, and final sweep proof-ownership records and refuses BTC-only
-sweeps as asset recovery.
+sweeps as asset recovery. Path A also writes a bounded on-chain lifecycle
+report that consolidates close proof export, unilateral/HTLC/sweep recovery
+evidence, refusals, and restart evidence.
 
 Path B is the native `tap-ldk` to independent `lnd`/`tapd`/`litd` compatibility
 demo. It runs fixture-backed Lightning Labs software blob/proof/funding/RFQ
@@ -82,6 +84,7 @@ Path A native-to-native demo artifacts: ...
 - native payment settles 125 OPENUSD to bob
 - recovery smoke checks funding/RFQ/HTLC/commitment/settlement/close-prep restart boundaries
 - cooperative close exports final proofs at alice=575 bob=425
+- on-chain lifecycle report records close, bounded recovery, refusal, and restart evidence
 - force-close proof-ownership recovery is machine-visible, while live on-chain
   sweeper integration remains pending
 ```
@@ -100,6 +103,7 @@ Key artifacts:
 - `native-close-local-proof.hex`
 - `native-close-remote-proof.hex`
 - `close-recovery-status.json`
+- `onchain-lifecycle.json`
 - `logs/`
 
 Mocked or bounded pieces:
@@ -108,6 +112,8 @@ Mocked or bounded pieces:
 - Price oracle is fixed at `100` millisats per `OPENUSD` unit.
 - Proof courier is a local file handoff.
 - UI is the headless CLI smoke.
+- The on-chain lifecycle report is bounded evidence, not a live chain-watcher
+  claim.
 - Live on-chain sweeper integration remains pending. The bounded recovery
   smoke refuses BTC-only sweep state as asset recovery.
 

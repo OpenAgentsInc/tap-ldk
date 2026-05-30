@@ -19,9 +19,10 @@ counted as Taproot Asset recovery.
 
 This is still not the live chain watcher. The bounded gate makes the current
 proof-ownership and close/recovery evidence explicit, deterministic, and
-testable. The production work after this gate is to drive the same event
-vocabulary from actual regtest transactions, chain notifications, sweeper
-callbacks, and persisted wallet plus monitor state after crash/restart.
+testable, and the normal proof-engine wrapper now runs it. The production work
+after this gate is to drive the same event vocabulary from actual regtest
+transactions, chain notifications, sweeper callbacks, and persisted wallet plus
+monitor state after crash/restart.
 
 Current completed pieces:
 
@@ -37,15 +38,13 @@ Current completed pieces:
   refusal, and restart evidence.
 - `scripts/path-a-native-demo.sh` writes that report as `onchain-lifecycle.json`
   next to the native close/recovery artifacts.
+- `scripts/onchain-lifecycle-smoke.sh` validates the lifecycle report and
+  writes the checked artifact under `target/onchain-lifecycle-smoke/`.
+- `scripts/proof-engine-check.sh` runs the lifecycle smoke as part of the
+  normal proof-engine gate.
 - The local proof-courier bundle can move accepted wallet proofs with
   proof-history metadata, anchor state, asset fields, optional TAPF bytes, and
   digests.
-
-Remaining before the live chain-watcher phase:
-
-- add the lifecycle smoke to the normal proof-engine verification wrapper;
-- finish the lifecycle docs and status notes around what the bounded report
-  proves and what it does not prove.
 
 Remaining after this bounded gate:
 

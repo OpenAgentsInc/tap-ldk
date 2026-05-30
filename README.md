@@ -50,10 +50,11 @@ Last updated: 2026-05-30
 - The next production-hardening epic is on-chain lifecycle readiness. The
   bounded code already has cooperative close proof export and proof-ownership
   recovery records for unilateral close, second-level HTLC, and final sweep.
-  The repo now has a typed lifecycle smoke and Path A artifact for those
-  records; the remaining work in this epic is to add it to the normal
-  verification wrapper and keep the docs/status current before live
-  chain-watcher work starts.
+  The repo now has a typed lifecycle smoke, Path A artifact, and normal
+  proof-engine wrapper gate for those records. That gate is still bounded:
+  live chain-watcher callbacks, live sweeper callbacks, integrated `litd`
+  post-close proof observation, and production backup/restore remain future
+  work.
 
 Still not done:
 
@@ -77,6 +78,7 @@ Run the main checks from the repo root:
 
 ```bash
 ./scripts/proof-engine-check.sh
+./scripts/onchain-lifecycle-smoke.sh
 cargo fmt --check
 CARGO_NET_GIT_FETCH_WITH_CLI=true cargo test --locked
 ./scripts/check-btc-simple-taproot-conformance.sh

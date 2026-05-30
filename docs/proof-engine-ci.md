@@ -11,9 +11,10 @@ Run the normal local suite with:
 
 That command runs formatting, `cargo test --locked`, all checked TLA+ configs
 through `scripts/formal-check.sh`, the Rust-native property/fuzz/Kani wrapper,
-and the native wallet-to-wallet demo. Optional tools are visible: TLA+ skips
-when no `tlc` or `TLA_TOOLS_JAR` is available, fuzz smoke skips when
-`cargo-fuzz` is missing, and Kani skips when `cargo kani` is missing.
+the native wallet-to-wallet demo, and the bounded on-chain lifecycle report
+gate. Optional tools are visible: TLA+ skips when no `tlc` or `TLA_TOOLS_JAR`
+is available, fuzz smoke skips when `cargo-fuzz` is missing, and Kani skips
+when `cargo kani` is missing.
 
 Run the extended local suite with:
 
@@ -39,9 +40,9 @@ policy, local proof-courier bundle validation, formal models, Rust property
 tests, fuzz target compile/smoke paths, and optional Kani harnesses. It does
 not claim a production network proof universe/courier service, grouped-asset,
 live force-close/sweep, live chain-watcher, or asset-channel splice/RBF
-completeness. The bounded on-chain lifecycle report now exists as
-`tap-ldk onchain-lifecycle-smoke` and ties cooperative close, unilateral
-recovery, second-level HTLC recovery, final sweep, failed sweep refusal, and
-restart evidence into one checked surface. The next proof-engine expansion is
-to run that command from the normal wrapper before live chain-watcher callbacks
-are wired.
+completeness. The bounded on-chain lifecycle report now runs through
+`scripts/onchain-lifecycle-smoke.sh` inside the normal wrapper. It ties
+cooperative close, unilateral recovery, second-level HTLC recovery, final
+sweep, failed sweep refusal, and restart evidence into one checked surface.
+The next proof-engine expansion is live chain-watcher and sweeper callback
+coverage feeding that same event vocabulary.

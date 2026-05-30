@@ -97,7 +97,10 @@ the current umbrella gates for that policy.
   refused or pending BTC-only state. A sweep failure cannot be reported as
   recovered, a BTC-only sweep cannot be counted as Taproot Asset recovery, and
   restart recovery must carry both wallet and monitor evidence before it can
-  explain ownership of a post-close asset output.
+  explain ownership of a post-close asset output. The bounded lifecycle report
+  must keep `live_chain_watcher_backed=false` and `production_ready=false`
+  until the same event vocabulary is driven by live chain notifications,
+  sweeper callbacks, and persisted wallet plus monitor recovery state.
 
 ## rust-lightning Integration Invariants
 
