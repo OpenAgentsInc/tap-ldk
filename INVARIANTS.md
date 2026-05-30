@@ -101,6 +101,12 @@ the current umbrella gates for that policy.
   must keep `live_chain_watcher_backed=false` and `production_ready=false`
   until the same event vocabulary is driven by live chain notifications,
   sweeper callbacks, and persisted wallet plus monitor recovery state.
+- Chain-watcher observations must not be inferred from lifecycle event labels
+  alone. A lifecycle event may become chain-observed only from a typed
+  close/sweep/reorg/restart observation with a deterministic observation ID,
+  matching lifecycle event ID, explicit anchor state, and source. Confirmed
+  recovery must require confirmed chain state; reorged or stale anchors must
+  refuse recovery until a replacement proof path is observed.
 
 ## rust-lightning Integration Invariants
 

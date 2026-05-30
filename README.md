@@ -55,6 +55,10 @@ Last updated: 2026-05-30
   live chain-watcher callbacks, live sweeper callbacks, integrated `litd`
   post-close proof observation, and production backup/restore remain future
   work.
+- The next issue wave should add typed chain/sweeper observations for those
+  lifecycle events. That is the first production step toward live chain-watcher
+  support: close and sweep anchors must be observed, confirmed, refused, or
+  reorged through one checked report before any live force-close claim is made.
 
 Still not done:
 
@@ -116,6 +120,7 @@ cargo run -p tap-ldk-cli -- onchain-lifecycle-smoke
 - [Current Status And Production Readiness Audit](docs/current-status-production-readiness-audit-2026-05-29.md)
 - [Proof Courier Bundles](docs/proof-courier-bundles.md)
 - [On-Chain Lifecycle Readiness](docs/onchain-lifecycle-readiness.md)
+- [Chain-Watcher Lifecycle Readiness](docs/chain-watcher-lifecycle-readiness.md)
 - [Negative Proof Vector Coverage](docs/negative-proof-vector-coverage.md)
 - [Rust-Native Verification](docs/rust-native-verification.md)
 - [Proof Engine CI](docs/proof-engine-ci.md)

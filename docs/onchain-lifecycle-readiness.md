@@ -48,6 +48,9 @@ Current completed pieces:
 
 Remaining after this bounded gate:
 
+- typed chain/sweeper observation reports that bind lifecycle events to close,
+  unilateral, second-level HTLC, sweep, failed-sweep, reorg, and restart
+  observations before the live watcher is connected;
 - live chain-watcher integration for pending, confirmed, stale, and reorged
   close/sweep anchors;
 - live post-close proof export and balance observation against integrated

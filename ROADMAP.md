@@ -165,6 +165,12 @@ Last updated: 2026-05-30
   `scripts/onchain-lifecycle-smoke.sh`. The bounded lifecycle gate is complete
   for the current close/recovery evidence; the next production phase is to feed
   the same event vocabulary from a live chain watcher and sweeper callbacks.
+- The immediate next issue wave should add the chain/sweeper observation layer
+  that live chain-watcher code will later feed. That means typed observations
+  for close anchors, unilateral anchors, second-level HTLC anchors, sweep
+  anchors, sweep failures, reorged anchors, and wallet/monitor restart
+  evidence, plus a report that refuses to mark production readiness until those
+  observations are backed by a real live regtest watcher.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.
