@@ -35,7 +35,8 @@ suite on pushes to `main` and pull requests. It also exposes a manual
 The CI claim is intentionally bounded. It verifies the current proof-engine
 hardening surfaces: semantic proof validation, typed proof-history replay,
 wallet/funding/commitment/close/recovery replay gates, bounded anchor-state
-policy, formal models, Rust property tests, fuzz target compile/smoke paths,
-and optional Kani harnesses. It does not claim production proof courier,
-grouped-asset, live force-close/sweep, live chain-watcher, or asset-channel
-splice/RBF completeness.
+policy, local proof-courier bundle validation, formal models, Rust property
+tests, fuzz target compile/smoke paths, and optional Kani harnesses. It does
+not claim a production network proof universe/courier service, grouped-asset,
+live force-close/sweep, live chain-watcher, or asset-channel splice/RBF
+completeness.

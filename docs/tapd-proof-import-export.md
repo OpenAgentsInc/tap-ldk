@@ -21,16 +21,20 @@ including every Bitcoin anchor transaction, virtual transaction witness,
 STXO/split/change path, grouped asset path, and reorg watcher policy remains
 future production hardening.
 
-For the first demo, the local proof/universe courier is mocked infrastructure:
-the `lnd`/`tapd`/`litd` side can mint or receive the asset, export a proof file,
-and hand that file to `tap-ldk`; `tap-ldk` can then export the same raw proof
-file back for verification by Lightning Labs tooling. This is interop plumbing,
-not production proof-discovery infrastructure.
+For the first demo and local wallet handoff, the proof courier is now a typed
+bundle rather than a loose proof file. The `lnd`/`tapd`/`litd` side can mint or
+receive the asset, export a proof file, and hand that file to `tap-ldk`;
+`tap-ldk` can preserve the raw TAPF bytes, wrap the accepted native proof and
+proof-history metadata into a local proof-courier bundle, and export the raw
+proof file back for verification by Lightning Labs tooling. This is local
+interop plumbing, not production proof-discovery infrastructure.
 
 ```bash
 cargo run -p tap-ldk-cli -- lightning-labs-proof-fixture-smoke fixtures/lightning-labs/proof/testdata
 cargo run -p tap-ldk-cli -- wallet-import-tapd-proof-file target/tapd-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1 600 0285a7e2dfcad008f54094005db2424aa23431cfb62535950a590957fa6c7cdb27 c181733565d1ddc83fbdc36d7ad630f0b1a497a5f4f4d57a0bf664bb95d59905:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1
 cargo run -p tap-ldk-cli -- live-tapd-proof-bind target/live-tapd-proof-wallet.json fixtures/lightning-labs/proof/testdata/proof-file.hex 941c6b88de2e5c66797831545adabac0b55f8adb836e921c25d2963c65d15bd1 600 0285a7e2dfcad008f54094005db2424aa23431cfb62535950a590957fa6c7cdb27 c181733565d1ddc83fbdc36d7ad630f0b1a497a5f4f4d57a0bf664bb95d59905:0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1 target/live-tapd-proof-binding.json
+cargo run -p tap-ldk-cli -- wallet-export-proof-bundle target/tapd-wallet.json '<proof-id>' target/proof-bundle.json
+cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.json target/proof-bundle.json
 cargo run -p tap-ldk-cli -- wallet-export-tapd-proof-file target/tapd-wallet.json '<proof-id>' target/exported.tapf
 ./scripts/live-tapd-proof-bind.sh target/live-tapd-proof-binding/report.json target/live-tapd-proof-binding/wallet.json
 ```

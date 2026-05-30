@@ -113,7 +113,7 @@ work includes:
 - full virtual transaction witness execution for every historical proof;
 - grouped assets, collectibles, reissuance, and multi-asset proof paths;
 - full split/change/STXO inclusion and exclusion proof replay;
-- live reorg watcher integration and production proof courier/universe policy.
+- live reorg watcher integration and network proof universe/courier service.
 
 Those items remain future production-hardening work, not a reason to accept
 shallow proof fields in the demo wallet.

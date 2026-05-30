@@ -1,6 +1,6 @@
 # Current Status And Production Readiness Audit
 
-Date: 2026-05-29
+Date: 2026-05-30
 
 ## Official BOLT Simple Taproot Status
 
@@ -67,10 +67,12 @@ surfaces.
 
 The proof-of-concept issues are closed. The first production-hardening
 sequence for proof replay and formal verification is also closed in #96
-through #106. The next open production gap is proof transport: the project
-needs a typed proof-courier/export bundle policy so accepted proofs, raw
-`TAPF` files, proof-history metadata, anchor state, and digests move together
-instead of being passed around as loose local files.
+through #106. The local proof-transport hardening sequence is now closed in
+#107 through #110: accepted proofs, raw `TAPF` files, proof-history metadata,
+anchor state, asset fields, and digests move together as a typed
+proof-courier bundle instead of being passed around as loose local files. The
+remaining proof-transport gap is the future network/universe service layer,
+not the local bundle boundary.
 
 ## What This Project Currently Is
 
@@ -233,10 +235,11 @@ checks are intentionally strict for the bounded demo, but production still
 needs full proof-history replay for every historical virtual transaction
 witness. It needs complete STXO, split, and change-output proof replay. It
 needs grouped assets, multi-asset paths, reissuance and collectible edge
-cases where those matter, and policy for reorg watchers. It also needs a
-production proof courier or universe policy that defines how proofs are found,
-validated, retained, exported, and repaired without relying on local demo
-fixtures.
+cases where those matter, and policy for reorg watchers. The local
+proof-courier bundle now defines how the wallet imports and exports proof
+material without loose files, but production still needs a network proof
+universe/courier service that defines how proofs are found, retained,
+repaired, and synchronized without relying on local demo fixtures.
 
 The asset-channel overlay is not production complete just because the BTC
 simple-taproot base is now covered. BTC-level simple-taproot splice nonce maps
@@ -296,25 +299,23 @@ machinery and OpenAgents-specific demo glue should become clearer.
 
 ## Production Readiness Work That Should Come Next
 
-The proof-engine hardening phase has started and the first issue sequence is
-closed. The wallet now has typed proof-history replay across issuance, split,
-transfer, channel funding, commitment update, close, and bounded sweep/recovery
-outputs, plus negative vectors, formal checks, Rust-native verification, and CI
-wiring. That does not finish production proof handling. The next production
-gap is proof transport and retention: accepted native proofs, raw Lightning
-Labs `TAPF` proof files, proof-history IDs, anchor state, and digests need to
-move as one validated bundle. Without that, a wallet can still accidentally
-separate the proof bytes from the state that explains why the balance is
-accepted.
+The proof-engine hardening phase and local proof-courier phase are closed for
+the current bounded wallet surfaces. The wallet now has typed proof-history
+replay across issuance, split, transfer, channel funding, commitment update,
+close, and bounded sweep/recovery outputs, plus negative vectors, formal
+checks, Rust-native verification, CI wiring, and a typed local proof-courier
+bundle. That does not finish production proof handling.
 
-The next epic should therefore add a typed proof-courier bundle and policy. It
-should export only proofs that the wallet can explain through replayed history,
-record the proof and optional `TAPF` digests, carry anchor state explicitly,
-refuse stale or reorged spendable claims, import bundles through the same
-semantic and proof-history gates as direct proof import, and expose a CLI/report
-surface that makes local courier behavior visible. This is still local
+The local proof-courier epic added a typed bundle and policy. It exports only
+proofs that the wallet can explain through replayed history, records the proof
+and optional `TAPF` digests, carries anchor state explicitly, refuses pending,
+stale, or reorged spendable export claims, imports bundles through the same
+semantic and proof-history gates as direct proof import, and exposes CLI
+commands that make local courier behavior visible. This is still local
 transport, not a decentralized universe service, but it closes the loose-file
-gap before network proof discovery is added.
+gap before network proof discovery is added. The remaining production
+proof-transport gap is network proof discovery, retention, repair, and
+synchronization.
 
 The following phase should harden on-chain lifecycle behavior. The project needs
 live regtest tests for cooperative close proof export, unilateral close,
@@ -566,6 +567,6 @@ The current exit bar is precise. The repo can now claim bounded proof-history
 replay and formal-verification wiring for the wallet, funding, commitment,
 close, recovery, and anchor-policy surfaces that have been implemented. It
 still cannot claim production-complete Taproot Assets proof handling until
-proof-courier policy, live chain-watcher integration, grouped assets,
+network proof discovery, live chain-watcher integration, grouped assets,
 STXO/split/change history, and live close/force-close/sweep proof recovery are
 implemented and verified.

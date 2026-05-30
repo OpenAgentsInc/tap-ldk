@@ -1378,6 +1378,52 @@ mod tests {
     }
 
     #[test]
+    fn proof_courier_import_rejects_history_metadata_mismatch() {
+        let mut source = WalletState::default();
+        let imported = source
+            .import_verified_proof(valid_proof())
+            .expect("proof imports");
+        let mut bundle = source
+            .export_proof_courier_bundle(imported.proof_id())
+            .expect("proof courier bundle exports");
+        bundle.proof_history_transition_id = Bytes32([44; 32]).to_hex();
+
+        let mut receiver = WalletState::default();
+        assert!(matches!(
+            receiver.import_proof_courier_bundle(bundle),
+            Err(WalletError::UnexplainedProofHistory(id)) if id == imported.proof_id()
+        ));
+        assert!(receiver.proofs.is_empty());
+        assert!(receiver.spendable_utxos.is_empty());
+    }
+
+    #[test]
+    fn proof_courier_import_preserves_stale_or_reorged_anchor_as_unspendable() {
+        let mut source = WalletState::default();
+        let imported = source
+            .import_verified_proof(valid_proof())
+            .expect("proof imports");
+
+        for anchor_state in [ProofAnchorState::Stale, ProofAnchorState::Reorged] {
+            let mut bundle = source
+                .export_proof_courier_bundle(imported.proof_id())
+                .expect("proof courier bundle exports");
+            bundle.anchor_state = anchor_state;
+
+            let mut receiver = WalletState::default();
+            let outcome = receiver
+                .import_proof_courier_bundle(bundle)
+                .expect("stale/reorged bundle imports as non-spendable");
+            assert_eq!(outcome.proof_id(), imported.proof_id());
+            assert_eq!(receiver.balances().expect("balances"), Vec::new());
+            assert!(matches!(
+                receiver.export_proof_courier_bundle(imported.proof_id()),
+                Err(WalletError::UnexplainedProofHistory(id)) if id == imported.proof_id()
+            ));
+        }
+    }
+
+    #[test]
     fn duplicate_import_does_not_double_count_balance() {
         let mut wallet = WalletState::default();
         wallet

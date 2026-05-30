@@ -45,7 +45,7 @@ so fork gates were run against Cargo's clean pinned checkout at
 
 This closure does not claim production-complete Taproot Assets support. Future
 hardening remains for full proof-history replay, grouped/multi-asset paths,
-STXO/split/change proof replay, reorg watchers, production proof courier
-policy, live force-close/sweep recovery, live post-close proof and balance
+STXO/split/change proof replay, reorg watchers, network proof universe/courier
+service, live force-close/sweep recovery, live post-close proof and balance
 observation, live daemon RFQ accept-signature verification, and concurrent
 simple-taproot splice/RBF asset-channel candidates.

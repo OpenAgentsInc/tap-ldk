@@ -16,6 +16,7 @@ ALICE_WALLET="$ARTIFACT_DIR/alice-wallet.json"
 BOB_WALLET="$ARTIFACT_DIR/bob-wallet.json"
 BOB_RESTART_WALLET="$ARTIFACT_DIR/bob-wallet-after-restart.json"
 BOB_PROOF="$ARTIFACT_DIR/bob-openusd-proof.tlv"
+BOB_PROOF_BUNDLE="$ARTIFACT_DIR/bob-openusd-proof-bundle.json"
 CHANNEL_STORE="$ARTIFACT_DIR/asset-channels.json"
 COMMITMENT_STORE="$ARTIFACT_DIR/asset-commitments.json"
 SUMMARY="$ARTIFACT_DIR/summary.txt"
@@ -117,6 +118,12 @@ fi
 
 run_text_capture proof-courier-local-send cargo run -q -p tap-ldk-cli -- wallet-send-local "$ALICE_WALLET" "$ASSET_ID" 300 "$BOB_KEY" "$BOB_PROOF" >/dev/null
 run_text_capture bob-import-openusd-proof cargo run -q -p tap-ldk-cli -- wallet-import-proof-file "$BOB_WALLET" "$BOB_PROOF" >/dev/null
+BOB_PROOF_ID="$(cargo run -q -p tap-ldk-cli -- wallet-proofs "$BOB_WALLET" 2>"$LOG_DIR/bob-wallet-proofs.err" | tee "$LOG_DIR/bob-wallet-proofs.out" | head -n 1)"
+if [ -z "$BOB_PROOF_ID" ]; then
+  echo "path-a-native-demo: failed to parse bob proof id." >&2
+  exit 1
+fi
+run_text_capture bob-export-proof-bundle cargo run -q -p tap-ldk-cli -- wallet-export-proof-bundle "$BOB_WALLET" "$BOB_PROOF_ID" "$BOB_PROOF_BUNDLE" >/dev/null
 run_json alice-wallet-balances "$ARTIFACT_DIR/alice-wallet-balances.json" cargo run -q -p tap-ldk-cli -- wallet-balances "$ALICE_WALLET"
 run_json bob-wallet-balances "$ARTIFACT_DIR/bob-wallet-balances.json" cargo run -q -p tap-ldk-cli -- wallet-balances "$BOB_WALLET"
 
@@ -136,7 +143,7 @@ Path A native-to-native demo artifacts: $ARTIFACT_DIR
 Visible mocked/experimental pieces:
 - issuer identity: bounded local OPENUSD issuer key $ISSUER_KEY
 - fixed oracle: regtest RFQ quote store uses 100 msat per OPENUSD unit
-- proof courier: local proof file $BOB_PROOF
+- proof courier: local transfer proof file $BOB_PROOF plus accepted bundle $BOB_PROOF_BUNDLE
 - UI/runtime: headless CLI smoke; no LND/tapd wallet sidecar
 
 Expected demo path:

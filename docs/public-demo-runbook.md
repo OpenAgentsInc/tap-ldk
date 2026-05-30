@@ -180,7 +180,7 @@ B success.
 Mocked or bounded pieces:
 
 - Issuer identity and price oracle remain bounded demo fixtures.
-- Proof courier is local fixture/import-export plumbing.
+- Proof courier is local typed-bundle import/export plumbing.
 - Manual/local discovery is used for the first interop target.
 - Live `tap-ldk` peer smoke is local `tap-ldk` to `tap-ldk`; it is not yet a
   `lnd`/`tapd`/`litd` daemon-backed P2P session.
@@ -189,8 +189,8 @@ Mocked or bounded pieces:
 - Fork-backed `ldk-node` can connect to integrated `litd`, reach the Taproot
   Asset message/channel/payment APIs, and complete both live settlement
   directions for the first demo.
-- Live post-close proof export, force-close/sweep recovery, and production
-  proof courier behavior remain open.
+- Live post-close proof export, force-close/sweep recovery, and network proof
+  universe/courier behavior remain open.
 
 ## Full Smoke Wrapper
 

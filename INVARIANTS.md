@@ -537,14 +537,16 @@ Do not claim these guarantees until implementation and verification exist:
   cooperative close, bounded recovery, and anchor-state policy for the
   implemented surfaces. Bounded Taproot Asset address encode/decode and virtual
   PSBT summary validation exist for the first-demo fixture surface, but
-  production proof courier policy, live chain-watcher integration, every
-  historical virtual transaction witness, STXO/split/change paths, and grouped
-  assets are not implemented.
+  network proof courier/universe service behavior, live chain-watcher
+  integration, every historical virtual transaction witness, STXO/split/change
+  paths, and grouped assets are not implemented.
 - Lightning Labs `TAPF` proof-file transport validation, latest asset-leaf
   semantic validation, genesis-derived asset ID checks, and exact raw proof
-  preservation exist for imported fixtures and live proof binding. The next
-  hardening gap is moving those proof bytes with proof-history metadata,
-  anchor state, and digests as one validated courier bundle.
+  preservation exist for imported fixtures and live proof binding. The local
+  proof-courier bundle now moves native proof bytes, optional TAPF bytes,
+  proof-history metadata, anchor state, asset fields, and digests together
+  through wallet and CLI import/export. Live/network proof discovery remains
+  future hardening.
 - Lightning Labs funding interop fixture reconciliation exists for asset ID,
   funded amount, and initial local/remote allocation. The integrated `litd`
   first-demo live path now funds and settles in both directions, but broader

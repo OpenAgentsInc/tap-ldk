@@ -257,6 +257,44 @@ mod tests {
             Err(ProofCourierError::FieldMismatch("asset_id"))
         ));
 
+        let mut wrong_amount = valid_native_bundle();
+        wrong_amount.amount += 1;
+        assert!(matches!(
+            wrong_amount.validate(),
+            Err(ProofCourierError::FieldMismatch("amount"))
+        ));
+
+        let mut wrong_owner = valid_native_bundle();
+        wrong_owner.script_key =
+            "03aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned();
+        assert!(matches!(
+            wrong_owner.validate(),
+            Err(ProofCourierError::FieldMismatch("script_key"))
+        ));
+
+        let mut wrong_genesis = valid_native_bundle();
+        wrong_genesis.genesis_outpoint =
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0".to_owned();
+        assert!(matches!(
+            wrong_genesis.validate(),
+            Err(ProofCourierError::FieldMismatch("genesis_outpoint"))
+        ));
+
+        let mut wrong_anchor = valid_native_bundle();
+        wrong_anchor.anchor_outpoint =
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1".to_owned();
+        assert!(matches!(
+            wrong_anchor.validate(),
+            Err(ProofCourierError::FieldMismatch("anchor_outpoint"))
+        ));
+
+        let mut malformed_proof_hex = valid_native_bundle();
+        malformed_proof_hex.proof_tlv_hex = "abc".to_owned();
+        assert!(matches!(
+            malformed_proof_hex.validate(),
+            Err(ProofCourierError::ProofHex(_))
+        ));
+
         let mut wrong_version = valid_native_bundle();
         wrong_version.version = PROOF_COURIER_BUNDLE_SCHEMA_VERSION + 1;
         assert!(matches!(
@@ -282,6 +320,22 @@ mod tests {
             Err(ProofCourierError::DigestMismatch(
                 "tapd_raw_proof_file_digest"
             ))
+        ));
+
+        let mut missing_tapf_digest = valid_tapd_bundle();
+        missing_tapf_digest.tapd_raw_proof_file_digest = None;
+        assert!(matches!(
+            missing_tapf_digest.validate(),
+            Err(ProofCourierError::MissingDigest(
+                "tapd_raw_proof_file_digest"
+            ))
+        ));
+
+        let mut missing_tapf_bytes = valid_tapd_bundle();
+        missing_tapf_bytes.tapd_raw_proof_file_hex = None;
+        assert!(matches!(
+            missing_tapf_bytes.validate(),
+            Err(ProofCourierError::MissingBytes("tapd_raw_proof_file_hex"))
         ));
     }
 

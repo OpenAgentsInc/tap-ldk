@@ -23,8 +23,10 @@ Path A native-to-native demo artifacts: ...
 ```
 
 The command makes mocked pieces visible in `summary.txt`: bounded local issuer,
-fixed regtest oracle, local proof courier, and headless CLI UI. It does not use
-LND or `tapd` for wallet duties.
+fixed regtest oracle, local proof handoff, and headless CLI UI. The receiver
+proof is also exported as `bob-openusd-proof-bundle.json`, the typed local
+proof-courier bundle used by the wallet import/export path. It does not use LND
+or `tapd` for wallet duties.
 
 Close/recovery artifacts are captured separately:
 

@@ -19,7 +19,7 @@ settlement, and recovery are handled by Rust/LDK code rather than delegated to
 
 ## Status
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 - Official BOLT Simple Taproot status: the pinned OpenAgentsInc
   `rust-lightning` fork implements the Bitcoin channel base from
@@ -148,14 +148,13 @@ Last updated: 2026-05-29
   replay gates, a bounded anchor-state policy for confirmed, pending, stale,
   and reorged anchors, Rust-native property/fuzz/Kani harnesses, a local
   proof-engine check wrapper, and GitHub Actions workflow coverage. Live
-  chain watcher integration, production proof-courier policy, grouped assets,
-  and full STXO/split/change proof history remain future production work.
-- The next production epic should focus on proof courier/export policy:
-  accepted proof bytes, optional Lightning Labs `TAPF` bytes, proof-history
-  metadata, anchor state, and digests need to move together as a validated
-  bundle instead of loose local files. The core bundle schema, wallet
-  import/export helpers, and CLI commands are now in place; remaining work in
-  this epic is negative-vector expansion, verification wiring, and final docs.
+  chain watcher integration, grouped assets, and full STXO/split/change proof
+  history remain future production work.
+- The local proof courier/export policy is complete for the current bounded
+  wallet surface. Issues #107 through #110 added the typed bundle schema,
+  wallet import/export helpers, CLI commands, negative vectors, proof-engine
+  verification coverage, and docs. Network proof discovery/universe service
+  behavior remains future production work.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.
@@ -243,7 +242,7 @@ Last updated: 2026-05-29
 - Issuer identity and stablecoin branding.
 - Price oracle, using a fixed regtest rate.
 - Discovery, using manual pubkeys, static peers, or a tiny local registry.
-- Universe/proof courier, using a local file or local service.
+- Proof handoff, using the local typed proof-courier bundle.
 - UI, using CLI or a simple local web view.
 
 ## BLIP-TAP Scope Notes
@@ -432,7 +431,7 @@ closure path and the remaining future hardening boundaries.
 | Done | #68 | Simple-taproot RBF cooperative close | Implemented in `OpenAgentsInc/rust-lightning` at `26346a56af75eadf60763eb1e32a740656d4e384`; close nonce/signature state is persisted and malformed close state fails closed. | Closed. |
 | Done | #69 | Simple-taproot HTLC scripts and second-level transactions | Implemented in `OpenAgentsInc/rust-lightning` at `6af69ad385b864d7666edebbbbb668dab485bdde`; offered/accepted HTLC P2TR outputs, second-level outputs, and BIP342 signing helpers are covered. | Closed. |
 | Done | #70 | BOLT simple-taproot vector replay | Implemented in `OpenAgentsInc/rust-lightning` at `983c4385ff66105ab70d766d34f49c1bd547a81a`; vector replay covers implemented TLVs, funding, commitments, close, HTLC, second-level, and trimming surfaces. | Closed. |
-| Done | #71 | Full Taproot Assets protocol support for LDK epic | `target/path-b-lightning-labs-demo-issue71/path-b-completion-report.json` completed with `path_b_complete=true`, `live_daemon_gaps_remaining=false`, `semantic_proof_ancestry_complete=true`, `issue_57_acceptance_met=true`, `issue_58_acceptance_met=true`, observed native receiver balance `125`, and observed `litd` receiver channel balance `125`. Native MS-SMT, TapCommitment, TAP VM, semantic proof ancestry, fork-backed asset-channel state, monitor persistence, HTLC state, close allocation, recovery, Path A, and Path B are covered for the first-demo scope. | Closed for first-demo scope; production proof-history replay, grouped/multi-asset paths, STXO/split/change proof replay, reorg watchers, production proof courier policy, live force-close/sweep recovery, and concurrent splice/RBF asset-channel candidates remain future hardening. |
+| Done | #71 | Full Taproot Assets protocol support for LDK epic | `target/path-b-lightning-labs-demo-issue71/path-b-completion-report.json` completed with `path_b_complete=true`, `live_daemon_gaps_remaining=false`, `semantic_proof_ancestry_complete=true`, `issue_57_acceptance_met=true`, `issue_58_acceptance_met=true`, observed native receiver balance `125`, and observed `litd` receiver channel balance `125`. Native MS-SMT, TapCommitment, TAP VM, semantic proof ancestry, fork-backed asset-channel state, monitor persistence, HTLC state, close allocation, recovery, Path A, and Path B are covered for the first-demo scope. | Closed for first-demo scope; production proof-history replay, grouped/multi-asset paths, STXO/split/change proof replay, reorg watchers, network proof universe/courier service, live force-close/sweep recovery, and concurrent splice/RBF asset-channel candidates remain future hardening. |
 | Done | #72 | MS-SMT hash-sum tree | Implemented in `tap-ldk-core::mssmt`; Lightning Labs root/proof fixtures, inclusion/exclusion proofs, compressed proof round trips, conservation, and overflow rejection pass. | Closed. |
 | Done | #73 | `AssetCommitment` and `TapCommitment` layers | Implemented in `tap-ldk-core::taproot_commitment`; funding roots consume TapCommitment data, tap leaf fixture parsing passes, and wrong output roots fail closed. | Closed. |
 | Done | #74 | Virtual transaction and TAP VM validation | Implemented in `tap-ldk-core::tap_vm`; TAP BIP generated valid/error vectors pass, channel funding and commitment updates consume native virtual transition validation, and invalid witnesses/amounts fail closed. | Closed. |

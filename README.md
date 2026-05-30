@@ -9,7 +9,7 @@ This is demo software. It is not production-ready wallet infrastructure.
 
 ## Status
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 - Official BOLT Simple Taproot status: the pinned OpenAgentsInc
   `rust-lightning` fork implements the Bitcoin channel base from
@@ -37,6 +37,12 @@ Last updated: 2026-05-29
   typed proof-history replay, negative vectors, TLA+ proof-validation checks,
   Rust-native property/fuzz/Kani harnesses, close/recovery replay, anchor-state
   policy, a local proof-engine check wrapper, and GitHub Actions coverage.
+- The local proof-courier hardening sequence is complete: #107 through #110
+  added a typed bundle that moves proof bytes, optional TAPF bytes,
+  proof-history IDs, anchor state, asset fields, and digests together. The
+  wallet and CLI can import/export those bundles, and negative tests cover
+  malformed transport, mismatched fields, bad digests, stale/reorged anchors,
+  and proof-history mismatches.
 - The first demo is complete. The closed issues #81, #57, #58, #59, #60, #61,
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
@@ -44,7 +50,7 @@ Last updated: 2026-05-29
 
 Still not done:
 
-- production proof courier/universe policy;
+- network proof courier/universe service;
 - full production proof-history coverage beyond the current bounded replay
   surfaces;
 - grouped assets and multi-asset channels;

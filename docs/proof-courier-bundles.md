@@ -31,3 +31,9 @@ obsolete, or proof-history-mismatched proofs cannot be exported as accepted
 bundles. Bundle import passes through semantic proof validation, TAPF validation
 when TAPF bytes are present, deterministic proof-history metadata checks, and
 the wallet storage validator before state is saved.
+
+Negative coverage is part of the normal locked Rust test suite. It covers
+unsupported schema versions, wrong transport strings, malformed proof hex,
+wrong proof digest, wrong proof ID, wrong asset, wrong amount, wrong owner,
+wrong genesis, wrong anchor, wrong TAPF digest, missing TAPF bytes or digest,
+stale/reorged anchor handling, and proof-history metadata mismatch.
