@@ -24,6 +24,8 @@ commitment state, close records, or recovery records.
 | Wrong root sum | Proof import and proof replay | Proof validation rejects root sum mismatch before wallet import; proof replay also checks output root sum. |
 | Mismatched TapCommitment output root | Asset-channel funding | Funding rejects wrong expected funding root and LDK output commitment mismatch before channel state advances. |
 | Reorg-sensitive history | Proof replay and recovery | Proof replay rejects stale/reorg-sensitive output state; recovery rejects stale checkpoints and proof ownership. |
+| BTC-only sweep as asset recovery | On-chain lifecycle and recovery | Recovery refuses BTC-only sweep state as Taproot Asset recovery; the next lifecycle gate must keep that refusal visible. |
+| Failed sweep reported recovered | On-chain lifecycle and close | Close and recovery gates must keep failed sweeps distinct from recovered asset proofs. |
 
 The formal model at `formal/tla/proof_validation/ProofValidation.tla` has a
 matching invalid-transition vocabulary for these classes. It proves only the

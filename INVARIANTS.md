@@ -93,6 +93,11 @@ the current umbrella gates for that policy.
   commitment state is treated as safe.
 - Restart after funding, quote acceptance, HTLC addition, commitment signing,
   settlement, and close must not create or destroy asset balance.
+- On-chain lifecycle reporting must distinguish proved asset recovery from
+  refused or pending BTC-only state. A sweep failure cannot be reported as
+  recovered, a BTC-only sweep cannot be counted as Taproot Asset recovery, and
+  restart recovery must carry both wallet and monitor evidence before it can
+  explain ownership of a post-close asset output.
 
 ## rust-lightning Integration Invariants
 

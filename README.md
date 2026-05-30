@@ -47,6 +47,11 @@ Last updated: 2026-05-30
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
+- The next production-hardening epic is on-chain lifecycle readiness. The
+  bounded code already has cooperative close proof export and proof-ownership
+  recovery records for unilateral close, second-level HTLC, and final sweep
+  cases. The next step is a typed lifecycle gate that reports what is
+  explained, what is refused, and what still needs live chain-watcher work.
 
 Still not done:
 
@@ -105,6 +110,7 @@ cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.js
 - [BOLT Simple-Taproot Production Compliance Audit](docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md)
 - [Current Status And Production Readiness Audit](docs/current-status-production-readiness-audit-2026-05-29.md)
 - [Proof Courier Bundles](docs/proof-courier-bundles.md)
+- [On-Chain Lifecycle Readiness](docs/onchain-lifecycle-readiness.md)
 - [Negative Proof Vector Coverage](docs/negative-proof-vector-coverage.md)
 - [Rust-Native Verification](docs/rust-native-verification.md)
 - [Proof Engine CI](docs/proof-engine-ci.md)

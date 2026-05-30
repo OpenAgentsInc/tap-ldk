@@ -155,6 +155,13 @@ Last updated: 2026-05-30
   wallet import/export helpers, CLI commands, negative vectors, proof-engine
   verification coverage, and docs. Network proof discovery/universe service
   behavior remains future production work.
+- The next production-hardening epic is on-chain lifecycle readiness. The
+  bounded close/recovery code already records cooperative close proof export,
+  unilateral commitment recovery, second-level HTLC recovery, final sweep
+  recovery, failed-sweep refusal, stale proof-ownership refusal, and BTC-only
+  sweep refusal. The next work is to consolidate those into a typed lifecycle
+  report and normal verification gate before wiring the same vocabulary to a
+  live chain watcher.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.
