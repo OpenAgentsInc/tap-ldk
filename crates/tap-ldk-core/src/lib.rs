@@ -22,6 +22,7 @@ pub mod live_peer;
 pub mod live_tapd_proof;
 pub mod mssmt;
 pub mod proof;
+pub mod proof_courier;
 pub mod regtest;
 pub mod rfq_invoice;
 pub mod rfq_quote_store;

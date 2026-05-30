@@ -96,6 +96,7 @@ cargo run -p tap-ldk-cli -- wallet-balances target/demo-wallet.json
 - [`lnd`/`tapd`/`litd` Compatibility Closure Audit](docs/path-b-issue-19-closure-audit-2026-05-28.md)
 - [BOLT Simple-Taproot Production Compliance Audit](docs/bolt-simple-taproot-production-compliance-audit-2026-05-28.md)
 - [Current Status And Production Readiness Audit](docs/current-status-production-readiness-audit-2026-05-29.md)
+- [Proof Courier Bundles](docs/proof-courier-bundles.md)
 - [Negative Proof Vector Coverage](docs/negative-proof-vector-coverage.md)
 - [Rust-Native Verification](docs/rust-native-verification.md)
 - [Proof Engine CI](docs/proof-engine-ci.md)
