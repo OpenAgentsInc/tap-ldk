@@ -38,3 +38,10 @@ lifecycle event, or if observation fields do not match the referenced lifecycle
 event. The local smoke script also checks summary booleans, observation kind
 coverage, event-to-observation coverage, confirmed recovery anchor state, and
 refusal statuses.
+
+Next implementation target: feed the same observation report from a live
+regtest callback transcript. The first version should bind each bounded
+observation to Bitcoin Core regtest height/block data and a typed callback
+record. That makes live watcher input visible and testable without pretending
+that synthetic close and sweep anchors are already production force-close
+transactions.

@@ -47,18 +47,14 @@ Last updated: 2026-05-30
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
   and `lnd`/`tapd`/`litd` software compatibility.
-- The next production-hardening epic is on-chain lifecycle readiness. The
-  bounded code already has cooperative close proof export and proof-ownership
-  recovery records for unilateral close, second-level HTLC, and final sweep.
-  The repo now has a typed lifecycle smoke, Path A artifact, and normal
-  proof-engine wrapper gate for those records. That gate is still bounded:
-  live chain-watcher callbacks, live sweeper callbacks, integrated `litd`
-  post-close proof observation, and production backup/restore remain future
-  work.
 - The typed chain/sweeper observation gate is now in the normal proof-engine
   wrapper. It validates bounded close, unilateral, HTLC, sweep, refusal, and
   restart observations through `chain-watcher-lifecycle-smoke`, while still
   refusing live watcher or production-ready claims.
+- The next production-hardening epic is the live regtest callback bridge for
+  that same lifecycle vocabulary. It should bind the observation report to
+  actual Bitcoin Core regtest height/block data and typed watcher/sweeper
+  callback records before any live close or force-close claim is made.
 
 Still not done:
 

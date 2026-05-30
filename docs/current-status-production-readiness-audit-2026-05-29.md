@@ -349,6 +349,16 @@ this as `chain-watcher-lifecycle.json`, and the normal proof-engine wrapper now
 runs `scripts/chain-watcher-lifecycle-smoke.sh`. The next production step is
 replacing bounded observations with actual live regtest watcher callbacks.
 
+The next issue wave should be that live regtest callback bridge. It should not
+try to finish production force-close in one jump. The first deliverable should
+be a typed live-regtest report that starts from the existing observation
+report, records Bitcoin Core regtest height and block identity, binds one
+chain-watcher, sweeper, or wallet/monitor callback to each lifecycle
+observation, and rejects mismatched heights, unknown observations, missing
+callbacks, stale/reorged recovery claims, and production-ready claims. Once
+that bridge is green, later work can replace the synthetic lifecycle anchors
+with real close, unilateral, second-level, and sweep transactions.
+
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
 maps for multiple funding candidates. The asset overlay must now prove that
