@@ -31,7 +31,10 @@ report. `scripts/onchain-lifecycle-smoke.sh` validates that report in the
 normal proof-engine gate. `tap-ldk chain-watcher-lifecycle-smoke` then binds
 that lifecycle report to bounded chain, sweeper, and wallet/monitor
 observations, and `scripts/chain-watcher-lifecycle-smoke.sh` validates those
-observations in the same proof-engine wrapper.
+observations in the same proof-engine wrapper. The extended proof-engine path
+also runs `scripts/live-regtest-chain-watcher-lifecycle-smoke.sh` to bind the
+observation vocabulary to live Bitcoin Core regtest height/block data and typed
+callbacks.
 
 ## Boundaries
 

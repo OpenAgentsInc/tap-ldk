@@ -172,11 +172,12 @@ Last updated: 2026-05-30
   `scripts/chain-watcher-lifecycle-smoke.sh`. The next production phase is to
   feed the same event and observation vocabulary from a live regtest chain
   watcher and sweeper callbacks.
-- The next issue wave should add the live regtest callback bridge for that
-  observation vocabulary. The first target is not full production force-close;
-  it is a typed report that proves the current observation report was bound to
-  actual Bitcoin Core regtest height/block data and one callback record for
-  each lifecycle observation, while still setting production readiness false.
+- The live regtest callback bridge for that observation vocabulary is in place.
+  It proves the current observation report can be bound to actual Bitcoin Core
+  regtest height/block data and one callback record for each lifecycle
+  observation, while still setting production readiness false. The next
+  production phase is replacing bounded synthetic close/sweep anchors with real
+  close, unilateral, second-level, and sweep transactions.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

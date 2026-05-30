@@ -24,9 +24,10 @@ TAP_LDK_EXTENDED_CHECKS=1 ./scripts/proof-engine-check.sh
 ```
 
 The extended mode adds the BTC simple-taproot conformance script, cooperative
-close script, splice-policy script, and the `lnd`/`tapd`/`litd` compatibility
-demo. Those checks need the pinned OpenAgentsInc `rust-lightning` checkout for
-the BOLT scripts and a Docker-capable environment for the live/demo harnesses.
+close script, splice-policy script, the live-regtest chain-watcher lifecycle
+callback script, and the `lnd`/`tapd`/`litd` compatibility demo. Those checks
+need the pinned OpenAgentsInc `rust-lightning` checkout for the BOLT scripts
+and a Docker-capable environment for the live/demo harnesses.
 
 The GitHub workflow at `.github/workflows/proof-engine.yml` runs the normal
 suite on pushes to `main` and pull requests. It also exposes a manual
@@ -49,5 +50,9 @@ The bounded chain-watcher lifecycle report now runs through
 `scripts/chain-watcher-lifecycle-smoke.sh` beside it. That second report
 checks typed chain, sweeper, and wallet/monitor observations for every
 lifecycle event while refusing live watcher and production-ready claims. The
-next proof-engine expansion is live chain-watcher and sweeper callback coverage
-feeding that same event and observation vocabulary.
+extended proof-engine path now also runs
+`scripts/live-regtest-chain-watcher-lifecycle-smoke.sh`, which binds that
+observation vocabulary to Bitcoin Core regtest height/block data and typed
+callback records. The next proof-engine expansion is real close/sweep
+transaction anchoring and reorg-stream coverage feeding that same event and
+observation vocabulary.

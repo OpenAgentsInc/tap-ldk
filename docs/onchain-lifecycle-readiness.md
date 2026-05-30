@@ -56,7 +56,6 @@ Current completed pieces:
 
 Remaining after this bounded gate:
 
-- live regtest callback transcript binding for the current observation report;
 - live chain-watcher integration for pending, confirmed, stale, and reorged
   real close/sweep anchors;
 - live post-close proof export and balance observation against integrated

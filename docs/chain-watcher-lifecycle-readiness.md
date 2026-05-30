@@ -56,4 +56,5 @@ The CLI command `tap-ldk live-regtest-chain-watcher-lifecycle-smoke` exposes
 that report when supplied regtest height and block data. The local script
 `scripts/live-regtest-chain-watcher-lifecycle-smoke.sh` starts Bitcoin Core
 regtest, mines at least one block, reads `getblockchaininfo`, runs the CLI, and
-validates callback coverage.
+validates callback coverage. The extended proof-engine path runs that script
+when `TAP_LDK_EXTENDED_CHECKS=1`.

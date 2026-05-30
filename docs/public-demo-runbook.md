@@ -123,6 +123,10 @@ Mocked or bounded pieces:
 - The chain-watcher lifecycle report is also bounded. It validates the
   observation vocabulary that live chain-watcher and sweeper callbacks must
   feed later and is checked by `scripts/chain-watcher-lifecycle-smoke.sh`.
+- The live-regtest callback bridge binds that observation vocabulary to actual
+  Bitcoin Core regtest height/block data in the extended proof-engine path.
+  The close and sweep anchors themselves are still bounded demo anchors, not
+  real production force-close transactions.
 - Live on-chain sweeper integration remains pending. The bounded recovery
   smoke refuses BTC-only sweep state as asset recovery.
 
@@ -213,6 +217,7 @@ Run both paths and collect one artifact tree:
 
 ```bash
 ./scripts/full-demo-smoke.sh
+TAP_LDK_EXTENDED_CHECKS=1 ./scripts/proof-engine-check.sh
 ```
 
 Artifacts are written to `target/full-demo-smoke/<timestamp>/`, with Path A

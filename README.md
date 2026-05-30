@@ -51,10 +51,11 @@ Last updated: 2026-05-30
   wrapper. It validates bounded close, unilateral, HTLC, sweep, refusal, and
   restart observations through `chain-watcher-lifecycle-smoke`, while still
   refusing live watcher or production-ready claims.
-- The next production-hardening epic is the live regtest callback bridge for
-  that same lifecycle vocabulary. It should bind the observation report to
-  actual Bitcoin Core regtest height/block data and typed watcher/sweeper
-  callback records before any live close or force-close claim is made.
+- The live regtest callback bridge now exists in the extended proof-engine
+  path. It binds the observation report to actual Bitcoin Core regtest
+  height/block data and typed watcher/sweeper callback records. It is still
+  not a live close or force-close claim because the close/sweep anchors remain
+  bounded synthetic demo anchors.
 
 Still not done:
 
@@ -63,7 +64,7 @@ Still not done:
   surfaces;
 - grouped assets and multi-asset channels;
 - split/change proof replay;
-- live chain watcher and reorg integration;
+- live chain watcher and reorg integration for real close/sweep transactions;
 - live force-close and sweep recovery;
 - live post-close proof and balance checks;
 - live `lnd`/`tapd`/`litd` RFQ signature checks;

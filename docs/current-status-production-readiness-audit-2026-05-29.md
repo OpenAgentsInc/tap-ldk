@@ -346,25 +346,24 @@ Confirmed lifecycle recovery requires confirmed observations. Stale or
 reorged anchors remain refused, and a BTC-only or failed sweep callback cannot
 turn into Taproot Asset recovery by naming the right channel. Path A writes
 this as `chain-watcher-lifecycle.json`, and the normal proof-engine wrapper now
-runs `scripts/chain-watcher-lifecycle-smoke.sh`. The next production step is
-replacing bounded observations with actual live regtest watcher callbacks.
+runs `scripts/chain-watcher-lifecycle-smoke.sh`.
 
-The next issue wave should be that live regtest callback bridge. It should not
-try to finish production force-close in one jump. The first deliverable should
-be a typed live-regtest report that starts from the existing observation
-report, records Bitcoin Core regtest height and block identity, binds one
-chain-watcher, sweeper, or wallet/monitor callback to each lifecycle
-observation, and rejects mismatched heights, unknown observations, missing
-callbacks, stale/reorged recovery claims, and production-ready claims. Once
-that bridge is green, later work can replace the synthetic lifecycle anchors
-with real close, unilateral, second-level, and sweep transactions.
-
-That first deliverable is now implemented at the core-model layer. The
-CLI and local script wiring are also present: the CLI can build the
-live-regtest callback report from supplied regtest height/block data, and
+The live regtest callback bridge is now implemented for that observation
+vocabulary. It does not try to finish production force-close in one jump. The
+typed live-regtest report starts from the existing observation report, records
+Bitcoin Core regtest height and block identity, binds one chain-watcher,
+sweeper, or wallet/monitor callback to each lifecycle observation, and rejects
+mismatched heights, unknown observations, missing callbacks, stale/reorged
+recovery claims, and production-ready claims. The CLI can build the live-regtest
+callback report from supplied regtest height/block data, and
 `scripts/live-regtest-chain-watcher-lifecycle-smoke.sh` obtains that data from
-Bitcoin Core regtest before running the report. The remaining work in the issue
-wave is extended-check integration and final documentation cleanup.
+Bitcoin Core regtest before running the report. The extended proof-engine path
+runs that script when `TAP_LDK_EXTENDED_CHECKS=1`. This is still not a full
+live force-close path. It proves live regtest callback binding for the current
+observation vocabulary; it does not yet prove real close, unilateral,
+second-level, or sweep transaction anchoring. The next production step is
+replacing the synthetic lifecycle anchors with real close, unilateral,
+second-level, and sweep transactions.
 
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
@@ -386,9 +385,10 @@ Verification is now part of the normal gate, but it should keep expanding as
 new production surfaces land. `scripts/proof-engine-check.sh` runs formatting,
 locked tests, formal checks, Rust-native verification, the native demo, and the
 bounded on-chain lifecycle and chain/sweeper observation reports; the extended
-mode adds the BOLT scripts and compatibility demo. Future epics should add
-their own property tests, fuzz targets, Kani harnesses, and formal notes to
-that wrapper instead of relying on ad hoc one-off commands.
+mode adds the BOLT scripts, live-regtest callback bridge, and compatibility
+demo. Future epics should add their own property tests, fuzz targets, Kani
+harnesses, and formal notes to that wrapper instead of relying on ad hoc
+one-off commands.
 
 The long-running fork-risk phase should reduce divergence. The Rust Lightning changes should be
 split into reviewable units: BTC simple-taproot base, MuSig2 signer and nonce

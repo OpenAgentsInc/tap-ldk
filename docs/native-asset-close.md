@@ -51,3 +51,7 @@ but it must not claim live chain-watcher backing or production readiness.
 `scripts/chain-watcher-lifecycle-smoke.sh` adds the adjacent observation gate:
 every bounded lifecycle event needs one matching typed observation, but the
 report still cannot claim a live watcher or production-ready force-close path.
+`scripts/live-regtest-chain-watcher-lifecycle-smoke.sh` adds live regtest
+height/block and callback binding in the extended proof-engine path. The close
+anchors are still bounded demo anchors until real close transactions feed the
+same report.

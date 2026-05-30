@@ -38,6 +38,7 @@ run_required chain-watcher-lifecycle ./scripts/chain-watcher-lifecycle-smoke.sh
 run_optional_extended btc-simple-taproot ./scripts/check-btc-simple-taproot-conformance.sh
 run_optional_extended simple-taproot-cooperative-close ./scripts/check-simple-taproot-cooperative-close.sh
 run_optional_extended simple-taproot-splice-policy ./scripts/check-simple-taproot-splice-policy.sh
+run_optional_extended live-regtest-chain-watcher-lifecycle ./scripts/live-regtest-chain-watcher-lifecycle-smoke.sh
 run_optional_extended compatibility-demo ./scripts/path-b-lightning-labs-demo.sh
 
 exit "$STATUS"
