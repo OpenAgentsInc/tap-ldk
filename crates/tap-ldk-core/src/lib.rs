@@ -21,6 +21,7 @@ pub mod live_litd_peer;
 pub mod live_peer;
 pub mod live_tapd_proof;
 pub mod mssmt;
+pub mod onchain_lifecycle;
 pub mod proof;
 pub mod proof_courier;
 pub mod regtest;
