@@ -20,16 +20,15 @@ smoke: outgoing and incoming payment artifacts are expected-delta checks. The
 Path B wrapper now writes `path-b-completion-report.json` as the live gate that
 consumes observed daemon/channel balances.
 
-Current live status is more specific: the completed #81 gate and current #57
-path can start the relevant `lnd`/`tapd`/`litd` stacks, bind a live proof, run the
-native ordered asset-payment-session smoke, connect fork-backed `ldk-node` to
-integrated `litd`, exercise the fork-backed asset message/channel/payment APIs, settle
-`litd` to native asset keysend, and record the native receiver asset
-balance. #57 adds the native-to-`litd` returned channel-balance
-observation, #58 adds the native receiver restart snapshot, and #59 adds the
-wrapper completion report that sets `live_daemon_gaps_remaining=false` only
-from those live observed balances. Live cooperative close still remains a
-documented gap until native post-close proof and balance observation exists.
+Current live status is more specific: the completed #81, #57, and #58 gates
+start the relevant `lnd`/`tapd`/`litd` stacks, bind a live proof, connect
+fork-backed `ldk-node` to integrated `litd`, exercise the fork-backed asset
+message/channel/payment APIs, settle `litd` to native asset keysend, record the
+native receiver asset balance, return the asset from native LDK to `litd`, and
+record the returned `litd` channel-balance observation. #59 adds the wrapper
+completion report that sets `live_daemon_gaps_remaining=false` only from those
+live observed balances. Live cooperative close still remains a documented gap
+until native post-close proof and balance observation exists.
 
 ## Checks
 
@@ -51,10 +50,9 @@ documented gap until native post-close proof and balance observation exists.
 
 ## Closure Gate
 
-- #57 must provide the live native-to-`litd` observed receiver
-  balance.
-- #58 provides the live `litd`-to-native observed durable receiver
-  balance and restart snapshot.
+- #57 provides the live native-to-`litd` observed receiver balance.
+- #58 provides the live `litd`-to-native observed durable receiver balance and
+  restart snapshot.
 - #59 makes `live_daemon_gaps_remaining=false` impossible unless both live
   directions agree on asset ID, amount, payment state, proof reference, and
   balances.

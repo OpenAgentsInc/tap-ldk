@@ -319,11 +319,11 @@ type, amount, owner script key, and genesis outpoint. The raw proof-file bytes
 and digest are still preserved alongside the native proof record so export
 returns the exact accepted bytes.
 
-Remaining production hardening after #60 is narrower: full Bitcoin anchor
-transaction/merkle validation, full proof-chain virtual transaction replay,
-grouped/collectible/reissuance paths, STXO/split/change proof replay, reorg
-watcher integration, and production proof-courier policy remain future
-production work.
+Remaining production hardening after the #96 through #106 proof-engine phase is
+narrower: production proof-courier policy, full Bitcoin anchor
+transaction/merkle validation, every historical virtual transaction witness,
+grouped/collectible/reissuance paths, STXO/split/change proof replay, and live
+reorg-watcher integration remain future production work.
 
 ## Wallet Storage
 

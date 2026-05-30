@@ -34,9 +34,10 @@ committed proof root and commitment number.
 ## Proof-History Replay Surface
 
 Issue #97 adds the first typed proof-history replay engine in
-`tap-ldk-core::proof`. This is not yet wired into every wallet and channel
-state-advance boundary; #100 through #103 track that integration. It is the
-runtime vocabulary those later gates will use.
+`tap-ldk-core::proof`. Issues #100 through #104 wire it into wallet balances,
+proof export, channel funding, commitment updates, close, recovery, and bounded
+anchor-state policy for the implemented surfaces. It is now the runtime
+vocabulary future production hardening must extend.
 
 The replay engine defines explicit transition records for issuance, split,
 transfer, channel funding, commitment update, cooperative close, unilateral
@@ -102,10 +103,11 @@ wrong asset, wrong owner, wrong amount, wrong asset type, stale anchors, root
 sum mismatch, root hash mismatch, broken genesis/anchor ancestry, corrupted
 `TAPF` checksums, and `TAPF` asset-leaf mismatches.
 
-## Out Of Scope After #60
+## Remaining Production Scope
 
-The first-demo validator does not yet claim production-complete Taproot Assets
-proof verification. Still out of scope:
+The first-demo validator plus the #96 through #106 proof-engine sequence still
+do not claim production-complete Taproot Assets proof verification. Remaining
+work includes:
 
 - full Bitcoin transaction and merkle-proof validation for every anchor;
 - full virtual transaction witness execution for every historical proof;

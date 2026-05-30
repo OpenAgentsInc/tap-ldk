@@ -171,8 +171,11 @@ Key artifacts:
 - `lightning-labs-interop-checks.json`
 - `logs/`
 
-The consolidated report can pass fixture-backed checks while still reporting
-`live_daemon_gaps_remaining=true`. That is the current honest Path B status.
+When the integrated `litd` runtime is reachable, the consolidated report now
+requires live observed balances and should report
+`live_daemon_gaps_remaining=false`. If the container runtime or daemon is not
+reachable, the report must show a dependency gap instead of claiming live Path
+B success.
 
 Mocked or bounded pieces:
 
@@ -184,10 +187,10 @@ Mocked or bounded pieces:
 - Live `tapd` proof binding can bind daemon-exported proof material when the
   `lnd`/`tapd`/`litd` runtime is reachable.
 - Fork-backed `ldk-node` can connect to integrated `litd`, reach the Taproot
-  Asset message/channel/payment APIs, and complete the #81 live `litd` to
-  native settlement gate over that connected peer.
-- Live LND/`tapd`/`litd` settlement and post-settlement observed balance
-  comparison remain open.
+  Asset message/channel/payment APIs, and complete both live settlement
+  directions for the first demo.
+- Live post-close proof export, force-close/sweep recovery, and production
+  proof courier behavior remain open.
 
 ## Full Smoke Wrapper
 

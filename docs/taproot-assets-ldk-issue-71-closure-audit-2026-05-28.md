@@ -40,11 +40,12 @@ checkout at `OpenAgentsInc/rust-lightning@8a54739ac030ba3e439496eacb7e1c1216e11c
 The following are future production hardening items outside this first-demo
 #71 closure:
 
-- production proof-history replay for every historical virtual transaction;
+- production proof-courier/universe policy;
+- production proof-history replay beyond the current bounded wallet, funding,
+  commitment, close, recovery, and anchor-policy surfaces;
 - grouped assets, collectibles, reissuance, and multi-asset paths;
 - full STXO, split, and change-output proof replay;
 - reorg watcher integration;
-- production proof courier/universe policy;
 - concurrent simple-taproot splice/RBF asset-channel candidates.
 
 Those gaps must stay documented and fail closed, but they are not blockers for

@@ -59,16 +59,18 @@ transaction vectors. The fork follows the prose and transaction vectors for
 final BOLT mode and keeps the Lightning Labs staging behavior explicit.
 
 What is not implemented by the BOLT, and therefore not completed merely by
-satisfying the BOLT, is the production Taproot Assets layer: proof-chain replay
-as the wallet balance authority, stablecoin issuance policy, proof courier
-behavior, grouped-asset behavior, asset-channel splice/RBF state, live
-close/sweep proof recovery, live reorg-watcher integration, and full
-asset-history recovery. Those are the next production-hardening items for
-`tap-ldk`, tracked separately in #96 through #106.
+satisfying the BOLT, is the production Taproot Assets layer: network proof
+transport, stablecoin issuance policy, grouped-asset behavior, asset-channel
+splice/RBF state, live close/sweep proof recovery, live reorg-watcher
+integration, and full asset-history recovery beyond the current bounded replay
+surfaces.
 
-The proof-of-concept issues are closed, and the current open work is the
-production-hardening sequence for proof replay and formal verification. That
-new sequence is tracked in #96 through #106.
+The proof-of-concept issues are closed. The first production-hardening
+sequence for proof replay and formal verification is also closed in #96
+through #106. The next open production gap is proof transport: the project
+needs a typed proof-courier/export bundle policy so accepted proofs, raw
+`TAPF` files, proof-history metadata, anchor state, and digests move together
+instead of being passed around as loose local files.
 
 ## What This Project Currently Is
 
@@ -128,9 +130,10 @@ simple-taproot production tracker is #95, closed after #94 added the full
 vector, unilateral spend, and restart metadata checks. The useful way to read
 that closed issue state is not "there is nothing left to do." The useful
 reading is that the interop proof of concept and the BTC simple-taproot base
-are no longer blocked by the issues that were created for them. The next phase
-is now tracked separately in #96 through #106 for production proof replay and
-formal verification hardening.
+are no longer blocked by the issues that were created for them. The #96
+through #106 proof-replay and formal-verification hardening phase is also
+closed. Future production phases should now be filed as new issue sets, not
+reopened first-demo issues.
 
 ## What Works Now
 
@@ -274,14 +277,14 @@ asset-channel blobs, and recovery indexes. It needs backup and restore policy,
 migration policy, corruption handling, operator observability, and explicit
 refusal states for partial recovery.
 
-The formal and automated verification stack is incomplete. TLA+ models exist,
-but not every model has been run in the local environment on every commit.
-Rust-native verification should grow beyond unit and fixture tests into more
-property testing, fuzzing, and bounded model checking. `proptest`, fuzzing,
-Kani, Miri, loom, Verus, Prusti, and Creusot are not configured as production
-gates. The practical next step is not to try to prove the entire Lightning and
-Taproot Assets stack. The next step is to pick narrow, high-risk pure
-functions and state transitions and make them mechanically checked.
+The formal and automated verification stack is bounded, not complete.
+`scripts/proof-engine-check.sh` now runs formatting, locked tests, formal
+checks, Rust-native verification, and the native demo, while optional fuzz and
+Kani paths skip visibly when the tools are absent. This should keep expanding
+with each production epic. The practical next step is not to try to prove the
+entire Lightning and Taproot Assets stack. The next step is to pick narrow,
+high-risk pure functions and state transitions and make them mechanically
+checked.
 
 Upstreaming is also unresolved. The OpenAgentsInc forks are the right place
 for fast iteration, but production readiness should not depend forever on a
@@ -293,17 +296,27 @@ machinery and OpenAgents-specific demo glue should become clearer.
 
 ## Production Readiness Work That Should Come Next
 
-The next production-hardening phase should start with the proof engine. The
-wallet needs full proof-history replay across issuance, split, transfer,
-channel funding, commitment update, close, and sweep outputs. The current
-semantic proof boundary is useful, but a production wallet must be able to
-explain every accepted asset balance from a valid proof chain, not just from a
-bounded first-demo fixture. This work should include negative vectors for
-wrong genesis, wrong anchor, stale proof, malformed proof-file transport,
-invalid split sums, wrong owner script key, missing STXO, and reorg-sensitive
-history.
+The proof-engine hardening phase has started and the first issue sequence is
+closed. The wallet now has typed proof-history replay across issuance, split,
+transfer, channel funding, commitment update, close, and bounded sweep/recovery
+outputs, plus negative vectors, formal checks, Rust-native verification, and CI
+wiring. That does not finish production proof handling. The next production
+gap is proof transport and retention: accepted native proofs, raw Lightning
+Labs `TAPF` proof files, proof-history IDs, anchor state, and digests need to
+move as one validated bundle. Without that, a wallet can still accidentally
+separate the proof bytes from the state that explains why the balance is
+accepted.
 
-The second phase should harden on-chain lifecycle behavior. The project needs
+The next epic should therefore add a typed proof-courier bundle and policy. It
+should export only proofs that the wallet can explain through replayed history,
+record the proof and optional `TAPF` digests, carry anchor state explicitly,
+refuse stale or reorged spendable claims, import bundles through the same
+semantic and proof-history gates as direct proof import, and expose a CLI/report
+surface that makes local courier behavior visible. This is still local
+transport, not a decentralized universe service, but it closes the loose-file
+gap before network proof discovery is added.
+
+The following phase should harden on-chain lifecycle behavior. The project needs
 live regtest tests for cooperative close proof export, unilateral close,
 second-level HTLC timeout and success spends, sweep success, sweep failure,
 restart during sweep, and recovery from only persisted wallet plus monitor
@@ -311,7 +324,7 @@ state. The important production question is not merely whether the Bitcoin
 transaction is valid. It is whether the asset owner can still prove ownership
 of the correct asset output after the transaction confirms.
 
-The third phase should make asset-channel splice and RBF a first-class asset
+The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce
 maps for multiple funding candidates. The asset overlay must now prove that
 every funding candidate has the right asset allocation, proof transition,
@@ -319,7 +332,7 @@ monitor aux blob, and recovery record. If the project does not want to support
 asset-channel splice/RBF in the next demo, the wallet should continue to reject
 or gate it explicitly instead of silently entering an unmodeled state.
 
-The fourth phase should broaden live interop. The current integrated `litd`
+The next interop phase should broaden live coverage. The current integrated `litd`
 flow should remain a regression, but production needs more live tests:
 native-to-`litd`, `litd`-to-native, close, force-close, proof export, RFQ
 acceptance, RFQ rejection, quote expiry, malformed asset HTLC metadata, wrong
@@ -327,18 +340,14 @@ asset amount, wrong proof, and restart during interop. The outcome should be a
 plain compatibility matrix that says exactly which Lightning Labs software
 versions and flows are known-good, known-failing, or intentionally unsupported.
 
-The fifth phase should turn verification into a normal gate. `cargo test
---locked`, formatting, the BOLT simple-taproot scripts, the native demo, and
-the compatibility demo should continue to run. On top of that, the project
-should add property tests for TLV parsing, amount conservation, quote expiry,
-SCID alias allocation, proof-state transitions, and asset-channel persistence.
-It should add fuzz targets for TLVs, proof files, virtual PSBTs, custom
-records, and Lightning Labs blobs. It should add Kani or another bounded Rust
-checker for pure amount arithmetic and state-transition helpers. It should run
-TLA+ models in CI when the runner is available and record explicit skip
-behavior when it is not.
+Verification is now part of the normal gate, but it should keep expanding as
+new production surfaces land. `scripts/proof-engine-check.sh` runs formatting,
+locked tests, formal checks, Rust-native verification, and the native demo; the
+extended mode adds the BOLT scripts and compatibility demo. Future epics should
+add their own property tests, fuzz targets, Kani harnesses, and formal notes to
+that wrapper instead of relying on ad hoc one-off commands.
 
-The sixth phase should reduce fork risk. The Rust Lightning changes should be
+The long-running fork-risk phase should reduce divergence. The Rust Lightning changes should be
 split into reviewable units: BTC simple-taproot base, MuSig2 signer and nonce
 state, simple-taproot close/RBF, splice nonce maps, Taproot Asset channel
 state hooks, HTLC asset metadata, monitor aux persistence, and recovery hooks.
@@ -367,14 +376,14 @@ working experimental implementation to production financial software.
 
 ## Proof Engine And Formal Verification Roadmap
 
-The next production-hardening sequence should treat proof history as the core
-wallet authority. The wallet should not accept an asset balance because a demo
+The first proof-engine and formal-verification hardening sequence is complete
+for the bounded repo surfaces tracked in #96 through #106. The governing rule
+remains the same: the wallet should not accept an asset balance because a demo
 fixture, local counter, latest proof leaf, or channel state says the balance
 exists. It should accept a balance only when it can replay the relevant proof
 chain and explain how that balance was created, moved, split, locked into a
-channel, updated through commitments, closed, swept, or rejected. The formal
-verification work should be added at the same time as the implementation work,
-because the model is the clearest way to keep the acceptance rule narrow.
+channel, updated through commitments, closed, swept, or rejected. New
+production epics should extend that rule rather than bypassing it.
 
 The first concrete step of that sequence is now in code. Issue #97 adds a
 typed proof-history replay engine in `tap-ldk-core::proof`, with runtime
@@ -553,13 +562,10 @@ policy, property/fuzz/Kani harnesses, CI integration, and compatibility-matrix
 updates. The remaining open production items should be filed as new issues
 rather than reopening the first-demo closure scope.
 
-The exit bar for this roadmap is precise. A production proof-engine claim can
-be made only when every accepted wallet balance, channel balance, close output,
-sweep output, and exported proof can be explained from a replayed proof chain;
-when the listed negative vectors fail closed at every state-advance boundary;
-when the proof-validation, conservation, channel, commitment, and close models
-have checked configs; when meaningful model counterexamples have corresponding
-Rust regressions; and when the normal check suite includes both model-level
-and Rust-native verification for the replay engine. Until then, the correct
-claim remains that `tap-ldk` has a strict first-demo semantic proof boundary,
-not a production-complete Taproot Assets proof engine.
+The current exit bar is precise. The repo can now claim bounded proof-history
+replay and formal-verification wiring for the wallet, funding, commitment,
+close, recovery, and anchor-policy surfaces that have been implemented. It
+still cannot claim production-complete Taproot Assets proof handling until
+proof-courier policy, live chain-watcher integration, grouped assets,
+STXO/split/change history, and live close/force-close/sweep proof recovery are
+implemented and verified.

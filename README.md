@@ -33,6 +33,10 @@ Last updated: 2026-05-29
   proofs before balance or channel state can change. Wallet balance/export
   checks now also distinguish confirmed, pending, stale, and reorged proof
   anchors at the bounded replay boundary.
+- The first proof-engine hardening sequence is complete: #96 through #106 added
+  typed proof-history replay, negative vectors, TLA+ proof-validation checks,
+  Rust-native property/fuzz/Kani harnesses, close/recovery replay, anchor-state
+  policy, a local proof-engine check wrapper, and GitHub Actions coverage.
 - The first demo is complete. The closed issues #81, #57, #58, #59, #60, #61,
   #71, and #19 are the checks we keep running for live settlement, payments in
   both directions, observed balances, proof checks, simple taproot channels,
@@ -40,11 +44,12 @@ Last updated: 2026-05-29
 
 Still not done:
 
-- full production proof-history checks beyond the bounded demo surfaces;
+- production proof courier/universe policy;
+- full production proof-history coverage beyond the current bounded replay
+  surfaces;
 - grouped assets and multi-asset channels;
 - split/change proof replay;
 - live chain watcher and reorg integration;
-- production proof courier policy;
 - live force-close and sweep recovery;
 - live post-close proof and balance checks;
 - live `lnd`/`tapd`/`litd` RFQ signature checks;

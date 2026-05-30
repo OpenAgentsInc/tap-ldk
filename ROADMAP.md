@@ -141,13 +141,19 @@ Last updated: 2026-05-29
 - Production BOLT simple-taproot work for the BTC base is complete in the
   pinned fork line. Asset-channel splice/RBF, grouped assets, and production
   proof-history/reorg hardening remain outside that BOLT base claim.
-- Proof-engine hardening is now in progress after the first demo. Issues #97
+- Proof-engine hardening is complete for the first production-hardening
+  sequence after the first demo. Issues #97
   through #106 add typed proof-history replay, the proof-validation formal
   model, negative proof vectors, wallet/funding/commitment/close/recovery
   replay gates, a bounded anchor-state policy for confirmed, pending, stale,
   and reorged anchors, Rust-native property/fuzz/Kani harnesses, a local
   proof-engine check wrapper, and GitHub Actions workflow coverage. Live
-  chain watcher integration remains future production work.
+  chain watcher integration, production proof-courier policy, grouped assets,
+  and full STXO/split/change proof history remain future production work.
+- The next production epic should focus on proof courier/export policy:
+  accepted proof bytes, optional Lightning Labs `TAPF` bytes, proof-history
+  metadata, anchor state, and digests need to move together as a validated
+  bundle instead of loose local files.
 - The first-demo closure order is complete. Keep #81, #57, #58, #59, #60,
   #61, #71, and #19 green as regressions. The closure plan is
   `docs/remaining-issue-closure-plan.md`.

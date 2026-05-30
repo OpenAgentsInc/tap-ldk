@@ -16,20 +16,17 @@ This is different from the standalone LND/`tapd` harness. The standalone
 harness is still useful for proof export/import and current `tapd` balance
 checks, but standalone LND refuses the taproot overlay flag without an aux
 controller. The integrated `litd` harness is the live asset-channel target for
-issue #57.
+the completed first-demo Path B settlement regressions.
 
 The readiness report records the litd identity pubkey, LND sync state,
 taproot-assets sync state, wallet balance, subserver status, and whether the
 asset-channel RPC surface is reachable. The live outgoing-payment gate now uses
 that identity and P2P address to run a fork-backed `ldk-node` peer preflight
 against `litd`.
-In the current #57 gate this reaches `integrated_litd_counterparty_ready=true`
-and `native_litd_peer_connected=true`, with the fork-backed asset-channel
-message/payment APIs reachable. It does not mark a native-to-`litd` payment
-complete; #81 now completes live asset-channel funding, confirms the
-channel, settles the `litd` to native keysend direction, and records
-the native receiver balance through fork-backed `ldk-node`. The true native to
-`litd` payment direction remains #57.
+The completed #81, #57, and #58 gates use this harness for live asset-channel
+funding and both payment directions. Integrated `litd` can pay native LDK,
+native LDK records the received balance, native LDK can return the asset to
+`litd`, and the report records observed balances on both sides.
 
 `close-asset-channel` wraps the integrated LND `closechannel` RPC for a channel
 point returned by `asset-channel-status`. It records exit status, stdout,

@@ -532,45 +532,39 @@ Do not claim these guarantees until implementation and verification exist:
   construction, bounded synthetic asset identity/hash+sum conservation helpers,
   native virtual transition/TAP VM validation for generated TAP BIP fixture
   cases and demo channel funding/commitment updates, and semantic proof import,
-  export, and verification helpers exist. Bounded Taproot Asset address
-  encode/decode and virtual PSBT summary validation exist for the first-demo
-  fixture surface, but production full-history proof replay for every virtual
-  transaction witness, STXO/split/change path, grouped asset, and reorg watcher
-  policy is not implemented.
+  export, and verification helpers exist. Typed proof-history replay now gates
+  wallet balances, proof export, channel funding, commitment updates,
+  cooperative close, bounded recovery, and anchor-state policy for the
+  implemented surfaces. Bounded Taproot Asset address encode/decode and virtual
+  PSBT summary validation exist for the first-demo fixture surface, but
+  production proof courier policy, live chain-watcher integration, every
+  historical virtual transaction witness, STXO/split/change paths, and grouped
+  assets are not implemented.
 - Lightning Labs `TAPF` proof-file transport validation, latest asset-leaf
   semantic validation, genesis-derived asset ID checks, and exact raw proof
-  preservation exist for imported fixtures and live proof binding. Production
-  full-history proof-chain replay remains future production hardening.
+  preservation exist for imported fixtures and live proof binding. The next
+  hardening gap is moving those proof bytes with proof-history metadata,
+  anchor state, and digests as one validated courier bundle.
 - Lightning Labs funding interop fixture reconciliation exists for asset ID,
-  funded amount, and initial local/remote allocation. Live LND/`tapd` channel
-  funding, funding outpoint binding, and proof-to-output verification are not
-  implemented.
+  funded amount, and initial local/remote allocation. The integrated `litd`
+  first-demo live path now funds and settles in both directions, but broader
+  live close, force-close, proof export, and RFQ-signature coverage remain
+  future hardening.
 - Lightning Labs RFQ request, accept, and reject TLV payload compatibility
-  exists for the bounded first-demo message surface. Live LND/`tapd` RFQ
-  session execution, accept-signature verification, and interop payment
-  settlement are not implemented.
-- The consolidated Lightning Labs vector report must decode the funding,
-  commitment, HTLC, RFQ, and proof fixtures, then run the fork-backed
-  simple-taproot asset-channel lifecycle, close, and recovery checks before it
-  can mark automated interop vector checks as passed.
-- Sender-side `tap-ldk` to `litd` payment artifacts can be built and
-  persisted as a documented-gap state. Do not claim a successful Track B
-  outgoing payment until a live `litd` receiver balance is observed and
-  matches the expected asset delta.
-- The #81 gate now records a live `litd` to fork-backed native LDK payment with
-  durable receiver accounting. Do not claim #58 or full Track B
-  incoming-payment completion until the issue-specific flow persists the
-  native `tap-ldk` receiver proof/balance, survives restart, and matches both
-  sides' observed asset deltas.
-- Consolidated Track B interop check reports may pass fixture-backed automated
-  checks while still carrying live-daemon documented gaps. A report with
-  `live_daemon_gaps_remaining=true` is not a settled interop success.
+  exists for the bounded first-demo message surface. Live daemon RFQ session
+  execution and accept-signature verification remain future hardening.
+- The consolidated Lightning Labs vector report decodes the funding,
+  commitment, HTLC, RFQ, and proof fixtures and is paired with the fork-backed
+  first-demo lifecycle and live observed-balance gates. It must stay fail-closed
+  if a future live-daemon gap reappears.
 - Bounded native asset-channel funding, commitment-numbered asset balance
   transitions, asset HTLC custom-record validation, and native asset
   send/receive, restart-recovery, cooperative-close, and proof-export smoke
-  coverage exist for the first demo. Native force-close, full Lightning
-  dispatch, and interop payment execution are not implemented.
-- `proptest`, fuzzing, Kani, `loom`, Miri, Verus, Prusti, and Creusot are not
-  configured.
+  coverage exist for the first demo. Native live force-close, full production
+  Lightning dispatch, live proof-courier transport, and live close/sweep
+  interop remain future hardening.
+- `proptest`, fuzz targets, and Kani harnesses are configured for the current
+  proof-engine surfaces through optional local wrappers. `loom`, Miri, Verus,
+  Prusti, and Creusot are not configured as production gates.
 - No public stablecoin issuance, redemption, compliance, or reserve guarantee
   is implied by this proof-of-concept.
