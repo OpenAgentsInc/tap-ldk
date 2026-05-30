@@ -80,6 +80,7 @@ Run the main checks from the repo root:
 ./scripts/proof-engine-check.sh
 ./scripts/onchain-lifecycle-smoke.sh
 ./scripts/chain-watcher-lifecycle-smoke.sh
+./scripts/live-regtest-chain-watcher-lifecycle-smoke.sh
 cargo fmt --check
 CARGO_NET_GIT_FETCH_WITH_CLI=true cargo test --locked
 ./scripts/check-btc-simple-taproot-conformance.sh
@@ -102,6 +103,7 @@ cargo run -p tap-ldk-cli -- wallet-export-proof-bundle target/demo-wallet.json '
 cargo run -p tap-ldk-cli -- wallet-import-proof-bundle target/receiver-wallet.json target/proof-bundle.json
 cargo run -p tap-ldk-cli -- onchain-lifecycle-smoke
 cargo run -p tap-ldk-cli -- chain-watcher-lifecycle-smoke
+cargo run -p tap-ldk-cli -- live-regtest-chain-watcher-lifecycle-smoke 100 101 1 '<best-block-hash>'
 ```
 
 ## Docs

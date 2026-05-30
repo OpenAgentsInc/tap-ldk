@@ -360,8 +360,11 @@ that bridge is green, later work can replace the synthetic lifecycle anchors
 with real close, unilateral, second-level, and sweep transactions.
 
 That first deliverable is now implemented at the core-model layer. The
-remaining work in the issue wave is CLI/script wiring against local Bitcoin
-Core regtest and then docs plus extended-check integration.
+CLI and local script wiring are also present: the CLI can build the
+live-regtest callback report from supplied regtest height/block data, and
+`scripts/live-regtest-chain-watcher-lifecycle-smoke.sh` obtains that data from
+Bitcoin Core regtest before running the report. The remaining work in the issue
+wave is extended-check integration and final documentation cleanup.
 
 The phase after that should make asset-channel splice and RBF a first-class asset
 state machine. The BTC simple-taproot base already knows how to carry nonce

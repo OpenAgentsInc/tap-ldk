@@ -52,4 +52,8 @@ regtest chain snapshot and one callback record per observation. Validation
 checks regtest network identity, observed height, mined block count, block hash
 shape, unique callbacks, observation/event/source/kind matching, deterministic
 callback digests, complete callback coverage, and `production_ready=false`.
-CLI and script wiring are the next step.
+The CLI command `tap-ldk live-regtest-chain-watcher-lifecycle-smoke` exposes
+that report when supplied regtest height and block data. The local script
+`scripts/live-regtest-chain-watcher-lifecycle-smoke.sh` starts Bitcoin Core
+regtest, mines at least one block, reads `getblockchaininfo`, runs the CLI, and
+validates callback coverage.

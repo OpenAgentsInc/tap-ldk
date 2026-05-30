@@ -28,7 +28,10 @@ use tap_ldk_core::{
     },
     live_peer::{run_live_asset_payment_session_smoke, run_live_peer_smoke},
     live_tapd_proof::{LiveTapdProofBindingRequest, bind_live_tapd_proof},
-    onchain_lifecycle::{run_chain_watcher_lifecycle_smoke, run_onchain_lifecycle_smoke},
+    onchain_lifecycle::{
+        OnchainLifecycleLiveRegtestChainSnapshot, run_chain_watcher_lifecycle_smoke,
+        run_live_regtest_chain_watcher_lifecycle_smoke, run_onchain_lifecycle_smoke,
+    },
     proof::{ProofFile, ProofNetwork, ProofValidationContext, VerificationScope},
     proof_courier::ProofCourierBundle,
     regtest::{BitcoinRegtestConfig, LightningLabsCounterpartyConfig},
@@ -543,6 +546,28 @@ fn main() {
             };
             print_json_or_exit(&report, "chain-watcher lifecycle smoke");
         }
+        [
+            command,
+            start_height,
+            observed_height,
+            mined_blocks,
+            best_block_hash,
+        ] if command == "live-regtest-chain-watcher-lifecycle-smoke" => {
+            let snapshot = OnchainLifecycleLiveRegtestChainSnapshot::new(
+                parse_u32_or_exit(start_height, "start height"),
+                parse_u32_or_exit(observed_height, "observed height"),
+                parse_u32_or_exit(mined_blocks, "mined blocks"),
+                best_block_hash.to_owned(),
+            );
+            let report = match run_live_regtest_chain_watcher_lifecycle_smoke(snapshot) {
+                Ok(report) => report,
+                Err(err) => {
+                    eprintln!("failed live-regtest chain-watcher lifecycle smoke: {err}");
+                    process::exit(1);
+                }
+            };
+            print_json_or_exit(&report, "live-regtest chain-watcher lifecycle smoke");
+        }
         [command] if command == "simple-taproot-asset-channel-smoke" => {
             let report = match run_simple_taproot_asset_channel_integration_smoke() {
                 Ok(report) => report,
@@ -1015,6 +1040,9 @@ fn print_help(info: ProjectInfo) {
     println!("  tap-ldk asset-close-smoke");
     println!("  tap-ldk onchain-lifecycle-smoke");
     println!("  tap-ldk chain-watcher-lifecycle-smoke");
+    println!(
+        "  tap-ldk live-regtest-chain-watcher-lifecycle-smoke <start-height> <observed-height> <mined-blocks> <best-block-hash>"
+    );
     println!("  tap-ldk simple-taproot-asset-channel-smoke");
     println!("  tap-ldk lightning-labs-blob-fixture-smoke <fixture-dir>");
     println!("  tap-ldk lightning-labs-proof-fixture-smoke <fixture-dir>");
@@ -1261,6 +1289,16 @@ fn parse_amount_or_exit(value: &str) -> u64 {
 
 fn parse_u64_or_exit(value: &str, field: &str) -> u64 {
     match value.parse::<u64>() {
+        Ok(amount) => amount,
+        Err(err) => {
+            eprintln!("invalid {field} {value}: {err}");
+            process::exit(2);
+        }
+    }
+}
+
+fn parse_u32_or_exit(value: &str, field: &str) -> u32 {
+    match value.parse::<u32>() {
         Ok(amount) => amount,
         Err(err) => {
             eprintln!("invalid {field} {value}: {err}");

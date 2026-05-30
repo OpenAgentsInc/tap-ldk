@@ -13,6 +13,7 @@ RPC_HOST="${TAP_LDK_BITCOIN_RPC_HOST:-127.0.0.1}"
 RPC_PORT="${TAP_LDK_BITCOIN_RPC_PORT:-18443}"
 RPC_USER="${TAP_LDK_BITCOIN_RPC_USER:-tapldk}"
 RPC_PASSWORD="${TAP_LDK_BITCOIN_RPC_PASSWORD:-tapldk-regtest}"
+WALLET_NAME="${TAP_LDK_BITCOIN_WALLET:-tapldk}"
 STATE_DIR="${TAP_LDK_REGTEST_DIR:-$ROOT/.tap-ldk/regtest/bitcoin}"
 
 usage() {
@@ -37,6 +38,7 @@ Environment overrides:
   TAP_LDK_BITCOIN_RPC_PORT
   TAP_LDK_BITCOIN_RPC_USER
   TAP_LDK_BITCOIN_RPC_PASSWORD
+  TAP_LDK_BITCOIN_WALLET
   TAP_LDK_REGTEST_DIR
 USAGE
 }
@@ -64,6 +66,15 @@ rpc() {
     "$@"
 }
 
+rpc_wallet() {
+  docker exec "$CONTAINER_NAME" bitcoin-cli \
+    -regtest \
+    -rpcuser="$RPC_USER" \
+    -rpcpassword="$RPC_PASSWORD" \
+    -rpcwallet="$WALLET_NAME" \
+    "$@"
+}
+
 wait_ready() {
   for _ in $(seq 1 60); do
     if rpc getblockchaininfo >/dev/null 2>&1; then
@@ -75,6 +86,18 @@ wait_ready() {
   echo "regtest-bitcoin: Bitcoin Core RPC did not become ready." >&2
   docker logs "$CONTAINER_NAME" >&2 || true
   exit 1
+}
+
+ensure_wallet() {
+  if rpc listwallets | grep -q "\"$WALLET_NAME\""; then
+    return 0
+  fi
+
+  if rpc loadwallet "$WALLET_NAME" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  rpc createwallet "$WALLET_NAME" >/dev/null
 }
 
 start() {
@@ -116,7 +139,8 @@ stop() {
 address() {
   require_docker
   wait_ready
-  rpc -named getnewaddress address_type=bech32m
+  ensure_wallet
+  rpc_wallet -named getnewaddress address_type=bech32m
 }
 
 mine() {
@@ -136,7 +160,8 @@ fund() {
     echo "regtest-bitcoin: fund requires <addr> <btc>." >&2
     exit 2
   fi
-  rpc sendtoaddress "$1" "$2" >/dev/null
+  ensure_wallet
+  rpc_wallet sendtoaddress "$1" "$2" >/dev/null
   mine 1 >/dev/null
 }
 
